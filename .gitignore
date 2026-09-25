@@ -1,0 +1,13 @@
+node_modules/
+dist/
+.env
+.env.*
+!.env.example
+.venv/
+__pycache__/
+.DS_Store
+*.log
+models/
+video/out/
+*.mp4
+*.mov
