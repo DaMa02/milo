@@ -63,6 +63,13 @@ Claude Code reads this file through `CLAUDE.md`; Codex reads it directly.
 - MVP working end to end by 12:00. Feature freeze at 14:30. Backup demo recording ready by 16:00. Submit by 16:15.
 - Accessibility checks: `axe-core` in the browser; for key flows, VoiceOver or NVDA by hand (Guidepup can script both if time allows).
 
+## Agent-to-agent channel
+
+- The channel is GitHub, not files in the repo. A PR description is the handoff: what it does, what changed in `contracts/`, what the other side needs. Questions and answers go in that PR's comments.
+- Anything not tied to a PR goes in issue #1 "Agent channel", closed before submission.
+- Every agent message starts with `[claude→codex]` or `[codex→claude]`, holds one request and names the files and branch involved.
+- Agents never merge each other's PRs and never change scope: people decide.
+
 ## Default stack (until `docs/one-pager.md` says otherwise)
 
 - Frontend: Vite + React + TypeScript in `web/`.
