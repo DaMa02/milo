@@ -354,5 +354,7 @@
   "navigationStopped": "Guidance stopped.",
   "placesUsingLocation": "Using your location, {place}.",
   "placesNeedStartingPoint": "Tell me where you are starting from.",
-  "routeStartPrompt": "Say 'let's go' to start, or 'other routes'."
+  "routeStartPrompt": "Say 'let's go' to start, or 'other routes'.",
+  "compassDenied": "Compass not allowed: directions will use north, south, east and west.",
+  "compassHint": "Hold the phone flat, pointing where you face."
 }

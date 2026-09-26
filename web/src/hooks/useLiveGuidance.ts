@@ -6,6 +6,7 @@ import { dictionaries, type Dictionary } from '../i18n';
 interface Options {
   sessionId: string | null;
   origin?: { lat: number; lon: number };
+  getHeading?: () => number | undefined;
   onMessage: (text: string) => void;
   onError: (text: string) => void;
   t?: Dictionary;
@@ -93,7 +94,8 @@ export function useLiveGuidance(options: Options) {
     inFlight.current = true; lastSent.current = Date.now();
     const controller = new AbortController(); request.current = controller;
     try {
-      const result = await navigate(session.current, fix, controller.signal);
+      const heading = latest.current.getHeading?.() ?? fix.heading_deg;
+      const result = await navigate(session.current, { ...fix, ...(heading === undefined ? {} : { heading_deg: heading }) }, controller.signal);
       if (!valid(token)) return;
       if (result.route_line) {
         update({ routeLine: result.route_line });

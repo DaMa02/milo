@@ -15,7 +15,12 @@ export interface AreaSession {
   ask(request: AskRequest): Promise<Answer>;
 }
 
-export async function createConnectedSession(origin?: Place, options: { signal?: AbortSignal; timeoutMs?: number } = {}): Promise<AreaSession> {
+export async function createConnectedSession(origin?: Place, options: { signal?: AbortSignal; timeoutMs?: number; getHeading?: () => number | undefined } = {}): Promise<AreaSession> {
+  const { getHeading, ...requestOptions } = options;
+  const headingBody = () => {
+    const heading = getHeading?.();
+    return heading !== undefined && Number.isFinite(heading) && heading >= 0 && heading < 360 ? { heading_deg: heading } : {};
+  };
   const created = await requestJson('/session', (value) => {
     if (value === null || typeof value !== 'object' || !('session_id' in value)
       || typeof value.session_id !== 'string' || !value.session_id || !('overview' in value)) throw new Error('Invalid session');
@@ -27,7 +32,7 @@ export async function createConnectedSession(origin?: Place, options: { signal?:
       zone = item as AreaSession['zone'];
     }
     return { id: value.session_id, overview: parseOverview(value.overview), ...(origin ? { origin } : {}), ...(zone ? { zone } : {}) };
-  }, { body: { lang: 'en', ...(origin ? { origin } : {}) }, ...options });
+  }, { body: { lang: 'en', ...(origin ? { origin } : {}), ...headingBody() }, ...requestOptions });
   const path = `/session/${encodeURIComponent(created.id)}`;
   return {
     ...created,
@@ -36,7 +41,7 @@ export async function createConnectedSession(origin?: Place, options: { signal?:
         || typeof value.straight_line_m !== 'number' || !Number.isFinite(value.straight_line_m) || value.straight_line_m < 0) throw new Error('Invalid destination');
       return parsePlace(value.destination);
     }, { body: place, signal }),
-    explore: (command, branch) => requestJson(`${path}/explore`, parseExploreStep, { body: { command, ...(branch === undefined ? {} : { branch }) } }),
+    explore: (command, branch) => requestJson(`${path}/explore`, parseExploreStep, { body: { command, ...(branch === undefined ? {} : { branch }), ...headingBody() } }),
     ask: (request) => requestJson(`${path}/ask`, parseAnswer, { body: request }),
   };
 }

@@ -23,6 +23,7 @@ import { StartFlow } from './components/StartFlow';
 import type { Place } from './api/places';
 import type { VoiceCommand } from './api/interpret';
 import { useLiveGuidance } from './hooks/useLiveGuidance';
+import { useCompass } from './hooks/useCompass';
 
 const language = 'en';
 const localize = (text: string) => text;
@@ -60,7 +61,12 @@ export function App() {
   const automaticRef = useRef(automatic);
   automaticRef.current = automatic;
   const mutePendingSpeech = useRef(false);
+  const compassNotice = useRef<string | null>(null);
   const t = dictionaries.en;
+  const compass = useCompass({ onDenied: () => {
+    compassNotice.current = t.compassDenied;
+    setError(t.compassDenied); announce(t.compassDenied);
+  } });
   const overviewText = overview ? [localize(overview.text), ...overview.unknown.map(localize)].join(' ') : '';
   const currentText = view === 'explore' && step
     ? exploreSummary(step, localize, t) : overviewText;
@@ -77,7 +83,7 @@ export function App() {
 
   const journey = usePlan(session.current, source === 'saved', run, planResult, t);
   const planMatchesDestination = !destination || !journey.plan || sameDestination(journey.plan, destination);
-  const places = usePlaces({ session: session.current, t, onSessionReady: acceptSession,
+  const places = usePlaces({ session: session.current, t, getHeading: compass.getHeading, onSessionReady: acceptSession,
     onDestinationChanged: (place) => {
       setReadyForGuidance(false);
       guidance.stop();
@@ -96,7 +102,7 @@ export function App() {
     }, onBusy: () => announce(t.commandStillWorking) });
   const voice = useVoiceInput({ onTranscript: (text) => { mutePendingSpeech.current = false; setVoiceFailures(0); setCommandText(text); void commands.send(text); },
     onError: (kind) => { mutePendingSpeech.current = false; setVoiceFailures((count) => count + 1); const message = t[`voiceError:${kind}`]; setError(message); present(message); } });
-  const guidance = useLiveGuidance({ sessionId: session.current?.id ?? null, origin: session.current?.origin,
+  const guidance = useLiveGuidance({ sessionId: session.current?.id ?? null, origin: session.current?.origin, getHeading: compass.getHeading,
     t, onMessage: (text) => {
       // Guidance warnings take precedence over a current reading or its mute flag.
       // Close the recorder before speaking so guidance cannot become an input.
@@ -293,6 +299,7 @@ export function App() {
   }
 
   function present(text: string, unknowns: string[] = []) {
+    if (compassNotice.current && !mutePendingSpeech.current) { text = `${compassNotice.current} ${text}`; compassNotice.current = null; }
     setReadingUnknowns(unknowns);
     setLastReading(text);
     announce(text);
@@ -311,7 +318,7 @@ export function App() {
   }
   function openArea() {
     void run(async () => {
-      const next = source === 'saved' ? createSavedSession() : await createConnectedSession(); acceptSession(next);
+      const next = source === 'saved' ? createSavedSession() : await createConnectedSession(undefined, { getHeading: compass.getHeading }); acceptSession(next);
     }, source === 'saved' ? t.loadingExamples : t.loading);
   }
   function explore(command: ExploreCommand, branch?: number) {
@@ -377,11 +384,12 @@ export function App() {
           <div className="talk-dock" ref={talkDock}>
             <TalkButton state={voice.state}
               onBeforeStart={stopReading}
-              onGesture={() => { stopReading(); speech.prime(); }}
+              onGesture={() => { stopReading(); speech.prime(); void compass.requestPermission(); }}
               onStart={() => { commands.cancel(); mutePendingSpeech.current = true; automaticRef.current = true; setAutomatic(true); return voice.start(); }}
               onStop={() => voice.stop(true)} onCancel={voice.cancel}
               labels={{ idle: t.talk, listening: t.finishTalking, transcribing: t.voiceThinking, hint: t.talkHint }} />
             <p className="voice-state">{voice.state === 'listening' ? t.voiceListening : voice.state === 'transcribing' || commands.interpreting || busy || places.busy ? t.voiceThinking : speech.speaking ? t.voiceSpeaking : t.voiceIdle}</p>
+            <p className="compass-hint">{t.compassHint}</p>
           </div>
           {(debugControls || voiceFailures >= 2) && <form className="unified-command" onSubmit={(event) => { event.preventDefault(); voice.cancel(); void commands.send(commandText); }}>
             <label htmlFor="unified-command">{t.commandInput}</label>

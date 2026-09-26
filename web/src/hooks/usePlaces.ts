@@ -6,6 +6,7 @@ import { createConnectedSession, type AreaSession } from '../api/session';
 
 interface Options {
   session: AreaSession | null; t: Dictionary;
+  getHeading?: () => number | undefined;
   onSessionReady: (session: AreaSession) => void;
   onDestinationChanged: (place: Place) => void;
   onMessage: (text: string) => void;
@@ -112,7 +113,7 @@ export function usePlaces(options: Options) {
       if (flow.pending === 'origin') {
         if (!keepOriginMessage) say(callbacks.current.t.placesLoading.replace('{place}', place.name));
         loadingTimer.current = setTimeout(() => { if (valid(token)) say(callbacks.current.t.placesFirstLoad); }, 10_000);
-        const next = await createConnectedSession(place, { signal, timeoutMs: 120_000 });
+        const next = await createConnectedSession(place, { signal, timeoutMs: 120_000, getHeading: () => callbacks.current.getHeading?.() });
         if (!valid(token)) return;
         session.current = next;
         update({ pending: null, candidates: [], phase: 'idle' });
