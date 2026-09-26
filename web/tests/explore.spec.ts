@@ -121,15 +121,17 @@ test('switching views keeps the junction and English commands preserve the retur
   expect(observed).toEqual({ errors: [], apiRequests: [] });
 });
 
-test('choosing a recorded branch moves focus to the result and unavailable branches keep the position', async ({ page }) => {
+test('branch actions are visible before opening details and preserve the position on unavailable choices', async ({ page }) => {
   const observed = await observeLocalRun(page);
   await page.goto('/');
   await keyboardActivate(page, page.getByRole('button', { name: 'Open the area', exact: true }));
   await keyboardActivate(page, page.getByRole('button', { name: 'Explore from here', exact: true }));
-  await keyboardActivate(page, page.getByText('Street connections', { exact: true }));
   const narration = page.locator('.result-text');
   const startSummary = await narration.textContent();
+  await expect(page.locator('.branch-actions > li')).toHaveCount(start.branches.length);
+  await expect(page.locator('.result-panel details[open]')).toHaveCount(0);
   const unsavedStartBranch = page.getByRole('button', { name: 'Follow At 8 o’clock: a footpath', exact: true });
+  await expect(unsavedStartBranch).toBeVisible();
   await keyboardActivate(page, unsavedStartBranch);
   await expect(page.locator('.error-message')).toContainText('This action is not available in the saved example. Your position has not changed.');
   await expect(narration).toHaveText(startSummary!);
@@ -152,6 +154,47 @@ test('choosing a recorded branch moves focus to the result and unavailable branc
   await expect(page.locator('.branch-list > li')).toHaveCount(5);
   await expect(unsavedJunctionBranch).toBeFocused();
   expect(observed).toEqual({ errors: [], apiRequests: [] });
+});
+
+test('take uses displayed connection numbers and rejects invalid choices without sending a request', async ({ page }) => {
+  const commands: Record<string, unknown>[] = [];
+  await page.route(/^https?:\/\/[^/]+\/api\//, async (route) => {
+    const path = new URL(route.request().url()).pathname;
+    if (path === '/api/session') return route.fulfill({ json: { session_id: 'take-test', overview } });
+    if (path === '/api/session/take-test/explore') {
+      const body = route.request().postDataJSON() as Record<string, unknown>;
+      commands.push(body);
+      if (body.command === 'start') return route.fulfill({ json: start });
+      if (body.command === 'take' && body.branch === 1) return route.fulfill({ json: junction });
+    }
+    return route.abort();
+  });
+  await page.goto('/');
+  await page.getByRole('combobox', { name: 'Data source', exact: true }).selectOption({ label: 'Connected engine' });
+  await page.getByRole('button', { name: 'Open the area', exact: true }).click();
+  await page.getByRole('button', { name: 'Explore from here', exact: true }).click();
+  const command = page.getByRole('textbox', { name: 'Exploration command', exact: true });
+  const originalPosition = await page.locator('.result-text').textContent();
+  await expect(page.locator('.branch-actions > li')).toHaveCount(start.branches.length);
+  expect(commands).toEqual([{ command: 'start' }]);
+
+  for (const invalid of ['take 0', `take ${start.branches.length + 1}`, 'take -1', 'take 1.5']) {
+    await command.fill(invalid);
+    await command.press('Enter');
+    await expect(command).toHaveAttribute('aria-invalid', 'true');
+    await expect(command).toBeFocused();
+    await expect(page.getByText('Use a listed command, or take followed by a connection number shown above.', { exact: true })).toBeVisible();
+    await expect(page.locator('.result-text')).toHaveText(originalPosition!);
+    await expect(page.locator('.error-message')).toHaveCount(0);
+    expect(commands).toEqual([{ command: 'start' }]);
+  }
+
+  await command.fill('take 2');
+  await command.press('Enter');
+  await expect(page.locator('.result-text')).toContainText('You walked 140 m');
+  await expect(command).toHaveAttribute('aria-invalid', 'false');
+  expect(commands).toEqual([{ command: 'start' }, { command: 'take', branch: 1 }]);
+  await expect(page.locator('.branch-actions > li')).toHaveCount(junction.branches.length);
 });
 
 test('expanded overview and exploration remain accessible and reflow at narrow widths', async ({ page }) => {

@@ -71,7 +71,17 @@ export function ExploreView({ step, t, localize, busy, onCommand, summary, onRea
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (busy) return;
-    const command = commandAliases.get(input.trim().toLowerCase());
+    const normalized = input.trim().toLowerCase();
+    const take = /^take\s+(\d+)$/.exec(normalized);
+    if (take) {
+      const number = Number(take[1]);
+      if (Number.isSafeInteger(number) && number >= 1 && number <= step.branches.length) {
+        setInvalid(false);
+        onCommand('take', number - 1);
+        return;
+      }
+    }
+    const command = commandAliases.get(normalized);
     if (!command) {
       setInvalid(true);
       return;
@@ -82,6 +92,14 @@ export function ExploreView({ step, t, localize, busy, onCommand, summary, onRea
 
   return <>
     <p className="result-text">{summary}</p>
+
+    {step.branches.length === 0 ? <p>{t.emptyBranches}</p> : <ol className="branch-actions" aria-label={t.chooseConnection}>
+      {step.branches.map((branch, index) => <li key={`${branch.name}-${branch.relative_direction}-${index}`}>
+        <button type="button" aria-disabled={busy} onClick={() => { if (!busy) { setInvalid(false); onCommand('take', index); } }}>
+          {t.followBranch} {directionLabel(branch.relative_direction, t)}: {localize(branch.name)}
+        </button>
+      </li>)}
+    </ol>}
 
     <div className="button-row" role="group" aria-label={t.sessionControls}>
       {commands.map(({ command, label }) => <button
@@ -124,11 +142,8 @@ export function ExploreView({ step, t, localize, busy, onCommand, summary, onRea
         <button type="button" onClick={onReadDetails} disabled={!canSpeak}>{t.readDetails}</button>
         <button type="button" aria-disabled={!speaking && !busy} onClick={() => { if (speaking || busy) onStopReading(); }}>{t.stopReading}</button>
       </div>
-      {step.branches.length === 0 ? <p>{t.emptyBranches}</p> : <ol className="branch-list">
+      {step.branches.length > 0 && <ol className="branch-list">
         {step.branches.map((branch, index) => <li key={`${branch.name}-${branch.relative_direction}-${index}`}>
-          <button type="button" aria-disabled={busy} onClick={() => { if (!busy) { setInvalid(false); onCommand('take', index); } }}>
-            {t.followBranch} {directionLabel(branch.relative_direction, t)}: {localize(branch.name)}
-          </button>
           <p><strong>{directionLabel(branch.relative_direction, t)}: {localize(branch.name)}</strong>
             {' — '}{branch.distance_m} {t.meters}</p>
           <p>{t.towards} {localize(branch.leads_to)}</p>

@@ -11,7 +11,7 @@ npx playwright install chromium
 npm run test:e2e
 ```
 
-`dev` serves the app on localhost (Vite prints the URL). `check` checks TypeScript and dictionary completeness, offline. Until the dedicated command integration lands, also run `python contracts/validate.py` (Python with `jsonschema`). `build` produces `web/dist/`. `preview` serves that build locally.
+`dev` serves the app on localhost (Vite prints the URL). `check` validates the shared fixtures (Python with `jsonschema`), TypeScript and dictionary completeness, offline. `build` produces `web/dist/`. `preview` serves that build locally.
 
 The development server forwards `/api/*` to FastAPI at `127.0.0.1:8000`, stripping the `/api` prefix. Production hosting must provide the equivalent reverse proxy. API credentials belong to the server and must never be placed in browser environment variables.
 
@@ -21,7 +21,7 @@ Open the saved example to hear or read the shared Porta Romana overview. The sho
 
 The app is English only, as confirmed by Leo and Daniele. The earlier dictionaries remain as inactive assets. The connected data source uses the session endpoints in contracts/README.md: one server session is reused for overview, exploration and questions. The default remains the explicitly saved example. Requests have a 20-second limit. After an uncertain exploration outcome, Where am I must confirm the server position before another movement. A live failure will never silently switch to a saved response.
 
-All actions work through native buttons or text commands. An unavailable action keeps focus; a selected branch that changes the list returns focus to the result heading. A persistent polite live region announces results and errors. The app's speech is optional: listen, stop and repeat are available; automatic reading is off by default and suppresses duplicate result announcements when enabled. No microphone or recording is used.
+All actions work through native buttons or text commands. Numbered branch buttons remain visible without opening the street details; `take 2` follows the second listed branch (the API receives index 1). The short narration keeps the full initial reference, including any mapped offset from the origin to the first junction. An unavailable action keeps focus; a selected branch that changes the list returns focus to the result heading. A persistent polite live region announces results and errors. The app's speech is optional: listen, stop and repeat are available; automatic reading is off by default and suppresses duplicate result announcements when enabled. No microphone or recording is used.
 
 ## Questions
 
@@ -44,3 +44,7 @@ Saved planning replays only canonical routing results: the recorded departure an
 Browser tests cover the complete recorded party story by keyboard, separate exploration origin/route selection, requirements, stop changes, 422/503 errors, authoritative recovery, blocked uncertain writes, delayed responses with editable drafts, route reordering and independent speech stop. Transport failures/delays and speech are simulated; route facts come from canonical fixtures. A real engine run still needs the server on the Mac or a local installation; these tests do not claim live backend or manual screen-reader validation.
 
 Browser tests check keyboard entry and movement, focus, navigation between views without losing position, offline misses, speech cancellation/repeat/errors, transport failures, reflow at 320/390/1280 CSS pixels and axe WCAG A/AA rules. They use a local browser and no external API; the initial browser installation needs a network connection. Speech tests stub the browser voice engine to verify event handling, not the quality of an installed voice. Automated checks do not replace a manual NVDA/VoiceOver check.
+
+## Optional live engine checks
+
+`web/tests/live-engine.spec.ts` is skipped by default. With the deterministic engine available on port 8000 (or a local bridge to the agreed Mac tunnel), set `LOTL_LIVE_ENGINE=1` and run `npx playwright test web/tests/live-engine.spec.ts`. These tests use real browser requests through the Vite proxy: session, exploration with a chosen branch and return path, five explicit question tools, ambiguous/missing names and the stable trip origin after virtual movement. They do not call a language model. Local engine installation needs Python 3.11 or later for the pinned OSMnx dependency. Keep live tests separate from the offline fixture suite.
