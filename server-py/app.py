@@ -116,3 +116,9 @@ def no_tool(question, missing=None):
     """No tool fits (or the model is unreachable): say what can be asked, in fixed words, never model-written."""
     return {"question": question, "lang": "en", "tool": "none", "text": llm.CLARIFY, "facts": [],
             "unknown": [missing] if missing else [], "meta": meta(mode="live", cache="none")}  # a place it cannot use comes back as a question
+
+
+# level 2: plan endpoints (contracts/README.md)
+from plan_api import make_router  # noqa: E402
+
+app.include_router(make_router(lambda: ZONE, get))
