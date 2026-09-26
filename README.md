@@ -2,7 +2,7 @@
 
 A voice-first web app that helps blind and low-vision pedestrians understand an area and walk to a place. Every distance, direction and crossing it mentions is computed from OpenStreetMap, and what the map does not know is said out loud.
 
-Milo is not tied to one city. Central Milan is loaded at startup; for a start point anywhere else with OpenStreetMap coverage, the engine downloads a 1.5 km area around it on first use.
+Milo is not tied to one city. Central Milan is loaded at startup; for a start point anywhere else with OpenStreetMap coverage, the engine downloads the surrounding map on first use.
 
 ## What it does
 
