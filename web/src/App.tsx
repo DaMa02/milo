@@ -28,6 +28,7 @@ import { useVoiceStops } from './hooks/useVoiceStops';
 import { useSpokenResult } from './hooks/useSpokenResult';
 import type { SpeakKind } from './api/speak';
 import miloMark from './assets/milo-mark.svg';
+import { JourneyMap } from './components/JourneyMap';
 
 const language = 'en';
 const localize = (text: string) => text;
@@ -108,7 +109,7 @@ export function App() {
     onDestinationChanged: (place) => {
       stops.cancel();
       setReadyForGuidance(false);
-      guidance.stop();
+      guidance.stop({ clearRoute: true });
       setDestination(place);
       if (session.current) session.current.destination = place;
       setReplanDestination(place);
@@ -145,7 +146,7 @@ export function App() {
       receiveGuidance(pending.text, pending.options);
     }
   }, [voice.state]);
-  useEffect(() => { if (journey.pending) guidance.stop(); }, [journey.pending]);
+  useEffect(() => { if (journey.pending) guidance.stop({ clearRoute: true }); }, [journey.pending]);
   useEffect(() => {
     if (readyForGuidance && !busy && !journey.pending && !journey.uncertain && journey.plan && planMatchesDestination) {
       setReadyForGuidance(false);
@@ -215,7 +216,7 @@ export function App() {
     stops.cancel();
     guideAfterPlan.current = false;
     setReadyForGuidance(false);
-    guidance?.stop();
+    guidance?.stop({ clearRoute: true });
     setReplanDestination(null);
     voice?.cancel(); commands?.cancel(); session.current = next;
     setOverview(next.overview); setStep(null); setAnswer(null); setDestination(next.destination ?? null);
@@ -284,9 +285,9 @@ export function App() {
       case 'chat': presentDirect(command.params.text); return;
       case 'speed': speech.setRate(speech.rate + (command.params.change === 'faster' ? 0.15 : -0.15)); present(t.commandSpeedChanged); return;
       case 'start_over': startOver(); return;
-      case 'set_origin': stops.cancel(); guidance.stop(); void places.setOriginByQuery(command.params.query); return;
-      case 'set_origin_here': stops.cancel(); guidance.stop(); void places.setOriginHere(); return;
-      case 'set_destination': stops.cancel(); guidance.stop(); void places.setDestinationByQuery(command.params.query); return;
+      case 'set_origin': stops.cancel(); guidance.stop({ clearRoute: true }); void places.setOriginByQuery(command.params.query); return;
+      case 'set_origin_here': stops.cancel(); guidance.stop({ clearRoute: true }); void places.setOriginHere(); return;
+      case 'set_destination': stops.cancel(); guidance.stop({ clearRoute: true }); void places.setDestinationByQuery(command.params.query); return;
       case 'confirm':
         if (stops.pending === 'stop' && !places.pending) stops.confirm(command.params.answer, command.params.index);
         else void places.confirm(command.params.answer, command.params.index);
@@ -495,6 +496,12 @@ export function App() {
               <button type="button" aria-disabled={busy} onClick={() => { if (!busy) explore('take', index); }}>{t.followBranch} {branch.relative_direction}: {branch.name}</button>
             </li>)}</ol>}
           </section>
+          {overview && <JourneyMap
+            origin={{ lat: session.current?.origin?.lat ?? overview.reference.lat, lon: session.current?.origin?.lon ?? overview.reference.lon, label: session.current?.origin?.name ?? overview.reference.place }}
+            destination={destination ? { ...destination, label: destination.name } : null}
+            position={guidance.position} active={guidance.active} status={guidance.status}
+            routeLine={guidance.routeLine} result={guidance.getLatestResult()}
+            demo={new URLSearchParams(window.location.search).get('demo_walk') === '1'} t={t} />}
         </div>
         {debugControls && (!overview || places.pending || places.busy) && <StartFlow places={places} t={t} compact />}
       </>}

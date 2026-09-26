@@ -13,13 +13,13 @@ interface Options {
   demo?: boolean;
 }
 type Status = 'idle' | 'locating' | 'on_route' | 'off_route' | 'arrived' | 'error';
-interface State { active: boolean; status: Status; routeLine: RouteCoordinate[] | null }
+interface State { active: boolean; status: Status; routeLine: RouteCoordinate[] | null; position: NavigationFix | null }
 interface ScreenLock { released?: boolean; release: () => Promise<void> }
 type WakeNavigator = Navigator & { wakeLock?: { request: (type: 'screen') => Promise<ScreenLock> } };
 
 /** Guidance owns its GPS lifetime; speech and all Plan mutations stay with App. */
 export function useLiveGuidance(options: Options) {
-  const [state, setState] = useState<State>({ active: false, status: 'idle', routeLine: null });
+  const [state, setState] = useState<State>({ active: false, status: 'idle', routeLine: null, position: null });
   const latest = useRef(options); latest.current = options;
   const mounted = useRef(false);
   const active = useRef(false);
@@ -31,6 +31,7 @@ export function useLiveGuidance(options: Options) {
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const queued = useRef<NavigationFix | null>(null);
   const latestFix = useRef<NavigationFix | null>(null);
+  const position = useRef<NavigationFix | null>(null);
   const urgent = useRef(false);
   const lastHeading = useRef<number | undefined>(undefined);
   const hiddenWarning = useRef(false);
@@ -45,6 +46,16 @@ export function useLiveGuidance(options: Options) {
   const words = () => latest.current.t ?? dictionaries.en;
   const valid = (token: number) => mounted.current && active.current && generation.current === token;
   function update(next: Partial<State>) { if (mounted.current) setState((old) => ({ ...old, ...next })); }
+  function publishPosition(fix: NavigationFix) {
+    const heading = latest.current.getHeading?.() ?? fix.heading_deg;
+    const next = { ...fix, ...(heading === undefined ? {} : { heading_deg: heading }) };
+    const previous = position.current;
+    if (!previous || previous.lat !== next.lat || previous.lon !== next.lon
+      || previous.accuracy_m !== next.accuracy_m || previous.heading_deg !== next.heading_deg) {
+      position.current = next; update({ position: next });
+    }
+    return next;
+  }
   function releaseWake() {
     const lock = wake.current; wake.current = null;
     if (lock) void lock.release().catch(() => {});
@@ -71,7 +82,7 @@ export function useLiveGuidance(options: Options) {
     if (watcher.current !== null) navigator.geolocation?.clearWatch(watcher.current);
     watcher.current = null;
     if (timer.current) clearTimeout(timer.current);
-    timer.current = null; queued.current = null; latestFix.current = null; replay.current = null; urgent.current = false;
+    timer.current = null; queued.current = null; replay.current = null; urgent.current = false;
     request.current?.abort(); request.current = null; inFlight.current = false;
     releaseWake(); update({ active: false, status });
     if (wasActive && previousSession) {
@@ -104,9 +115,11 @@ export function useLiveGuidance(options: Options) {
     inFlight.current = true; lastSent.current = Date.now();
     const controller = new AbortController(); request.current = controller;
     try {
-      const heading = latest.current.getHeading?.() ?? fix.heading_deg;
-      lastHeading.current = heading;
-      const result = await navigate(session.current, { ...fix, ...(heading === undefined ? {} : { heading_deg: heading }) }, controller.signal);
+      // Demo replay fixes also move the marker; real fixes are published immediately in receive().
+      latestFix.current = fix;
+      const currentPosition = publishPosition(fix);
+      lastHeading.current = currentPosition.heading_deg;
+      const result = await navigate(session.current, currentPosition, controller.signal);
       if (!valid(token)) return;
       latestResult.current = result;
       if (result.route_line) {
@@ -133,10 +146,13 @@ export function useLiveGuidance(options: Options) {
     if (!Number.isFinite(fix.lat) || Math.abs(fix.lat) > 90 || !Number.isFinite(fix.lon) || Math.abs(fix.lon) > 180) {
       fail(words().navigationLocationUnavailable, token); return;
     }
-    latestFix.current = fix; queued.current = fix; urgent.current = true; schedule(token);
+    latestFix.current = fix; publishPosition(fix);
+    queued.current = fix; urgent.current = true; schedule(token);
   }
   function refreshHeading() {
-    if (!active.current || !latestFix.current) return;
+    if (!latestFix.current) return;
+    publishPosition(latestFix.current);
+    if (!active.current) return;
     const heading = latest.current.getHeading?.();
     if (heading === undefined) return;
     const difference = lastHeading.current === undefined ? Infinity : Math.abs((heading - lastHeading.current + 540) % 360 - 180);
@@ -148,11 +164,11 @@ export function useLiveGuidance(options: Options) {
     if (!latest.current.sessionId) { latest.current.onError(words().navigationNeedSession); return; }
     const pendingStop = stopping.current;
     active.current = true; session.current = latest.current.sessionId;
-    latestResult.current = null;
+    latestResult.current = null; latestFix.current = null; position.current = null;
     generation.current += 1; const token = generation.current;
     demo.current = latest.current.demo ?? new URLSearchParams(window.location.search).get('demo_walk') === '1';
     replay.current = null; cursor.current = 0; lastSent.current = -Infinity; lastHeading.current = undefined; hiddenWarning.current = false;
-    update({ active: true, status: 'locating', routeLine: null });
+    update({ active: true, status: 'locating', routeLine: null, position: null });
     // Request synchronously from the Start gesture; acquiring the lock is optional.
     void acquireWake(token);
     if (pendingStop) await pendingStop;
@@ -177,7 +193,10 @@ export function useLiveGuidance(options: Options) {
       else navigator.geolocation.clearWatch(watchId);
     } catch { fail(words().navigationLocationUnavailable, token); }
   }
-  function stop() { halt(); }
+  function stop(options?: { clearRoute?: boolean }) {
+    halt();
+    if (options?.clearRoute) { latestResult.current = null; update({ routeLine: null }); }
+  }
   useEffect(() => {
     mounted.current = true;
     const visibility = () => {
@@ -199,6 +218,11 @@ export function useLiveGuidance(options: Options) {
       window.removeEventListener('keydown', escape);
     };
   }, []);
-  useEffect(() => { if (session.current && session.current !== options.sessionId) { latestResult.current = null; halt(); } }, [options.sessionId]);
-  return { ...state, start, stop, refreshHeading, getLatestResult: () => latestResult.current };
+  useEffect(() => {
+    if (session.current && session.current !== options.sessionId) {
+      halt(); latestResult.current = null; latestFix.current = null; position.current = null;
+      update({ routeLine: null, position: null });
+    }
+  }, [options.sessionId]);
+  return { ...state, start, stop, refreshHeading, getLatestResult: () => latestResult.current, getLatestFix: () => position.current };
 }
