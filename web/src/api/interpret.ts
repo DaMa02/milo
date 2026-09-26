@@ -14,6 +14,7 @@ export type VoiceCommand = { action: SimpleAction; params: Record<string, never>
   | { action: 'explore'; params: { command: ExploreCommand; branch?: number | string } }
   | { action: 'ask'; params: AskRequest }
   | { action: 'speed'; params: { change: 'faster' | 'slower' } }
+  | { action: 'navigate'; params: { state: 'start' | 'stop' } }
   | { action: 'set_origin' | 'set_destination'; params: { query: string } }
   | { action: 'confirm'; params: { answer: 'yes' | 'no'; index?: number } }
   | { action: 'route_select'; params: { route_id: string } }
@@ -42,6 +43,7 @@ export function parseCommand(value: unknown): VoiceCommand {
     return { action, params: { question: p.question, tool: p.tool as AskTool, params: p.params } };
   }
   if (action === 'speed' && (p.change === 'faster' || p.change === 'slower')) return { action, params: { change: p.change } };
+  if (action === 'navigate' && (p.state === 'start' || p.state === 'stop')) return { action, params: { state: p.state } };
   if ((action === 'set_origin' || action === 'set_destination') && text(p.query)) return { action, params: { query: p.query } };
   if (action === 'confirm' && (p.answer === 'yes' || p.answer === 'no') && (p.index === undefined || index(p.index))) {
     return { action, params: { answer: p.answer, ...(p.index === undefined ? {} : { index: p.index }) } };

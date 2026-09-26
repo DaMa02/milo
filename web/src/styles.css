@@ -106,7 +106,7 @@ footer { max-width: 1120px; margin-inline: auto; padding: 1.25rem; color: var(--
 .talk-dock button { width: 100%; min-height: 82px; font-size: 1.45rem; font-weight: 700; background: var(--accent); color: white; border-color: var(--accent); touch-action: manipulation; }
 .talk-dock button[aria-pressed="true"] { background: #703419; border-color: #703419; }
 .voice-state { margin: .35rem 0 0; text-align: center; }
-.talk-dock .hint { font-size: .85rem; margin-block: .35rem; }
+.talk-dock .talk-hint { display: block; font-size: .85rem; font-weight: 400; margin-block: .35rem; }
 .unified-command { order: 2; }
 .unified-command label { display: block; margin-bottom: .45rem; }
 .single-screen input, .single-screen select { font-size: max(16px, 1rem); }

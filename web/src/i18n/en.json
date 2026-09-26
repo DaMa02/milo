@@ -6,7 +6,7 @@
   "intro": "Explore how streets connect, compare ways to get there and prepare a trip around your needs.",
   "scaffoldStatus": "The app foundation is ready. Area exploration and journey planning are being connected.",
   "languageChanged": "Language changed to English.",
-  "preparationNote": "For planning before you leave. This is not live walking guidance.",
+  "preparationNote": "Live guidance: say 'let us go' after choosing a route.",
   "overview": "Overview",
   "explore": "Explore",
   "plan": "Plan your trip",
@@ -282,7 +282,7 @@
   "askRecoveryHint": "Choose a question type to guide the next attempt. Your draft stays in the form; review it before sending again.",
   "askChooseType": "Choose a question type",
   "placesHeading": "Choose your start and destination",
-  "placesIntro": "Where are you starting from? Say a place, or choose Use my location.",
+  "placesIntro": "Where are you starting from? Say a place, or say 'use my location'.",
   "placesTarget": "Use this place as",
   "placesOrigin": "Starting point",
   "placesDestination": "Destination",
@@ -323,7 +323,7 @@
   "compactStop": "Stop",
   "showAllControls": "Show all controls",
   "commandLess": "Less",
-  "commandHelp": "Try “where am I”, “tell me more”, or “how do I get there”. You can also type a starting place.",
+  "commandHelp": "Say where you are starting, then where you want to go. Try where am I, tell me more, how do I get there, or start navigation.",
   "commandNoFit": "I could not match that request. Try “where am I”, or open all controls.",
   "commandUnavailable": "I could not understand that request right now. Try again, or open all controls.",
   "commandStillWorking": "Still working. You can stop the voice at any time.",
@@ -350,5 +350,6 @@
   "routeDestinationRequired": "Where do you want to go? Say a place or address.",
   "routeChooseOffered": "Say the route you want, or ask to avoid a crossing or road type.",
   "routeFirst": "Ask for a route first, then tell me what you want to avoid.",
-  "routePreviousDestination": "The previous plan is for {place}. The new destination has no confirmed plan yet. Ask for a route again."
+  "routePreviousDestination": "The previous plan is for {place}. The new destination has no confirmed plan yet. Ask for a route again.",
+  "navigationStopped": "Guidance stopped."
 }

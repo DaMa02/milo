@@ -3,6 +3,7 @@ import type { Page } from '@playwright/test';
 
 async function audioHarness(page: Page, denied = false) {
   page.on('pageerror', (error) => { throw error; });
+  await page.route('**/api/tts', (route) => route.fulfill({ status: 503, json: { detail: 'Simulated TTS unavailable: exercise browser fallback' } }));
   await page.addInitScript((deny) => {
     const state = { level: 0.05, trace: [] as string[], speech: [] as SpeechSynthesisUtterance[], cancellations: 0 };
     Object.assign(window, { __audio: state });
@@ -134,11 +135,15 @@ test('hold-to-talk ends on release and cancellation suppresses a late transcript
   const pending = new Promise<void>((resolve) => { release = resolve; });
   await page.route('**/api/stt', async (route) => { await pending; await route.fulfill({ json: { text: 'Late answer' } }).catch(() => undefined); });
   await audioHarness(page);
+  await page.clock.install();
   const talk = page.getByRole('button', { name: 'Talk', exact: true });
   const box = await talk.boundingBox();
   await page.mouse.move(box!.x + box!.width / 2, box!.y + box!.height / 2);
   await page.mouse.down();
-  await page.waitForTimeout(450);
+  await page.clock.runFor(400);
+  await expect(page.locator('#state')).toHaveText('listening');
+  // Allow an audio sample after the hold threshold, before releasing the pointer.
+  await page.clock.runFor(100);
   await page.mouse.up();
   await expect(page.locator('#state')).toHaveText('transcribing');
   await page.getByRole('button', { name: 'Cancel', exact: true }).click();
@@ -169,9 +174,11 @@ test('keyboard toggles capture and handles no-speech and unavailable transcripti
 
 test('speech selects Daniel, expands metres, spaces sentences and cancels the next chunk immediately', async ({ page }) => {
   await audioHarness(page);
-  await page.clock.install();
+  await page.clock.install({ time: new Date('2026-09-26T12:00:00Z') });
+  await page.clock.pauseAt(new Date('2026-09-26T13:00:00Z'));
   await page.evaluate(() => (window as AudioWindow).__voice.speech.setRate(1.2));
   await page.getByRole('button', { name: 'Read', exact: true }).click();
+  await expect.poll(() => page.evaluate(() => (window as AudioWindow).__audio.speech.length)).toBe(1);
   const first = await page.evaluate(() => {
     const item = (window as AudioWindow).__audio.speech[0];
     return { text: item.text, voice: item.voice?.name, rate: item.rate };
@@ -185,6 +192,7 @@ test('speech selects Daniel, expands metres, spaces sentences and cancels the ne
   await page.clock.runFor(500);
   expect(await page.evaluate(() => (window as AudioWindow).__audio.speech.length)).toBe(1);
   await page.getByRole('button', { name: 'Read', exact: true }).click();
+  await expect.poll(() => page.evaluate(() => (window as AudioWindow).__audio.speech.length)).toBe(2);
   await page.evaluate(() => (window as AudioWindow).__audio.speech[1].onend?.({} as SpeechSynthesisEvent));
   await page.clock.runFor(300);
   expect(await page.evaluate(() => (window as AudioWindow).__audio.speech.at(-1)?.text)).toBe('Then stop.');

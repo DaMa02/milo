@@ -23,6 +23,7 @@ async function installEngine(page: Page, answer: (route: Route) => Promise<void>
   await page.route(apiPattern, async (route) => {
     const request = route.request();
     const path = new URL(request.url()).pathname;
+    if (path === '/api/tts') return route.fulfill({ status: 503, json: { detail: 'Simulated TTS unavailable: exercise browser fallback' } });
     const body = request.postDataJSON() as Record<string, unknown>;
     requests.push({ method: request.method(), path, body });
     if (path === '/api/session') return route.fulfill({ json: { session_id: 'test-session', overview } });
@@ -51,15 +52,26 @@ test('saved questions use the shared answers in either view and unsupported ques
   page.on('pageerror', (error) => errors.push(error.message));
   await page.addInitScript(() => {
     (window as AskSpeechWindow).__askReadings = [];
+    let beginsReading = true;
     Object.defineProperty(window, 'speechSynthesis', {
       configurable: true,
       value: {
-        speak(utterance: SpeechSynthesisUtterance) { (window as AskSpeechWindow).__askReadings.push(utterance.text); },
-        cancel() {},
+        speak(utterance: SpeechSynthesisUtterance) {
+          const readings = (window as AskSpeechWindow).__askReadings;
+          if (beginsReading) { readings.push(utterance.text); beginsReading = false; }
+          else readings[readings.length - 1] += ` ${utterance.text}`;
+          setTimeout(() => utterance.onend?.({} as SpeechSynthesisEvent), 0);
+        },
+        cancel() { beginsReading = true; },
       },
     });
   });
-  await page.route(apiPattern, (route) => { apiRequests.push(route.request().url()); return route.abort(); });
+  await page.route(apiPattern, (route) => {
+    if (new URL(route.request().url()).pathname === '/api/tts') {
+      return route.fulfill({ status: 503, json: { detail: 'Simulated TTS unavailable: exercise browser fallback' } });
+    }
+    apiRequests.push(route.request().url()); return route.abort();
+  });
   await page.goto('/?saved=1');
   await expect(page.getByRole('combobox', { name: 'Data source', exact: true }))
     .toHaveValue('saved');
@@ -77,11 +89,14 @@ test('saved questions use the shared answers in either view and unsupported ques
     await expect(panel.locator('.answer-text')).toContainText(example.phrase);
     await expect(panel.getByText(example.data.question, { exact: false })).toBeVisible();
     for (const unknown of example.data.unknown) await expect(panel.getByText(unknown, { exact: true })).toBeVisible();
-    const spoken = await page.evaluate(() => (window as AskSpeechWindow).__askReadings.at(-1));
-    expect(spoken).toContain(example.phrase);
-    for (const unknown of example.data.unknown) expect(spoken).toContain(unknown);
+    const spoken = () => page.evaluate(() => (window as AskSpeechWindow).__askReadings.at(-1));
+    await expect.poll(spoken).toContain(example.phrase.replace('350 m', '350 metres'));
+    for (const unknown of example.data.unknown) {
+      await expect.poll(spoken).toContain(unknown.replace(/(\d[\d,.]*)\s+m\b/g, '$1 metres'));
+    }
   }
-  await page.getByRole('button', { name: 'Stop reading', exact: true }).first().click();
+  const stop = page.getByRole('button', { name: 'Stop reading', exact: true }).first();
+  if (await stop.isEnabled()) await stop.click();
   await page.getByRole('checkbox', { name: 'Read new results aloud', exact: true }).uncheck();
   for (const width of [1280, 390, 320]) {
     await page.setViewportSize({ width, height: 900 });

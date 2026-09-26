@@ -172,6 +172,27 @@ test('an unoffered route ID cannot mutate the plan and an offered selection stil
   expect(engine.errors).toEqual([]);
 });
 
+test('asking for the route again after selection reads the confirmed choice without recreating the plan', async ({ page }) => {
+  const engine = await mockEngine(page);
+  await confirmOrigin(page);
+  await confirmDestination(page);
+  await compare(page);
+  await send(page, 'choose route A');
+  await expect(latest(page)).toContainText(selected.differences[0]);
+  const previousRequests = engine.requests.filter(({ path }) => path.startsWith(plansPath));
+  expect(previousRequests.map(({ path }) => path)).toEqual([plansPath, `${plansPath}/select`]);
+  await send(page, 'how do I get there');
+  await expect(latest(page)).toContainText(initial.routes.find(({ id }) => id === routeId)!.summary);
+  await expect(latest(page)).toContainText('Confirmed journey comparison');
+  await expect(latest(page)).not.toContainText(selected.differences[0]);
+  expect(engine.requests.filter(({ path }) => path.startsWith(plansPath))).toEqual(previousRequests);
+  await expect(input(page)).toBeFocused();
+  await page.getByText('Show all controls', { exact: true }).click();
+  await expect(page.getByRole('article', { name: `Route ${routeId}`, exact: true }).getByText('Chosen route', { exact: true })).toBeVisible();
+  expect(engine.unexpected).toEqual([]);
+  expect(engine.errors).toEqual([]);
+});
+
 test('a failed replan for a changed destination labels the recovered old plan and rejects its stale choices', async ({ page }) => {
   const engine = await mockEngine(page);
   await confirmOrigin(page);

@@ -7,7 +7,7 @@ import start from '../../contracts/fixtures/explore-step.start.json' with { type
 import junction from '../../contracts/fixtures/explore-step.first-junction.json' with { type: 'json' };
 import distance from '../../contracts/fixtures/answer.detour-ratio.json' with { type: 'json' };
 
-const help = 'Try “where am I”, “tell me more”, or “how do I get there”. You can also type a starting place.';
+const help = 'Say where you are starting, then where you want to go. Try where am I, tell me more, how do I get there, or start navigation.';
 const noFit = 'I could not match that request. Try “where am I”, or open all controls.';
 const latest = (page: Page) => page.getByRole('region', { name: 'Latest answer', exact: true });
 const input = (page: Page) => page.getByRole('textbox', { name: 'Type a question or command', exact: true });
@@ -48,6 +48,7 @@ async function installEngine(page: Page, delayed?: (route: Route) => Promise<voi
   });
   await page.route(/^https?:\/\/[^/]+\/api\//, async (route) => {
     const path = new URL(route.request().url()).pathname;
+    if (path === '/api/tts') return route.fulfill({ status: 503, json: { detail: 'Simulated TTS unavailable: exercise browser fallback' } });
     const body = route.request().postDataJSON() as Record<string, unknown>;
     requests.push({ path, body });
     if (path === '/api/interpret') {

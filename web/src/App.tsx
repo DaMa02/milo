@@ -22,6 +22,7 @@ import { usePlaces } from './hooks/usePlaces';
 import { StartFlow } from './components/StartFlow';
 import type { Place } from './api/places';
 import type { VoiceCommand } from './api/interpret';
+import { useLiveGuidance } from './hooks/useLiveGuidance';
 
 const language = 'en';
 const localize = (text: string) => text;
@@ -74,6 +75,7 @@ export function App() {
   const planMatchesDestination = !destination || !journey.plan || sameDestination(journey.plan, destination);
   const places = usePlaces({ session: session.current, t, onSessionReady: acceptSession,
     onDestinationChanged: (place) => {
+      guidance.stop();
       setDestination(place);
       if (session.current) session.current.destination = place;
       if (journey.plan) setReplanDestination(place);
@@ -89,6 +91,15 @@ export function App() {
     }, onBusy: () => announce(t.commandStillWorking) });
   const voice = useVoiceInput({ onTranscript: (text) => { mutePendingSpeech.current = false; setVoiceFailures(0); setCommandText(text); void commands.send(text); },
     onError: (kind) => { mutePendingSpeech.current = false; setVoiceFailures((count) => count + 1); const message = t[`voiceError:${kind}`]; setError(message); present(message); } });
+  const guidance = useLiveGuidance({ sessionId: session.current?.id ?? null, origin: session.current?.origin,
+    t, onMessage: (text) => {
+      // Guidance warnings take precedence over a current reading or its mute flag.
+      // Close the recorder before speaking so guidance cannot become an input.
+      voice.cancel();
+      speech.stop(); setLastReading(text); setReadingUnknowns([]); announce(text);
+      speech.speak(text, language);
+    }, onError: (text) => { setError(text); present(text); } });
+  useEffect(() => { if (journey.pending) guidance.stop(); }, [journey.pending]);
   useEffect(() => { if (speech.error) { setError(t.speechFailed); announce(t.speechFailed); } }, [speech.error, announce, t.speechFailed]);
   useEffect(() => {
     if (replanDestination && !places.busy && !busy) {
@@ -98,13 +109,18 @@ export function App() {
   }, [replanDestination, places.busy, busy]);
   useEffect(() => {
     const escape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') { event.preventDefault(); voice.cancel(); commands.cancel(); stopReading(); }
+      if (event.key === 'Escape') { event.preventDefault(); voice.cancel(); commands.cancel(); guidance.stop(); stopReading(); }
     };
-    window.addEventListener('keydown', escape); return () => window.removeEventListener('keydown', escape);
+    window.addEventListener('keydown', escape, true); return () => window.removeEventListener('keydown', escape, true);
   });
   useEffect(() => {
     if (journey.error) {
-      present(planMatchesDestination ? journey.error : t.routePreviousDestination.replace('{place}', journey.plan!.destination.name));
+      if (!planMatchesDestination) present(t.routePreviousDestination.replace('{place}', journey.plan!.destination.name));
+      else if (journey.plan && !journey.uncertain) {
+        // A successful recovery must keep the confirmed stop and unknowns in
+        // the repeatable answer, without replaying an older mutation's changes.
+        present(`${journey.error} ${planReading(journey.plan, false)}`, journey.plan.unknown);
+      } else present(journey.error);
     }
   }, [journey.error, journey.uncertain, journey.plan, announce]);
   function planResult(plan: Plan, changed = true, kind: 'plan' | 'candidates' = 'plan') {
@@ -116,15 +132,19 @@ export function App() {
       present([plan.text, ...plan.unknown].join(' '), plan.unknown);
       return;
     }
+    present(planReading(plan, changed), plan.unknown);
+  }
+  function planReading(plan: Plan, changed: boolean) {
     const selected = findSelectedRoute(plan);
     const summary = changed && plan.differences.length ? plan.differences.join(' ')
       : selected?.summary ?? [plan.routes.map((route) => route.summary).join(' '),
         plan.routes.length ? t.routeChooseOffered : plan.text].join(' ');
     const stop = plan.stop ? `${t.confirmedStop}: ${plan.stop.place}, ${plan.stop.duration_min} ${t.minutes}. ${t.stopHoursUnknown}` : '';
-    present([!changed ? t.confirmedPlan : '', summary, stop, ...plan.unknown].filter(Boolean).join(' '), plan.unknown);
+    return [!changed ? t.confirmedPlan : '', summary, stop, ...plan.unknown].filter(Boolean).join(' ');
   }
   function stopReading() { mutePendingSpeech.current = true; speech.stop(); }
   function acceptSession(next: AreaSession) {
+    guidance?.stop();
     setReplanDestination(null);
     voice?.cancel(); commands?.cancel(); session.current = next;
     setOverview(next.overview); setStep(null); setAnswer(null); setDestination(next.destination ?? null);
@@ -132,6 +152,7 @@ export function App() {
     present([next.overview.text, ...next.overview.unknown].join(' '), next.overview.unknown);
   }
   function startOver() {
+    guidance.stop();
     setReplanDestination(null);
     voice.cancel(); commands.cancel(); places.cancel(); stopReading();
     session.current = null; setOverview(null); setStep(null); setAnswer(null); setDestination(null);
@@ -140,14 +161,20 @@ export function App() {
   }
   function dispatchCommand(command: VoiceCommand) {
     switch (command.action) {
-      case 'stop': voice.cancel(); stopReading(); return;
+      case 'stop': voice.cancel(); guidance.stop(); stopReading(); return;
+      case 'navigate':
+        if (command.params.state === 'stop') { guidance.stop(); stopReading(); present(t.navigationStopped); return; }
+        if (!journey.plan) { present(t.routeFirst); return; }
+        if (!planMatchesDestination) { present(t.routePreviousDestination.replace('{place}', journey.plan.destination.name)); return; }
+        if (journey.uncertain) { journey.refresh(); return; }
+        void guidance.start(); return;
       case 'repeat': mutePendingSpeech.current = false; speech.speak(readingText, language); return;
       case 'help': present(t.commandHelp); return;
       case 'speed': speech.setRate(speech.rate + (command.params.change === 'faster' ? 0.15 : -0.15)); present(t.commandSpeedChanged); return;
       case 'start_over': startOver(); return;
-      case 'set_origin': void places.setOriginByQuery(command.params.query); return;
-      case 'set_origin_here': void places.setOriginHere(); return;
-      case 'set_destination': void places.setDestinationByQuery(command.params.query); return;
+      case 'set_origin': guidance.stop(); void places.setOriginByQuery(command.params.query); return;
+      case 'set_origin_here': guidance.stop(); void places.setOriginHere(); return;
+      case 'set_destination': guidance.stop(); void places.setDestinationByQuery(command.params.query); return;
       case 'confirm': void places.confirm(command.params.answer, command.params.index); return;
       case 'none': present(command.params.reason === 'model_unavailable' ? t.commandUnavailable : t.commandNoFit); return;
       case 'overview': if (overview) showOverview(); else present(t.placesIntro); return;
@@ -175,6 +202,8 @@ export function App() {
       case 'route':
         if (!overview) { present(t.placesIntro); return; }
         if (!destination) { void places.setDestinationByQuery(''); present(t.routeDestinationRequired); return; }
+        if (journey.uncertain) { journey.refresh(); return; }
+        if (journey.plan && planMatchesDestination) { setView('plan'); setAnswer(null); planResult(journey.plan, false); return; }
         createVoicePlan(destination);
         return;
       case 'route_select':
@@ -297,7 +326,7 @@ export function App() {
             <TalkButton state={voice.state}
               onBeforeStart={stopReading}
               onGesture={() => { stopReading(); speech.prime(); }}
-              onStart={() => { mutePendingSpeech.current = true; automaticRef.current = true; setAutomatic(true); return voice.start(); }}
+              onStart={() => { commands.cancel(); mutePendingSpeech.current = true; automaticRef.current = true; setAutomatic(true); return voice.start(); }}
               onStop={() => voice.stop(true)} onCancel={voice.cancel}
               labels={{ idle: t.talk, listening: t.finishTalking, transcribing: t.voiceThinking, hint: t.talkHint }} />
             <p className="voice-state">{voice.state === 'listening' ? t.voiceListening : voice.state === 'transcribing' || commands.interpreting || busy || places.busy ? t.voiceThinking : speech.speaking ? t.voiceSpeaking : t.voiceIdle}</p>
@@ -314,7 +343,7 @@ export function App() {
             {debugControls && !expandedAnswer && readingUnknowns.some((item) => !shortAnswer.includes(item)) && <ul className="warnings">{readingUnknowns.filter((item) => !shortAnswer.includes(item)).map((item) => <li key={item}>{item}</li>)}</ul>}
             {debugControls && displayed !== shortAnswer && <button type="button" aria-expanded={expandedAnswer} onClick={() => setExpandedAnswer(!expandedAnswer)}>{expandedAnswer ? t.commandLess : t.details}</button>}
             {debugControls && <div className="button-row compact-speech"><button type="button" disabled={!speech.supported} onClick={() => { mutePendingSpeech.current = false; speech.speak(displayed, language); }}>{t.compactListen}</button>
-              <button type="button" onClick={() => { voice.cancel(); commands.cancel(); stopReading(); }}>{t.compactStop}</button></div>}
+              <button type="button" onClick={() => { voice.cancel(); commands.cancel(); guidance.stop(); stopReading(); }}>{t.compactStop}</button></div>}
             {debugControls && view === 'explore' && step && <ol className="branch-actions">{step.branches.map((branch, index) => <li key={`${branch.name}-${index}`}>
               <button type="button" aria-disabled={busy} onClick={() => { if (!busy) explore('take', index); }}>{t.followBranch} {branch.relative_direction}: {branch.name}</button>
             </li>)}</ol>}

@@ -89,6 +89,7 @@ async function installEngine(page: Page) {
   await page.route(apiPattern, async (route) => {
     const request = route.request();
     const path = new URL(request.url()).pathname;
+    if (path === '/api/tts') return route.fulfill({ status: 503, json: { detail: 'Simulated TTS unavailable: exercise browser fallback' } });
     const body = request.postData() ? request.postDataJSON() as Record<string, unknown> : null;
     requests.push({ method: request.method(), path, body });
     if (path === '/api/session') return route.fulfill({ json: { session_id: 'plan-session', overview } });
@@ -286,7 +287,7 @@ test('rejected changes and uncertain cache failures keep the last confirmed plan
   await expect(routeA(page)).toContainText('30 minutes');
   await expect(panel(page).getByRole('button', { name: 'Update stop duration', exact: true })).toBeDisabled();
   await page.getByRole('button', { name: 'Listen to this result', exact: true }).first().click();
-  expect(await page.evaluate(() => (window as PlanSpeechWindow).__planSpeech.readings.at(-1))).toContain('The change could not be confirmed.');
+  await expect.poll(() => page.evaluate(() => (window as PlanSpeechWindow).__planSpeech.readings.at(-1))).toContain('The change could not be confirmed.');
   await page.getByRole('button', { name: 'Overview', exact: true }).click();
   await planNavigation(page).click();
   const uncertainReading = await completedReading(page);
@@ -368,7 +369,7 @@ test('manual refresh accepts a creation reset after both the POST response and i
   await panel(page).getByRole('button', { name: 'Refresh current plan', exact: true }).click();
   await expect(routeA(page)).toContainText('14 minutes');
   await expect(panel(page).getByRole('button', { name: 'Compare routes', exact: true })).toBeEnabled();
-  expect(await page.evaluate(() => (window as PlanSpeechWindow).__planSpeech.readings.at(-1))).toContain('Confirmed journey comparison');
+  await expect.poll(() => page.evaluate(() => (window as PlanSpeechWindow).__planSpeech.readings.at(-1))).toContain('Confirmed journey comparison');
   expect(engine.requests.filter(({ method, path }) => method === 'POST' && path === '/api/session/plan-session/plan')).toHaveLength(2);
   expect(engine.requests.filter(({ method, path }) => method === 'GET' && path.endsWith('/plan'))).toHaveLength(3);
 

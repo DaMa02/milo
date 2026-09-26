@@ -19,6 +19,7 @@ interface SpeechTestWindow extends Window {
 async function installSpeechMock(page: Page, supported = true) {
   // Test the browser integration deterministically without playing audio or
   // depending on an installed operating-system voice.
+  await page.route('**/api/tts', (route) => route.fulfill({ status: 503, json: { detail: 'Simulated TTS unavailable: exercise browser fallback' } }));
   await page.addInitScript((available) => {
     const state: SpeechTestWindow['__speechTest'] = { calls: [], cancellations: 0 };
     (window as SpeechTestWindow).__speechTest = state;
@@ -35,6 +36,7 @@ async function installSpeechMock(page: Page, supported = true) {
       configurable: true,
       value: available ? Utterance : undefined,
     });
+    if (!available) Object.defineProperty(window, 'Audio', { configurable: true, value: undefined });
     Object.defineProperty(window, 'speechSynthesis', {
       configurable: true,
       value: {
@@ -65,8 +67,10 @@ test('speech is explicit, repeats the same language, and ignores cancelled event
   expect(await page.evaluate(() => (window as SpeechTestWindow).__speechTest.calls.length)).toBe(0);
 
   await listen.click();
+  await expect.poll(() => page.evaluate(() => (window as SpeechTestWindow).__speechTest.calls.length)).toBe(1);
   await expect(stop).toBeEnabled();
   await repeat.click();
+  await expect.poll(() => page.evaluate(() => (window as SpeechTestWindow).__speechTest.calls.length)).toBe(2);
   const readings = await page.evaluate(() => (window as SpeechTestWindow).__speechTest.calls.map(
     ({ text, language }) => ({ text, language }),
   ));
@@ -107,11 +111,13 @@ test('speech errors are announced and an explicit retry can succeed', async ({ p
   const listen = page.getByRole('button', { name: 'Listen to this result', exact: true });
   const stop = page.getByRole('button', { name: 'Stop reading', exact: true }).first();
   await listen.click();
+  await expect.poll(() => page.evaluate(() => (window as SpeechTestWindow).__speechTest.calls.length)).toBe(1);
   await page.evaluate(() => (window as SpeechTestWindow).__speechTest.calls[0].error?.({ error: 'synthesis-failed' }));
   const message = page.getByRole('status').filter({ hasText: 'Reading aloud failed. You can try again or read the text.' });
   await expect(message).toBeVisible();
   await expect(stop).toBeDisabled();
   await listen.click();
+  await expect.poll(() => page.evaluate(() => (window as SpeechTestWindow).__speechTest.calls.length)).toBe(2);
   await expect(message).toHaveCount(0);
   await expect(stop).toBeEnabled();
   await page.evaluate(() => (window as SpeechTestWindow).__speechTest.calls[1].end?.());
@@ -127,6 +133,7 @@ test('opening the area stops the previous reading and new readings stay in Engli
   await installSpeechMock(page);
   await page.goto('/?saved=1');
   await page.getByRole('button', { name: 'Listen to this result', exact: true }).click();
+  await expect.poll(() => page.evaluate(() => (window as SpeechTestWindow).__speechTest.calls.length)).toBe(1);
   const beforeChange = await page.evaluate(() => (window as SpeechTestWindow).__speechTest.cancellations);
   await page.getByRole('button', { name: 'Open the area', exact: true }).click();
   await expect(page.locator('html')).toHaveAttribute('lang', 'en');
@@ -138,7 +145,9 @@ test('opening the area stops the previous reading and new readings stay in Engli
   expect(state.cancellations).toBeGreaterThan(beforeChange);
   expect(state.readings).toBe(1);
   await page.getByRole('button', { name: 'Listen to this result', exact: true }).click();
+  await expect.poll(() => page.evaluate(() => (window as SpeechTestWindow).__speechTest.calls.length)).toBe(2);
   await page.getByRole('button', { name: 'Repeat last reading', exact: true }).click();
+  await expect.poll(() => page.evaluate(() => (window as SpeechTestWindow).__speechTest.calls.length)).toBe(3);
   const readings = await page.evaluate(() => (window as SpeechTestWindow).__speechTest.calls.map(
     ({ text, language }) => ({ text, language }),
   ));
