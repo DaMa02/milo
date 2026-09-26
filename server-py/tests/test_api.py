@@ -155,7 +155,7 @@ def main():
                              ("walking_vs_straight_line", {"from": 7, "to": {"name": "the party"}}),
                              ("walking_vs_straight_line", {"to": {"name": None, "lat": None, "lon": None}}),
                              ("barrier_between", {"to": True}), ("barrier_between", {"to": {"lat": 45.44, "lon": "x"}}),
-                             ("independent_connections", {"to": 1}), ("street_continuity", {"street": {"name": "via Brembo"}}),
+                             ("independent_connections", {"to": 1}), ("street_continuity", {"street": {"name": 7}}),
                              ("extent", {"place": ["x"]})]:
             a = ask(tool, params)
             check(a["text"] == "Which place do you mean?", f"bad place shape {params} is a question back: {a['text']}")
