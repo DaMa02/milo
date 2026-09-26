@@ -14,7 +14,8 @@
     "build": "npm run build --workspace web",
     "preview": "npm run preview --workspace web",
     "test:e2e": "playwright test",
-    "check": "npm run typecheck --workspace web && npm test",
+    "check:contracts": "node scripts/check-contracts.mjs",
+    "check": "npm run check:contracts && npm run typecheck --workspace web && npm test",
     "test": "node --test scripts/*.test.mjs"
   },
   "devDependencies": {
