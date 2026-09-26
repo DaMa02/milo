@@ -14,13 +14,13 @@ import anthropic
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from lotl import grammar, jev
+from lotl import chat, grammar, jev
 from lotl.explore import branches
 from lotl.llm import MODEL, TOOLS, client
 
 ACTIONS = ("explore", "ask", "overview", "more", "unknowns", "sources", "repeat", "stop", "help", "speed", "start_over",
            "set_origin", "set_origin_here", "set_destination", "confirm", "route", "route_select", "route_avoid", "route_stop",
-           "stop_duration", "navigate", "none")
+           "stop_duration", "navigate", "chat", "none")
 COMMANDS = ("start", "forward", "left", "right", "take", "back", "home", "where")
 KINDS = ("unsignalled_crossings", "signals_without_sound", "steps", "construction", "main_roads", "transfers")
 
@@ -42,6 +42,7 @@ Actions:
 - route_stop (kind: supermarket, pharmacy, cafe, bakery, atm, or shop for anything else to buy; minutes: how long, -1 if not said): a stop on the way.
 - stop_duration (minutes): how long the stop lasts, when a stop is pending or was just added.
 - navigate (state: start|stop): start or stop turn-by-turn guidance.
+- chat: a general question about a place or the destination (what it is, what it is known for, what is there), a request to search the web, or a question on how to use the app ("how do I add a stop?"). Never for moving, distances, directions or routes: those are the other actions.
 - none: nothing fits (reason: no_fit), the place is clearly outside Milan (outside_area), or the utterance is unclear (unclear).
 
 Rules:
@@ -140,6 +141,8 @@ def to_action(out, ctx):
         return a, {"kind": out["kind"], **({"strength": out["strength"]} if out["strength"] else {})}
     if a in ("overview", "more", "unknowns", "sources", "repeat", "stop", "help", "start_over", "set_origin_here", "route"):
         return a, {}
+    if a == "chat":
+        return a, {}
     if a == "none":
         return a, {"reason": out["reason"] or "no_fit"}
     return "none", {"reason": "unclear"}
@@ -160,6 +163,20 @@ def claude(llm, utterance, ctx):
     return json.loads(next(b.text for b in r.content if b.type == "text"))
 
 
+HISTORY = {}  # session id ("" before a session) -> last chat turns [(utterance, answer)]; ponytail: in memory, 6 turns
+
+
+def trip_facts(s):
+    if s is None:
+        return {}
+    f = {"start": s.origin[2] if s.origin else None, "destination": (s.destination or {}).get("name")}
+    plan = s.plan or {}
+    sel = next((r for r in plan.get("routes", []) if r["id"] == plan.get("selected_route_id")), None)
+    if sel:
+        f["chosen_route"] = sel["summary"]
+    return {k: v for k, v in f.items() if v}
+
+
 def make_router(get_session, get_zone=lambda: None, llm=None, jev_http=None):
     """llm: a client with .beta.messages.create (tests pass a fake); default: lotl.llm.client() when a key is set.
     jev_http: an httpx.Client for Jev (tests pass a fake transport); default: httpx."""
@@ -176,6 +193,23 @@ def make_router(get_session, get_zone=lambda: None, llm=None, jev_http=None):
             return []
         return [b["name"] for b in branches(z, s) if b.get("name")]
 
+    def session_or_none(sid):
+        try:
+            return get_session(sid) if sid else None
+        except HTTPException:
+            return None
+
+    def chat_reply(c, body):
+        key = body.session_id or ""
+        hist = HISTORY.setdefault(key, [])
+        try:
+            text, web = chat.answer(c, MODEL, body.utterance, trip_facts(session_or_none(body.session_id)), hist)
+        except anthropic.AnthropicError:
+            return {"utterance": body.utterance, "action": "none", "params": {"reason": "model_unavailable"}, "via": "grammar"}
+        hist.append((body.utterance, text))
+        del hist[:-6]
+        return {"utterance": body.utterance, "action": "chat", "params": {"text": text, "web": web}, "via": "claude"}
+
     @router.post("/interpret")
     def interpret(body: InterpretIn):
         if not body.utterance.strip() or len(body.utterance) > 500:
@@ -186,12 +220,16 @@ def make_router(get_session, get_zone=lambda: None, llm=None, jev_http=None):
         if not hit:
             names = branch_names(body.session_id)
             hit, via = jev.pick(body.utterance, ctx, names, jev_http), "jev"
+        c = llm or (client() if os.environ.get("ANTHROPIC_API_KEY") else None)
+        if hit and hit[0] == "chat":
+            if c is None:
+                return {"utterance": body.utterance, "action": "none", "params": {"reason": "model_unavailable"}, "via": "grammar"}
+            return chat_reply(c, body)
         if hit:
             action, params = hit
             if action == "ask":
                 params = {"question": body.utterance, **params}
             return {"utterance": body.utterance, "action": action, "params": params, "via": via}
-        c = llm or (client() if os.environ.get("ANTHROPIC_API_KEY") else None)
         if c is None:
             return {"utterance": body.utterance, "action": "none", "params": {"reason": "model_unavailable"}, "via": "grammar"}
         try:
@@ -199,6 +237,8 @@ def make_router(get_session, get_zone=lambda: None, llm=None, jev_http=None):
             action, params = to_action(out, ctx)
         except (Unavailable, ValueError, KeyError, StopIteration):
             return {"utterance": body.utterance, "action": "none", "params": {"reason": "model_unavailable"}, "via": "grammar"}
+        if action == "chat":
+            return chat_reply(c, body)
         if action == "ask":
             params = {"question": body.utterance, **params}
         return {"utterance": body.utterance, "action": action, "params": params, "via": "claude"}

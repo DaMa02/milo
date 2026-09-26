@@ -28,9 +28,10 @@ OPTIONS = {
     "stop_duration": "says how long the stop lasts", "navigate_start": "start turn-by-turn guidance now",
     "navigate_stop": "stop the turn-by-turn guidance",
     "ask": "a question about the map: distance, what is between places, a street, a size, a place's hours or access",
+    "chat": "a general question about a place or the destination (what it is, what is there), a web search, or how to use the app",
     "none": "none of these, or not about walking in Milan",
 }
-SIMPLE = {"overview", "more", "unknowns", "sources", "repeat", "stop", "help", "start_over", "set_origin_here", "route"}
+SIMPLE = {"overview", "more", "unknowns", "sources", "repeat", "stop", "help", "start_over", "set_origin_here", "route", "chat"}
 
 
 def choice(instructions, criteria):
