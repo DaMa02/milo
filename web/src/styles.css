@@ -33,7 +33,7 @@ button[aria-disabled="true"] { cursor: default; color: var(--muted); }
 .primary[aria-disabled="true"] { color: #fff; }
 .start-panel { padding-block: 1rem; max-width: 72ch; }
 .session-strip { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem; margin-block: 1.5rem; }
-.view-nav { display: flex; gap: 1rem; border-bottom: 1px solid var(--line); padding-bottom: 1rem; }
+.view-nav { display: flex; flex-wrap: wrap; gap: 1rem; border-bottom: 1px solid var(--line); padding-bottom: 1rem; }
 .view-nav [aria-current="page"] { font-weight: 700; background: var(--accent); color: white; }
 .result-panel { max-width: 80ch; }
 .ask-panel { max-width: 80ch; margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--line); }
@@ -43,6 +43,20 @@ button[aria-disabled="true"] { cursor: default; color: var(--muted); }
 .ask-panel fieldset { min-width: 0; border: 1px solid var(--line); padding: 1rem; }
 .ask-panel legend { font-weight: 650; }
 .answer-panel { margin-top: 2rem; }
+.plan-panel { max-width: 80ch; }
+.plan-panel form { display: grid; gap: .7rem; }
+.plan-panel input, .plan-panel select { width: 100%; min-width: 0; margin: 0; }
+.plan-panel fieldset { min-width: 0; padding: 1rem; border: 1px solid var(--line); }
+.plan-panel fieldset > div { margin-block: .75rem; }
+.plan-panel legend { font-weight: 650; }
+.plan-panel .route-card { border-block-start: 1px solid var(--line); padding-block: 1rem 2rem; }
+.plan-panel dl { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.5fr); gap: .4rem 1rem; }
+.plan-panel dt { color: var(--muted); }
+.plan-panel dd { margin: 0; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.plan-panel .journey-summary { border-block: 1px solid var(--line); margin-top: 2rem; }
+.plan-panel [type="number"] { max-width: 12rem; display: block; }
+.plan-panel label { display: block; }
+.plan-panel li { overflow-wrap: anywhere; }
 .start-panel select { max-width: 100%; }
 .result-text { font-size: 1.16rem; }
 .reference { color: var(--muted); }

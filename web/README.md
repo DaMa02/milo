@@ -29,6 +29,18 @@ Ask is available under both views and preserves the virtual position. Choose one
 
 The three saved question buttons replay exact canonical fixtures, including uncertainty and sources. Other requests are unavailable in saved mode. During a request the next question can be drafted without changing the submitted question; a response labels the question it answered and does not move focus or replace that draft. Errors keep the input and allow retry. Unsupported questions returned with tool none retain the five question choices.
 
-Plan follows in its own PR. Browser integration tests simulate the documented HTTP responses; a real engine run still needs the server on the Mac or a local installation.
+## Journey planning
+
+Plan your trip opens the confirmed trip separately from virtual exploration. The editable fields are drafts; submission sends the documented Plan request. Departure uses Milan local time and is converted to a precise instant, rejecting ambiguous or nonexistent daylight-saving times. An arrival deadline is not treated as a departure time.
+
+Alternatives show total elapsed time (including waiting and shopping), total walking, transfers, timestamps, per-constraint satisfied/violated/unknown status and details. Opening details does not select a route. Only Choose route changes the selected ID. All seven constraints offer no preference, avoid when possible or require; known violations of requirements fail the response guard.
+
+A chosen route can search for supermarkets, add a stop, change its duration or remove it. The engine supplies every detour and recalculated route. The confirmed journey summary includes the selected route, times, stop, constraints, unknowns and the original area reference/overview, and remains available when returning to exploration. Opening hours are explicitly unverified.
+
+Mutations send if_version and run serially. A 4xx leaves the previous plan and its old parameters visible. After a 409, lost response or server failure the app reads the authoritative Plan before enabling another mutation. If that read also fails, the last confirmed plan remains labelled and Refresh current plan is available. A unchanged recovered version never announces historical differences as a new change. Stopping speech during a pending request suppresses the forthcoming automatic reading and does not cancel the calculation.
+
+Saved planning replays only canonical routing results: the recorded departure and places, initial A/B/C selection, route A supermarket search, Lidl for 15 or 5 minutes, removal and the recorded unsignalled-crossings require/relax case. Other changes—including different supermarkets or changing routes after a stop—report unavailable without changing the confirmed plan. Selection and revision tracking are local user state; no new geographic result or transit time is calculated in the browser.
+
+Browser tests cover the complete recorded party story by keyboard, separate exploration origin/route selection, requirements, stop changes, 422/503 errors, authoritative recovery, blocked uncertain writes, delayed responses with editable drafts, route reordering and independent speech stop. Transport failures/delays and speech are simulated; route facts come from canonical fixtures. A real engine run still needs the server on the Mac or a local installation; these tests do not claim live backend or manual screen-reader validation.
 
 Browser tests check keyboard entry and movement, focus, navigation between views without losing position, offline misses, speech cancellation/repeat/errors, transport failures, reflow at 320/390/1280 CSS pixels and axe WCAG A/AA rules. They use a local browser and no external API; the initial browser installation needs a network connection. Speech tests stub the browser voice engine to verify event handling, not the quality of an installed voice. Automated checks do not replace a manual NVDA/VoiceOver check.

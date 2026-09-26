@@ -12,6 +12,9 @@ import { exploreSummary } from './api/narration';
 import { AskView } from './components/AskView';
 import { createConnectedSession, type AreaSession } from './api/session';
 import type { Answer, AskRequest } from './api/contracts';
+import { usePlan } from './hooks/usePlan';
+import { PlanView } from './components/PlanView';
+import { findSelectedRoute, type Plan } from './api/plan-contracts';
 
 const language = 'en';
 const localize = (text: string) => text;
@@ -22,7 +25,7 @@ export function App() {
   const speech = useSpeech();
   const [overview, setOverview] = useState<Overview | null>(null);
   const [step, setStep] = useState<ExploreStep | null>(null);
-  const [view, setView] = useState<'overview' | 'explore'>('overview');
+  const [view, setView] = useState<'overview' | 'explore' | 'plan'>('overview');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [source, setSource] = useState<'saved' | 'connected'>('saved');
@@ -32,6 +35,9 @@ export function App() {
   const session = useRef<AreaSession | null>(null);
   const busyRef = useRef(false);
   const resultHeading = useRef<HTMLHeadingElement>(null);
+  const automaticRef = useRef(automatic);
+  automaticRef.current = automatic;
+  const mutePendingSpeech = useRef(false);
   const t = dictionaries.en;
   const overviewText = overview ? [localize(overview.text), ...overview.unknown.map(localize)].join(' ') : '';
   const currentText = view === 'explore' && step
@@ -39,16 +45,32 @@ export function App() {
   const readingText = lastReading || currentText || `${t.title}. ${t.intro}`;
   const areaOpen = overview !== null;
   useEffect(() => { document.documentElement.lang = language; }, []);
-  useEffect(() => { if (areaOpen) resultHeading.current?.focus(); }, [view, areaOpen]);
+  useEffect(() => {
+    if (areaOpen) {
+      if (view === 'plan') document.getElementById('plan-heading')?.focus();
+      else resultHeading.current?.focus();
+    }
+  }, [view, areaOpen]);
+
+  const journey = usePlan(session.current, source === 'saved', run, planResult, t);
+  useEffect(() => { if (journey.error) announce(journey.error); }, [journey.error, announce]);
+  function planResult(plan: Plan, changed = true) {
+    const selected = findSelectedRoute(plan);
+    const summary = changed && plan.differences.length ? plan.differences.join(' ')
+      : selected?.summary ?? plan.text.split(/(?<=[.!?])\s+(?=[A-Z])/).slice(0, 2).join(' ');
+    const stop = plan.stop ? `${t.confirmedStop}: ${plan.stop.place}, ${plan.stop.duration_min} ${t.minutes}. ${t.stopHoursUnknown}` : '';
+    present([!changed ? t.confirmedPlan : '', summary, stop, ...plan.unknown].filter(Boolean).join(' '));
+  }
+  function stopReading() { mutePendingSpeech.current = true; speech.stop(); }
 
   function present(text: string) {
     setLastReading(text);
     announce(text);
-    if (automatic && speech.supported) speech.speak(text, language);
+    if (automaticRef.current && !mutePendingSpeech.current && speech.supported) speech.speak(text, language);
   }
   async function run(action: () => Promise<void>, status = t.working, unavailable = t.unavailableOffline) {
     if (busyRef.current) return;
-    busyRef.current = true; setBusy(true); setError(null); speech.stop(); announce(status);
+    busyRef.current = true; mutePendingSpeech.current = false; setBusy(true); setError(null); speech.stop(); announce(status);
     try { await action(); }
     catch (cause) {
       const message = cause instanceof ApiError && cause.kind === 'unavailable' ? unavailable
@@ -86,17 +108,22 @@ export function App() {
       setAnswer(result);
       const short = [result.text.split(/(?<=[.!?])\s+(?=[A-Z])/).slice(0, 2).join(' '), ...result.unknown].join(' ');
       setLastReading(short); announce(t.answerReady);
-      if (automatic && speech.supported) speech.speak(short, language);
+      if (automaticRef.current && !mutePendingSpeech.current && speech.supported) speech.speak(short, language);
     }, t.asking, source === 'saved' ? t.unavailableAnswer : t.connectionFailed);
   }
   function showOverview() {
     if (busyRef.current) return;
-    speech.stop(); setView('overview'); setError(null); present(overviewText);
+    mutePendingSpeech.current = false; speech.stop(); setView('overview'); setError(null); present(overviewText);
   }
   function showExplore() {
     if (busyRef.current) return;
     if (!step) { explore('start'); return; }
-    speech.stop(); setView('explore'); setError(null); present(exploreSummary(step, localize, t));
+    mutePendingSpeech.current = false; speech.stop(); setView('explore'); setError(null); present(exploreSummary(step, localize, t));
+  }
+  function showPlan() {
+    if (busyRef.current) return;
+    mutePendingSpeech.current = false; speech.stop(); setView('plan'); setError(null);
+    if (journey.plan) planResult(journey.plan, false); else announce(t.plan);
   }
   const result = view === 'overview' ? overview : step;
   return <>
@@ -106,7 +133,7 @@ export function App() {
     </header>
     <main id="main" tabIndex={-1}>
       <h1>{t.title}</h1>
-      <SpeechControls speech={speech} text={readingText} language={language} automatic={automatic} onAutomaticChange={setAutomatic} t={t} />
+      <SpeechControls speech={{ ...speech, stop: stopReading }} text={readingText} language={language} automatic={automatic} pending={busy} onAutomaticChange={setAutomatic} t={t} />
       {!overview ? <>
         <p className="intro">{t.intro}</p>
         <section className="start-panel" aria-labelledby="start-heading">
@@ -129,8 +156,9 @@ export function App() {
         <nav className="view-nav" aria-label={t.navLabel}>
           <button type="button" aria-current={view === 'overview' ? 'page' : undefined} aria-disabled={busy} onClick={showOverview}>{t.overview}</button>
           <button type="button" aria-current={view === 'explore' ? 'page' : undefined} aria-disabled={busy} onClick={showExplore}>{t.explore}</button>
+          <button type="button" aria-current={view === 'plan' ? 'page' : undefined} aria-disabled={busy} onClick={showPlan}>{t.plan}</button>
         </nav>
-        <section className="result-panel" aria-labelledby="result-heading" aria-busy={busy}>
+        <section hidden={view === 'plan'} className="result-panel" aria-labelledby="result-heading" aria-busy={busy}>
           <h2 id="result-heading" ref={resultHeading} tabIndex={-1}>{view === 'overview' ? t.overview : t.currentPosition}</h2>
           {view === 'overview' ? <>
             <p className="reference"><strong>{t.referenceLabel}:</strong> {localize(overview.reference.text)}</p>
@@ -139,21 +167,26 @@ export function App() {
               <ul>{overview.details.map((detail) => <li key={detail}>{localize(detail)}</li>)}</ul>
               <div className="button-row">
                 <button type="button" onClick={() => speech.speak(overview.details.map(localize).join(' '), language)} disabled={!speech.supported}>{t.readDetails}</button>
-                <button type="button" aria-disabled={!speech.speaking} onClick={() => { if (speech.speaking) speech.stop(); }}>{t.stopReading}</button>
+                <button type="button" aria-disabled={!speech.speaking && !busy} onClick={() => { if (speech.speaking || busy) stopReading(); }}>{t.stopReading}</button>
               </div>
             </details>
             {overview.unknown.length > 0 && <div className="warnings"><h3>{t.warnings}</h3><ul>{overview.unknown.map((warning) => <li key={warning}>{localize(warning)}</li>)}</ul></div>}
             <button type="button" className="primary" aria-disabled={busy} onClick={showExplore}>{t.continueExplore}</button>
-          </> : step && <ExploreView step={step} t={t} localize={localize} busy={busy} onCommand={explore} summary={currentText} onReadDetails={() => speech.speak(localize(step.text), language)} onStopReading={speech.stop} speaking={speech.speaking} canSpeak={speech.supported} />}
+            <button type="button" aria-disabled={busy} onClick={showPlan}>{t.plan}</button>
+          </> : step && <ExploreView step={step} t={t} localize={localize} busy={busy} onCommand={explore} summary={currentText} onReadDetails={() => speech.speak(localize(step.text), language)} onStopReading={stopReading} speaking={speech.speaking} canSpeak={speech.supported} />}
           {result && <><ResultMeta meta={result.meta} t={t} /><Evidence facts={result.facts} t={t} /></>}
         </section>
+        <div hidden={view !== 'plan'}>
+          <PlanView plan={journey.plan} pending={journey.pending} uncertain={journey.uncertain} busy={busy} onCreate={journey.create} onMutate={journey.mutate} onRefresh={journey.refresh} onRead={(text) => speech.speak(text, language)} onStop={stopReading} speaking={speech.speaking} canSpeak={speech.supported} t={t} overview={overview} />
+          {journey.error && <p className="error-message">{journey.error}</p>}
+        </div>
         {positionUncertain && <div className="warnings"><p>{t.unknownOutcomeExplore}</p><button type="button" aria-disabled={busy} onClick={() => explore('where')}>{t.whereAmI}</button></div>}
-        <AskView answer={answer} busy={busy} onAsk={ask} onRead={(text) => speech.speak(text, language)} onStop={speech.stop} speaking={speech.speaking} canSpeak={speech.supported} saved={source === 'saved'} t={t} />
+        <AskView answer={answer} busy={busy} onAsk={ask} onRead={(text) => speech.speak(text, language)} onStop={stopReading} speaking={speech.speaking} canSpeak={speech.supported} saved={source === 'saved'} t={t} />
       </>}
       {error && <p className="error-message">{error}</p>}
       {busy && <p>{t.working}</p>}
     </main>
     <footer>{t.preparationNote}</footer>
-    <div className="sr-only" role="status" aria-live={automatic && !error ? 'off' : 'polite'} aria-atomic="true">{announcement}</div>
+    <div className="sr-only" role="status" aria-live={automatic && !error && !journey.error ? 'off' : 'polite'} aria-atomic="true">{announcement}</div>
   </>;
 }

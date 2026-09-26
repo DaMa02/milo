@@ -89,7 +89,7 @@ export interface ExploreStep {
   meta: Meta;
 }
 
-const isRecord = (value: unknown): value is Record<string, unknown> =>
+export const isRecord = (value: unknown): value is Record<string, unknown> =>
   value !== null && typeof value === 'object' && !Array.isArray(value);
 const isString = (value: unknown): value is string => typeof value === 'string';
 const isText = (value: unknown): value is string => isString(value) && value.length > 0;
@@ -110,7 +110,7 @@ const isDirection = (value: unknown): value is RelativeDirection =>
   matches(value, /^(ahead|behind|left|right|at ([1-9]|1[0-2]) o'clock)$/);
 const isTri = (value: unknown): value is Tri => isOneOf(value, ['yes', 'no', 'unknown']);
 
-function isFact(value: unknown): value is Fact {
+export function isFact(value: unknown): value is Fact {
   if (!isRecord(value)) return false;
   const primitive = value.value === null || isString(value.value)
     || typeof value.value === 'boolean' || isNumber(value.value);
@@ -125,7 +125,7 @@ function isFact(value: unknown): value is Fact {
     && isOneOf(value.completeness, ['complete', 'unknown']);
 }
 
-function isMeta(value: unknown): value is Meta {
+export function isMeta(value: unknown): value is Meta {
   return isRecord(value)
     && isOneOf(value.mode, ['live', 'offline'])
     && isOneOf(value.cache, ['hit', 'miss', 'none'])

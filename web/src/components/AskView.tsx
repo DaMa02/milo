@@ -65,7 +65,7 @@ export function AskView({ answer, busy, onAsk, onRead, onStop, speaking, canSpea
   }
 
   function stop() {
-    if (speaking) onStop();
+    if (speaking || busy) onStop();
   }
 
   return <section className="ask-panel" aria-labelledby={headingId}>
@@ -125,14 +125,14 @@ export function AskView({ answer, busy, onAsk, onRead, onStop, speaking, canSpea
       <p className="answer-text">{parts.short}</p>
       <div className="button-row">
         <button type="button" disabled={!canSpeak} onClick={() => onRead([parts.short, ...answer.unknown].join(' '))}>{t.listenAnswer}</button>
-        <button type="button" aria-disabled={!speaking} onClick={stop}>{t.stopReading}</button>
+        <button type="button" aria-disabled={!speaking && !busy} onClick={stop}>{t.stopReading}</button>
       </div>
       {parts.detail && <details>
         <summary>{t.details}</summary>
         <p>{parts.detail}</p>
         <div className="button-row">
           <button type="button" disabled={!canSpeak} onClick={() => onRead([answer.text, ...answer.unknown].join(' '))}>{t.readDetails}</button>
-          <button type="button" aria-disabled={!speaking} onClick={stop}>{t.stopReading}</button>
+          <button type="button" aria-disabled={!speaking && !busy} onClick={stop}>{t.stopReading}</button>
         </div>
       </details>}
       {answer.unknown.length > 0 && <div className="warnings">

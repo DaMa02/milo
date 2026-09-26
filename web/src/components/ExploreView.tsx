@@ -122,7 +122,7 @@ export function ExploreView({ step, t, localize, busy, onCommand, summary, onRea
       <p>{localize(step.text)}</p>
       <div className="button-row">
         <button type="button" onClick={onReadDetails} disabled={!canSpeak}>{t.readDetails}</button>
-        <button type="button" aria-disabled={!speaking} onClick={() => { if (speaking) onStopReading(); }}>{t.stopReading}</button>
+        <button type="button" aria-disabled={!speaking && !busy} onClick={() => { if (speaking || busy) onStopReading(); }}>{t.stopReading}</button>
       </div>
       {step.branches.length === 0 ? <p>{t.emptyBranches}</p> : <ol className="branch-list">
         {step.branches.map((branch, index) => <li key={`${branch.name}-${branch.relative_direction}-${index}`}>

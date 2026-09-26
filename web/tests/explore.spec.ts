@@ -29,8 +29,8 @@ async function observeLocalRun(page: Page) {
 }
 
 async function expandAllDetails(page: Page) {
-  while (await page.locator('details:not([open]) > summary').count()) {
-    await page.locator('details:not([open]) > summary').first().click();
+  while (await page.locator('.result-panel details:not([open]) > summary').count()) {
+    await page.locator('.result-panel details:not([open]) > summary').first().click();
   }
 }
 
@@ -41,7 +41,7 @@ test('keyboard exploration preserves the recorded position, uncertainty and retu
   await expect(page.getByRole('heading', { name: 'Overview', level: 2 })).toBeFocused();
   const narration = page.locator('.result-text');
   await expect(narration).toHaveText(overview.text);
-  await expect(page.getByText(overview.reference.text, { exact: false })).toBeVisible();
+  await expect(page.locator('.result-panel').getByText(overview.reference.text, { exact: false })).toBeVisible();
   for (const unknown of overview.unknown) await expect(page.getByText(unknown, { exact: true })).toBeVisible();
   await keyboardActivate(page, page.getByText('More detail', { exact: true }));
   for (const detail of overview.details) await expect(page.getByText(detail, { exact: true })).toBeVisible();
