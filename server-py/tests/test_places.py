@@ -3,9 +3,12 @@ Offline: any real network connection attempt fails the test.
 
     python tests/test_places.py      (from server-py)
 """
+import json
+import os
 import pathlib
 import socket
 import sys
+from types import SimpleNamespace as NS
 
 HERE = pathlib.Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE.parent))
@@ -45,7 +48,11 @@ def feat(lat, lon, **props):
 SEARCH = [feat(45.5, 9.4, name="Far Place", osm_key="amenity", osm_value="cafe", city="Elsewhere"),  # outside the map
           feat(45.4466, 9.2058, name="Bocconi University", osm_key="amenity", osm_value="university",
                street="Via Roberto Sarfatti", housenumber="25", city="Milan"),
-          feat(45.45, 9.2, osm_key="place", osm_value="postcode")]  # no name: dropped
+          feat(45.45, 9.2, osm_key="place", osm_value="postcode"),  # no name: dropped
+          feat(14.65, 121.07, name="Manila University", osm_key="amenity", osm_value="university")]  # > 25 km: dropped
+MISHEARD = [feat(14.65, 121.07, name="Baconi University", osm_key="amenity", osm_value="university"),
+            feat(44.43, 26.1, name="Bacon University", osm_key="amenity", osm_value="university"),
+            feat(40.85, 14.27, name="Naples Baconi", osm_key="amenity", osm_value="university")]
 REVERSE = [feat(45.44387, 9.20809, name="ATM", osm_key="amenity", osm_value="atm"),
            feat(45.44390, 9.20810, name="Talent Garden", osm_key="building", osm_value="yes",
                 street="Via Arcivescovo Calabiana", housenumber="6", city="Milan"),
@@ -57,13 +64,32 @@ def photon(req):
     calls.append(req.url)
     if down[0]:
         raise httpx.ConnectTimeout("down")
-    return httpx.Response(200, json={"features": REVERSE if req.url.path == "/reverse" else SEARCH})
+    if req.url.path == "/reverse":
+        return httpx.Response(200, json={"features": REVERSE})
+    return httpx.Response(200, json={"features": MISHEARD if "baconi" in req.url.params["q"].lower() else SEARCH})
+
+
+class FakeLLM:
+    """Stands in for anthropic.Anthropic: always guesses Bocconi (twice, to test the dedupe), records every call."""
+    def __init__(self):
+        self.calls = []
+        self.beta = NS(messages=NS(create=self.create))
+
+    def create(self, **kw):
+        self.calls.append(kw)
+        return NS(stop_reason="end_turn",
+                  content=[NS(type="text", text=json.dumps({"names": ["Bocconi University", "Università Bocconi"]}))])
+
+
+def router(llm=None):
+    a = FastAPI()
+    a.include_router(make_router(lambda: zone, httpx.Client(transport=httpx.MockTransport(photon)), llm))
+    return TestClient(a)
 
 
 zone = Zone()
-app = FastAPI()
-app.include_router(make_router(lambda: zone, httpx.Client(transport=httpx.MockTransport(photon))))
-c = TestClient(app)
+llm = FakeLLM()
+c = router(llm)
 
 # search: mapping, inside-the-map first, distance from near rounded to 10 m
 r = c.post("/places/search", json={"query": "the bocconi university milan", "near": {"lat": 45.44386, "lon": 9.20808}})
@@ -77,6 +103,22 @@ check(b["distance_m"] % 10 == 0 and 200 < b["distance_m"] < 600, f"distance ({b[
 check(set(b) == {"name", "kind", "street", "housenumber", "city", "lat", "lon", "distance_m"}, "candidate keys")
 q = calls[-1].params
 check(q["limit"] == "3" and q["lang"] == "en" and q["lat"] == "45.444", f"photon params ({q})")
+check(q["bbox"] == "9.0,45.35,9.35,45.6", f"photon restricted to greater Milan ({q.get('bbox')})")
+check(not llm.calls, "Photon found it: no model call")
+
+# misheard: every Photon hit is > 25 km away (Manila, Bucharest, Naples) -> Claude guesses once -> Bocconi
+r = c.post("/places/search", json={"query": "Baconi University", "near": {"lat": 45.44386, "lon": 9.20808}})
+check(r.status_code == 200 and [x["name"] for x in r.json()["candidates"]] == ["Bocconi University", "Far Place"],
+      f"misheard corrected ({r.json()})")
+check(len(llm.calls) == 1 and "'Baconi University'" in llm.calls[0]["messages"][0]["content"]
+      and llm.calls[0]["output_config"]["effort"] == "low", "one low-effort model call with the query")
+check([u.params["q"] for u in calls[-3:]] == ["Baconi University", "Bocconi University", "Università Bocconi"]
+      and all(u.params["bbox"] == "9.0,45.35,9.35,45.6" for u in calls[-3:]), "guesses searched inside the bbox")
+
+# no key: no model call, straight to the offline fallback (nothing in the zone map: sayable 422)
+os.environ.pop("ANTHROPIC_API_KEY", None)
+r = router().post("/places/search", json={"query": "Baconi University"})
+check(r.status_code == 422 and r.json()["detail"] == NOT_FOUND, f"no key 422 ({r.json()})")
 
 # identical query: served from the cache
 n = len(calls)

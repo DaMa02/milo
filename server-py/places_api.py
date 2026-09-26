@@ -4,15 +4,19 @@
 
 Queries and coordinates stay in request bodies and are never logged.
 """
+import json
 import logging
+import os
 from functools import lru_cache
 from typing import Optional
 
+import anthropic
 import httpx
 import osmnx as ox
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
+from lotl import llm as lotl_llm
 from lotl.tools import _norm, _places
 from lotl.zone import r10
 
@@ -23,6 +27,12 @@ NAMED = {"building", "tourism", "shop"}  # osm_key whose name is a place worth s
 NAMED_AMENITY = {"university", "school", "hospital", "place_of_worship"}
 NOISE = ("!amenity:bicycle_rental", "!highway:bus_stop", "!railway:tram_stop", "!railway:platform",
          "!public_transport:platform", "!public_transport:stop_position")  # stops and bike docks outrank the place asked
+MILAN = (9.0, 45.35, 9.35, 45.6)  # min lon, min lat, max lon, max lat: Photon's lat/lon only biases, bbox restricts
+MAX_KM = 25  # farther than this from the reference point is another city's namesake
+FIX = ("A blind pedestrian in Milan said this place name through speech recognition, which may have misheard it: "
+       "'{}'. Give up to 2 likely intended place names in Milan.")
+FIX_SCHEMA = {"type": "object", "additionalProperties": False, "required": ["names"],
+              "properties": {"names": {"type": "array", "items": {"type": "string"}}}}
 logging.getLogger("httpx").setLevel(logging.WARNING)  # httpx logs request URLs, which carry queries and coordinates
 
 
@@ -57,6 +67,33 @@ def from_photon(f, ref):
                      lat, lon, ref)
 
 
+def bbox(center):
+    """Greater Milan, or the zone centre +- ~20 km for a zone outside it."""
+    lat, lon = center
+    if MILAN[0] <= lon <= MILAN[2] and MILAN[1] <= lat <= MILAN[3]:
+        return ",".join(map(str, MILAN))
+    return ",".join(str(round(v, 3)) for v in (lon - 0.26, lat - 0.18, lon + 0.26, lat + 0.18))
+
+
+def corrections(query, llm=None):
+    """Up to 2 names Claude thinks speech recognition misheard as query; [] without a key or on any model error."""
+    if llm is None and not os.environ.get("ANTHROPIC_API_KEY"):
+        return []
+    try:
+        llm = llm or lotl_llm.client().with_options(timeout=10.0, max_retries=0)  # a pedestrian is waiting
+        r = llm.beta.messages.create(
+            model=lotl_llm.MODEL, max_tokens=256, messages=[{"role": "user", "content": FIX.format(query)}],
+            output_config={"effort": "low", "format": {"type": "json_schema", "schema": FIX_SCHEMA}},
+            betas=["server-side-fallback-2026-07-01"], fallbacks="default",
+        )
+        if r.stop_reason == "refusal":
+            return []
+        names = json.loads(next(b.text for b in r.content if b.type == "text"))["names"]
+        return [" ".join(str(n).split())[:200] for n in names if str(n).strip()][:2]
+    except (anthropic.AnthropicError, StopIteration, ValueError, KeyError, TypeError):
+        return []
+
+
 def offline(zone, query, ref):
     """Named streets and features of the zone map that match the query, nearest first."""
     q, pool = _norm(query), _places(zone)
@@ -70,7 +107,7 @@ def offline(zone, query, ref):
     return sorted(out, key=lambda c: c["distance_m"])[:3]
 
 
-def make_router(get_zone, client=None):
+def make_router(get_zone, client=None, llm=None):
     router = APIRouter()
     client = client or httpx.Client(timeout=3, headers={"User-Agent": UA})
 
@@ -87,10 +124,22 @@ def make_router(get_zone, client=None):
             raise HTTPException(422, "Which place do you mean? Say its name, the street or the area.")
         zone = get_zone()
         ref = (body.near.lat, body.near.lon) if body.near else tuple(zone.center)
+        box = bbox(tuple(zone.center))
+
+        def near(q):
+            feats = photon("/api", q=q, limit=3, lang="en", lat=round(ref[0], 3), lon=round(ref[1], 3),
+                           osm_tag=NOISE, bbox=box)
+            return [c for c in (from_photon(f, ref) for f in feats) if c["name"] and c["distance_m"] <= MAX_KM * 1000]
+
         try:
-            feats = photon("/api", q=query, limit=3, lang="en", lat=round(ref[0], 3), lon=round(ref[1], 3),
-                           osm_tag=NOISE)
-            found = [c for c in (from_photon(f, ref) for f in feats) if c["name"]]
+            found = near(query)
+            if not found:  # maybe misheard ("Baconi University"): ask Claude once, search its guesses
+                seen = set()
+                for c in (c for fix in corrections(query, llm) for c in near(fix)):
+                    if c["name"].lower() not in seen:
+                        seen.add(c["name"].lower())
+                        found.append(c)
+                found = found[:3]
         except (httpx.HTTPError, ValueError, KeyError, TypeError):
             found = []
         found = found or offline(zone, query, ref)
