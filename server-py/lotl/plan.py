@@ -16,10 +16,11 @@ from datetime import datetime, timedelta, timezone
 from functools import lru_cache
 
 import networkx as nx
+import numpy as np
 from shapely.geometry import LineString
 
 from .tools import PlaceError, resolve_place
-from .zone import SPEED, TOOLS, fmt, ids, join_and, lc, meta, mins, plural, r10
+from .zone import SPEED, TALENT_GARDEN, TOOLS, fmt, ids, join_and, lc, meta, mins, plural, r10
 
 KINDS = ("unsignalled_crossings", "signals_without_sound", "steps", "construction", "main_roads", "transfers", "walking_over_min")
 STRENGTHS = ("avoid_when_possible", "require")
@@ -33,7 +34,11 @@ PATH_KINDS = ("unsignalled_crossings", "signals_without_sound", "steps", "main_r
 MAIN = {"primary", "primary_link", "secondary", "secondary_link", "trunk", "trunk_link"}
 VIOLATION, UNKNOWN, MAIN_PER_M = 1e7, 1e4, 1e4  # fewest known violations, then fewest unknowns, then shortest
 XING_M = 10  # an OSM crossing node this close to a Transitous walking trace is on that trace
-PAVEMENT_M = 15  # a pavement (footway=sidewalk) this close to a main road runs along it
+PAVEMENT_M = 30  # a pavement (footway=sidewalk) this close to a main road runs along it (Milan viali are wide)
+SIDE_STREET_FACTOR = 1.3  # route A: a metre off main roads costs 1.3 metres, so it keeps to main streets
+CROP_M = 1200  # routes are searched in the box around their ends plus this margin
+CAND_N = 12  # supermarkets routed for stop candidates: the nearest to the straight line origin -> destination
+MAIN_LABEL = "along main streets"
 UA = "bainsa-hackathon-2026/0.1 (maglionicodaniele@gmail.com)"
 TRANSIT = "https://api.transitous.org/api/v6/plan?"
 TRANSIT_CACHE = TOOLS / "py/transit-cache"
@@ -88,6 +93,10 @@ def _cap(s):
     return s[:1].upper() + s[1:]
 
 
+def _where(zone):  # what the mapped area is centred on, in spoken text
+    return "Talent Garden" if tuple(zone.center) == TALENT_GARDEN else zone.name
+
+
 def _hw(d):
     h = d.get("highway")
     return set(h) if isinstance(h, list) else {h}
@@ -123,7 +132,7 @@ def _main_edges(zone):
     E = zone.E
     roads = E[E["highway"].map(lambda h: bool(_hw({"highway": h}) & MAIN))]
     side = E[E["footway"] == "sidewalk"] if "footway" in E else E.iloc[:0]
-    # ponytail: nearest main road within 15 m, a side street's pavement at a junction can match; tune PAVEMENT_M
+    # ponytail: nearest main road within 30 m, a side street's pavement at a junction can match; tune PAVEMENT_M
     near = roads.sindex.nearest(side.geometry, max_distance=PAVEMENT_M, return_all=False)
     return {(min(u, v), max(u, v)) for u, v, _k in list(roads.index) + list(side.index[near[0]])}
 
@@ -134,12 +143,33 @@ def _edge_bad(zone, kind, u, v, d):
     return (min(u, v), max(u, v)) in (_main_edges(zone) if kind == "main_roads" else _construction(zone)[1])
 
 
+@lru_cache(maxsize=2)
+def _xy(zone):
+    ns = list(zone.G.nodes)
+    return ns, np.array([(zone.G.nodes[n]["x"], zone.G.nodes[n]["y"]) for n in ns])
+
+
+def _box(zone, *snaps):
+    pts = [zone.nxy(s["u"]) for s in snaps]
+    return (min(p.x for p in pts) - CROP_M, min(p.y for p in pts) - CROP_M,
+            max(p.x for p in pts) + CROP_M, max(p.y for p in pts) + CROP_M)
+
+
+@lru_cache(maxsize=16)
+def _nodes(zone, box):
+    ns, xy = _xy(zone)
+    inside = (xy[:, 0] >= box[0]) & (xy[:, 1] >= box[1]) & (xy[:, 0] <= box[2]) & (xy[:, 1] <= box[3])
+    return frozenset(n for n, k in zip(ns, inside) if k)
+
+
 @lru_cache(maxsize=32)
-def _graph(zone, key):
-    """Walk graph for constraints key ((kind, strength), ...): require removes known violations, avoid makes each
-    one cost 10,000 km (main roads: 10 km per metre); unknown crossings cost 10 km, so verified ways win ties."""
-    if not key:
-        return zone.G
+def _graph(zone, key, box, main=False):
+    """Walk graph inside box for constraints key ((kind, strength), ...): require removes known violations, avoid
+    makes each one cost 10,000 km (main roads: 10 km per metre); unknown crossings cost 10 km, so verified ways win
+    ties. main: a metre off main roads costs SIDE_STREET_FACTOR, unless main roads are to be avoided."""
+    G = zone.G.subgraph(_nodes(zone, box))
+    if not key and not main:
+        return G
     req = {k for k, s in key if s == "require"}
     kinds = {k for k, _s in key}
 
@@ -153,15 +183,17 @@ def _graph(zone, key):
             sum(UNKNOWN for k in kinds if k in UNK and UNK[k](x))
 
     cost = {n: node_cost(n) for n in zone.CROSSINGS}
+    me = _main_edges(zone) if main and "main_roads" not in kinds else None
     H = nx.Graph()
-    for u, v, d in zone.G.edges(data=True):
+    for u, v, d in G.edges(data=True):
         cu, cv = cost.get(u, 0.0), cost.get(v, 0.0)
         if cu is None or cv is None:
             continue
         bad = [k for k in kinds & {"steps", "main_roads", "construction"} if _edge_bad(zone, k, u, v, d)]
         if any(k in req for k in bad):
             continue
-        w = d["length"] + (cu + cv) / 2 + sum(MAIN_PER_M * d["length"] if k == "main_roads" else VIOLATION for k in bad)
+        f = SIDE_STREET_FACTOR if me is not None and (min(u, v), max(u, v)) not in me else 1.0
+        w = d["length"] * f + (cu + cv) / 2 + sum(MAIN_PER_M * d["length"] if k == "main_roads" else VIOLATION for k in bad)
         if not H.has_edge(u, v) or H[u][v]["w"] > w:
             H.add_edge(u, v, length=d["length"], w=w)
     H.graph["pen"] = {n: c for n, c in cost.items() if c}  # for _route: the cost of a crossing at a snap node
@@ -171,6 +203,8 @@ def _graph(zone, key):
 def _route(zone, H, a, b):
     """zone.route on H, with a crossing at a snap node charged in full: each edge of H carries half of its nodes' cost,
     the snapped point's own edge none."""
+    if H is zone.G:
+        H = H.subgraph(_nodes(zone, _box(zone, a, b)))
     pen = H.graph.get("pen") or {}
     ends = [(name, n, w) for name, s in (("A", a), ("B", b)) for n, w in ((s["u"], s["su"]), (s["v"], s["sv"]))
             if pen.get(n) and n in H]
@@ -491,6 +525,9 @@ def _finish(ctx, r, shortest, fewest=False):
                   z.fact("route_extra_time", extra_min, "min", "computed", ev, rin)] + r.get("_extra", [])
     if "_m" in r:
         r["facts"].append(z.fact("route_distance", r10(r["_m"]), "m", "computed", ev, rin))
+    if r["mode"] == "foot" and not any(c["kind"] == "main_roads" for c in cons):
+        r["facts"].append(z.fact("route_main_road_distance", r10(r["_eval"]["main_m"]), "m", "computed",
+                                 r["_eval"]["main"] or ev, rin))
     for c, bad, unk in checks:
         if c["kind"] == tk:
             continue
@@ -507,7 +544,15 @@ def _finish(ctx, r, shortest, fewest=False):
         [w for c, bad, unk in checks if c["kind"] == "walking_over_min" for w in _warning(c["kind"], bad, unk, r, c)]
     dur = plural(r["duration_min"], "minute") + (f" {stop['with']}" if stop else "")
     if r["mode"] == "foot" and r["_label"] == "shortest":
-        r["summary"] = f"Route {r['id']}, on foot, the shortest, {dur}: {phr}."
+        also = f", which is also the way {MAIN_LABEL}" if r.get("_same_main") else ""
+        r["summary"] = f"Route {r['id']}, on foot, the shortest{also}, {dur}: {phr}."
+    elif r["mode"] == "foot" and r["_label"].endswith(MAIN_LABEL) and r["_eval"]["main_m"] > ctx.get("main_B", 0):
+        side = ", which uses side streets"  # this branch: A has more main-road metres than B
+        same = f", the same time as the shortest way{side}" if extra_min == 0 else \
+            f", {plural(extra_min, 'minute')} longer than the shortest way{side}" if extra_min > 0 else ", less than the shortest"
+        r["summary"] = f"Route {r['id']}, on foot, {MAIN_LABEL}, {dur}{same}: {phr}" + \
+            (", the fewest of any route in the mapped area" if fewest and any(
+                bad for c, bad, _u in checks if c["kind"] in PATH_KINDS) else "") + "."
     elif r["mode"] == "foot":
         same = ", the same time as the shortest" if extra_min == 0 else \
             f", {extra_min} more than the shortest" if extra_min > 0 else ", less than the shortest"
@@ -543,7 +588,7 @@ def _stop_place(zone, osm_id):
     g = row.geometry
     lat, lon = zone.ll(g if g.geom_type == "Point" else g.centroid)
     if not zone.in_answer_area(lat, lon):
-        raise PlanError(422, f"That place is outside the area I have mapped: {fmt(zone.answer_radius)} around Talent Garden.")
+        raise PlanError(422, f"That place is outside the area I have mapped: {fmt(zone.answer_radius)} around {_where(zone)}.")
     shop = row.get("shop") if isinstance(row.get("shop"), str) else None
     kind = "supermarket" if shop == "supermarket" else "shop" if shop else "place"
     name = row["name"] if isinstance(row.get("name"), str) else f"an unnamed {kind}"
@@ -573,18 +618,22 @@ def _compute(zone, st, prev=None, op=None):
     # foot: B always the shortest, A the route under the constraints, offered only when it is another way;
     # ids keep their role across versions, so the selection and differences[] keep meaning the same route
     key = _key(cons)
+    box = _box(zone, a, b, *([stop["snap"]] if stop else []))
     mB, pB = _route(zone, zone.G, a, b)
     if mB is None:
         raise PlanError(422, "I cannot find a walking route between these two points on the map.")
-    HA = _graph(zone, key)
-    mA, pA = _route(zone, HA, a, b) if key else (None, None)
+    HA = _graph(zone, key, box, True)
+    mA, pA = _route(zone, HA, a, b)
     kinds = ", ".join(k for k, _s in key)
+    main = "shortest" if "main_roads" in kinds else MAIN_LABEL
     foot = [_foot(ctx, "B", zone.G, mB, pB, "shortest")]
     if mA is not None:
-        foot.insert(0, _foot(ctx, "A", HA, mA, pA, f"fewest known violations of {kinds}, then shortest"))
+        foot.insert(0, _foot(ctx, "A", HA, mA, pA, f"fewest known violations of {kinds}, then {main}" if key else main))
+    ctx["main_B"] = foot[-1]["_eval"]["main_m"]
     if stop:
         foot = [x for x in (_foot_stop(ctx, r, stop) for r in foot) if x]
     if len(foot) == 2 and foot[0]["_p"] == foot[1]["_p"]:
+        foot[1]["_same_main"] = foot[0]["_label"].endswith(MAIN_LABEL) and foot[1]["_eval"]["main_m"] > 0
         foot = foot[1:]
 
     unknown = []
@@ -624,15 +673,15 @@ def _compute(zone, st, prev=None, op=None):
     facts += [zone.fact("walking_limit", c["value"], "min", "unknown", [], {"said_by_user": True})
               for c in cons if c["kind"] == "walking_over_min"]
     facts += _name_facts(zone, [(o["name"], "unknown", []), (d["name"], "unknown", [])])
-    unknown = [f"Routes that go farther than {fmt(zone.dist)} from Talent Garden were not considered.", UNMAPPED] + unknown
+    unknown = [f"Routes that go farther than {fmt(zone.dist)} from {_where(zone)} were not considered.", UNMAPPED] + unknown
 
     # what the map says about every way, not only the offered ones
-    every_k = [k for k, _s in key if SAY[k][4] and _route(zone, _graph(zone, ((k, "require"),)), a, b)[0] is None]
+    every_k = [k for k, _s in key if SAY[k][4] and _route(zone, _graph(zone, ((k, "require"),), box), a, b)[0] is None]
     every = [_say(k, 4) for k in every_k]
     fewest = None
     if req and not offered:  # the way to offer instead: fewest violations of a required path kind, else the shortest walk
         path_req = any(c["kind"] in PATH_KINDS for c in req)
-        HF = _graph(zone, _key(cons, "avoid_when_possible")) if path_req else zone.G
+        HF = _graph(zone, _key(cons, "avoid_when_possible"), box) if path_req else zone.G
         mF, pF = _route(zone, HF, a, b)
         fr = mF is not None and _foot(ctx, "A" if path_req else "B", HF, mF, pF,
                                       "fewest known violations" if path_req else "shortest")
@@ -916,7 +965,8 @@ def _apply(zone, session, st, op):
 
 
 # ---------- the API ----------
-def create(zone, session, destination, origin=None, depart_at=None, constraints=None, detour_tolerance=None):
+def create(zone, session, destination=None, origin=None, depart_at=None, constraints=None, detour_tolerance=None):
+    destination = destination or getattr(session, "destination", None)
     if not destination or isinstance(destination, dict) and destination.get("lat") is None and not destination.get("name"):
         raise PlanError(422, "Where do you want to go?")
     o, d = _point(zone, origin, session), _point(zone, destination, session)
@@ -953,19 +1003,23 @@ def candidates(zone, session, kind="supermarket", if_version=None):
         raise PlanError(422, "Choose a route first: then I can look for supermarkets along it.")
     o, d = doc["origin"], doc["destination"]
     a, b = zone.snap(o["lat"], o["lon"]), zone.snap(d["lat"], d["lon"])
-    H = _graph(zone, _key(doc["constraints"])) if sel == "A" else zone.G
+    H = _graph(zone, _key(doc["constraints"]), _box(zone, a, b), True) if sel == "A" else zone.G
     m0, _p = _route(zone, H, a, b)
     if m0 is None:  # require: route A's own graph has no way
         H = zone.G
         m0, _p = _route(zone, H, a, b)
     f = zone.features
     shops = f[f["shop"] == "supermarket"] if "shop" in f else f.iloc[:0]
-    found = []
+    pa, pb, near = zone.xy(o["lat"], o["lon"]), zone.xy(d["lat"], d["lon"]), []
     for (el, i), row in shops.iterrows():
+        p = row.geometry if row.geometry.geom_type == "Point" else row.geometry.centroid
+        lat, lon = zone.ll(p)
+        if zone.in_answer_area(lat, lon):
+            near.append((p.distance(pa) + p.distance(pb), el, i, row, lat, lon))
+    found = []
+    # ponytail: only the CAND_N shops with the least straight-line detour are routed (city: hundreds); raise if one is missed
+    for _dd, el, i, row, lat, lon in sorted(near, key=lambda x: x[0])[:CAND_N]:
         g = row.geometry
-        lat, lon = zone.ll(g if g.geom_type == "Point" else g.centroid)
-        if not zone.in_answer_area(lat, lon):
-            continue
         s = zone.snap(lat, lon)
         (m1, p1), (m2, p2) = _route(zone, H, a, s), _route(zone, H, s, b)
         if m1 is None or m2 is None:
@@ -1128,7 +1182,10 @@ if __name__ == "__main__":
     assert w2["meta"]["cache"] == "miss" and all(r["mode"] == "foot" for r in w2["routes"])
 
     assert v6["compliant_route_available"] == "unknown"  # nothing offered on foot, the bus unknown offline
-    assert [c["text"], v3["text"], v4["text"]] == [fx[n]["text"] for n in ("stop-candidates", "two-foot-routes-and-transit", "stop-5-min")]
+    def fixture_words(t):  # route A now keeps to main streets and says so; the fixtures predate that wording
+        return t.replace(f"on foot, {MAIN_LABEL}, ", "on foot, ").replace("the shortest way", "the shortest")
+    assert [fixture_words(d["text"]) for d in (c, v3, v4)] == \
+        [fx[n]["text"] for n in ("stop-candidates", "two-foot-routes-and-transit", "stop-5-min")]
     assert [v3["differences"], v4["differences"], v5["differences"]] == \
         [fx[n]["differences"] for n in ("two-foot-routes-and-transit", "stop-5-min", "no-compliant-route")]
     # v5 keeps the 5-minute stop, the no-compliant-route fixture has none: the way offered instead goes through it
@@ -1141,7 +1198,7 @@ if __name__ == "__main__":
         return {r["id"]: (r["duration_min"], r["walk_min"], r["trade_off"]["violating_crossings"], len(r["crossings"]))
                 for r in doc["routes"]}
     for name, doc in zip(fx, (v1, c, v3, v4, v5)):
-        same = doc["text"] == fx[name]["text"]
+        same = fixture_words(doc["text"]) == fx[name]["text"]
         print(f"{'same' if same else 'DIFF'} text vs {name}")
         if not same:
             print("       fixture:", fx[name]["text"])
