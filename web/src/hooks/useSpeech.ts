@@ -20,14 +20,21 @@ interface SpeechRequest {
   language: string;
 }
 
-/** User-initiated browser speech. Call stop when the surrounding context changes. */
+// A short, valid PCM WAV unlocks this same element from the Talk gesture on iOS.
+const silence = 'data:audio/wav;base64,UklGRsQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YaAAAACAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICA';
+
+/** Backend AAC through one gesture-unlocked player; browser speech is a fallback. */
 export function useSpeech(): SpeechControls {
-  const [supported] = useState(() =>
+  const [browserSpeech] = useState(() =>
     typeof window !== 'undefined'
     && typeof window.SpeechSynthesisUtterance === 'function'
     && typeof window.speechSynthesis?.speak === 'function'
     && typeof window.speechSynthesis?.cancel === 'function',
   );
+  const [player] = useState(() => typeof window.Audio === 'function' ? new window.Audio() : null);
+  const supported = Boolean(player) || browserSpeech;
+  const download = useRef<AbortController | null>(null);
+  const cached = useRef<{ text: string; language: string; url: string } | null>(null);
   const [speaking, setSpeaking] = useState(false);
   const [error, setError] = useState<SpeechError | null>(null);
   const [canRepeat, setCanRepeat] = useState(false);
@@ -53,8 +60,10 @@ export function useSpeech(): SpeechControls {
       utterance.onerror = null;
     }
     currentUtterance.current = null;
-    if (supported) window.speechSynthesis.cancel();
-  }, [supported]);
+    download.current?.abort(); download.current = null;
+    if (player) { player.onended = null; player.onerror = null; player.pause(); }
+    if (browserSpeech) window.speechSynthesis.cancel();
+  }, [browserSpeech, player]);
 
   const stop = useCallback(() => {
     try {
@@ -65,20 +74,16 @@ export function useSpeech(): SpeechControls {
     if (mounted.current) setSpeaking(false);
   }, [cancelCurrent]);
 
-  const speak = useCallback((text: string, language: string) => {
+  const speakFallback = useCallback((text: string, language: string, token: number) => {
     if (!mounted.current || !text.trim()) return;
-    if (!supported) {
+    if (!browserSpeech) {
+      setSpeaking(false);
       setError('unavailable');
       return;
     }
 
     try {
-      cancelCurrent();
-      setError(null);
       const request = { text, language };
-      lastRequest.current = request;
-      setCanRepeat(true);
-      const token = generation.current;
       const spoken = /^en\b/i.test(language) ? text.replace(/(\d[\d,.]*)\s+m\b/g, '$1 metres') : text;
       const sentences = spoken.trim().split(/(?<=[.!?])\s+/).filter(Boolean);
       const banned = /\b(Albert|Bad News|Bahh|Bells|Boing|Bubbles|Cellos|Wobble|Eddy|Flo|Fred|Grandma|Grandpa|Jester|Junior|Kathy|Organ|Ralph|Reed|Rocko|Sandy|Shelley|Superstar|Trinoids|Whisper|Zarvox)\b/i;
@@ -120,7 +125,48 @@ export function useSpeech(): SpeechControls {
       setSpeaking(false);
       setError('failed');
     }
-  }, [cancelCurrent, supported]);
+  }, [browserSpeech]);
+
+  const speak = useCallback((text: string, language: string) => {
+    if (!mounted.current || !text.trim()) return;
+    cancelCurrent(); setError(null); setSpeaking(true); setCanRepeat(true);
+    lastRequest.current = { text, language };
+    const token = generation.current;
+    const current = () => mounted.current && token === generation.current;
+    let fallingBack = false;
+    const fallback = () => {
+      if (!current() || fallingBack) return;
+      fallingBack = true;
+      if (player) { player.onended = null; player.onerror = null; player.pause(); }
+      speakFallback(text, language, token);
+    };
+    if (!player) { fallback(); return; }
+    void (async () => {
+      const abort = new AbortController(); download.current = abort;
+      const timeout = setTimeout(() => abort.abort(), 20_000);
+      try {
+        let url = cached.current?.text === text && cached.current.language === language ? cached.current.url : null;
+        if (!url) {
+          const response = await fetch('/api/tts', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text, lang: language }), signal: abort.signal });
+          if (!current()) return;
+          if (!response.ok) throw new Error('Speech unavailable');
+          const blob = await response.blob();
+          if (!current()) return;
+          if (!blob.size || !blob.type.startsWith('audio/')) throw new Error('Invalid speech audio');
+          url = URL.createObjectURL(blob);
+          if (cached.current) URL.revokeObjectURL(cached.current.url);
+          cached.current = { text, language, url };
+        }
+        if (!current()) return;
+        player.src = url; player.playbackRate = rateRef.current;
+        player.onended = () => { if (current()) setSpeaking(false); };
+        player.onerror = () => { if (current()) { player.onended = null; player.onerror = null; fallback(); } };
+        await player.play();
+      } catch { fallback(); }
+      finally { clearTimeout(timeout); if (current()) download.current = null; }
+    })();
+  }, [cancelCurrent, player, speakFallback]);
 
   const repeat = useCallback(() => {
     const request = lastRequest.current;
@@ -130,15 +176,15 @@ export function useSpeech(): SpeechControls {
   const setRate = useCallback((next: number) => {
     if (!Number.isFinite(next)) return;
     rateRef.current = Math.min(2, Math.max(0.5, next)); updateRate(rateRef.current);
-  }, []);
+    if (player) player.playbackRate = rateRef.current;
+  }, [player]);
   const prime = useCallback(() => {
-    if (!supported || primed.current) return;
+    if (!player || primed.current) return;
     try {
-      const utterance = new window.SpeechSynthesisUtterance('');
-      utterance.lang = 'en-GB'; utterance.volume = 0;
-      window.speechSynthesis.speak(utterance); primed.current = true;
-    } catch { /* Explicit speech will report a platform failure if it persists. */ }
-  }, [supported]);
+      player.src = silence; player.preload = 'auto';
+      void player.play().then(() => { primed.current = true; }).catch(() => {});
+    } catch { /* A later gesture can retry unlocking. */ }
+  }, [player]);
 
   useEffect(() => {
     mounted.current = true;
@@ -147,11 +193,14 @@ export function useSpeech(): SpeechControls {
       lastRequest.current = null;
       try {
         cancelCurrent();
+        if (player) { player.removeAttribute('src'); player.load(); }
+        if (cached.current) URL.revokeObjectURL(cached.current.url);
+        cached.current = null;
       } catch {
         // Cleanup must still finish if the browser speech engine is unavailable.
       }
     };
-  }, [cancelCurrent]);
+  }, [cancelCurrent, player]);
 
   return { supported, speaking, error, canRepeat, speak, stop, repeat, rate, setRate, prime };
 }

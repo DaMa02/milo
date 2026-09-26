@@ -248,6 +248,7 @@ export function App() {
         <div className="voice-console">
           <div className="talk-dock" ref={talkDock}>
             <TalkButton state={voice.state}
+              onBeforeStart={stopReading}
               onGesture={() => { stopReading(); speech.prime(); }}
               onStart={() => { mutePendingSpeech.current = true; automaticRef.current = true; setAutomatic(true); return voice.start(); }}
               onStop={() => voice.stop(true)} onCancel={voice.cancel}
