@@ -47,6 +47,11 @@ class Fake:
         self.beta = NS(messages=NS(create=self.create))
 
     def create(self, **kw):
+        if "format" not in kw["output_config"]:  # chat.answer: a spoken reply, never a dead end
+            u = kw["messages"][-1]["content"].rsplit("The user said: ", 1)[1]
+            if u not in self.answers:
+                raise anthropic.APIConnectionError(request=None)
+            return NS(stop_reason="end_turn", content=[NS(type="text", text="I can help you walk in Milan.")])
         self.calls.append(kw)
         u = kw["messages"][0]["content"].rsplit("Utterance: ", 1)[1]
         if u not in self.answers:
@@ -212,11 +217,11 @@ CLAUDE = [  # (utterance, context, fake model answer, action, params)
      "route_avoid", {"kind": "main_roads"}),
     ("Let's go with the one on the big streets", PLAN, blank(action="route_select", route_id="B"),
      "route_select", {"route_id": "B"}),
-    ("Can we do route Z", PLAN, blank(action="route_select", route_id="Z"), "none", {"reason": "unclear"}),
+    ("Can we do route Z", PLAN, blank(action="route_select", route_id="Z"), "chat", {"text": "I can help you walk in Milan.", "web": False}),
     ("I'm somewhere near the cathedral", {}, blank(action="set_origin", query="the cathedral"),
      "set_origin", {"query": "the cathedral"}),
-    ("Book me a flight to Rome", {}, blank(action="none", reason="outside_area"), "none", {"reason": "outside_area"}),
-    ("What colour is the sky?", {}, blank(action="none", reason="no_fit"), "none", {"reason": "no_fit"}),
+    ("Book me a flight to Rome", {}, blank(action="none", reason="outside_area"), "chat", {"text": "I can help you walk in Milan.", "web": False}),
+    ("What colour is the sky?", {}, blank(action="none", reason="no_fit"), "chat", {"text": "I can help you walk in Milan.", "web": False}),
     ("Go down the street on my left", EXPLORE, blank(action="explore", command="take", branch="0"),
      "explore", {"command": "take", "branch": 0}),
     ("Could we pop into a chemist somewhere along the route", PLAN, blank(action="route_stop", kind="pharmacy", minutes=10),
@@ -226,7 +231,7 @@ CLAUDE = [  # (utterance, context, fake model answer, action, params)
              "params": {"place": {"name": "Carrefour"}}}),
     ("Right, let's get moving with the directions", PLAN, blank(action="navigate", state="start"), "navigate", {"state": "start"}),
     ("Make it twenty-five minutes", STOPS, blank(action="stop_duration", minutes=25), "stop_duration", {"minutes": 25}),
-    ("Stop somewhere for a bite, a pizzeria", PLAN, blank(action="route_stop", kind="pizzeria"), "none", {"reason": "unclear"}),
+    ("Stop somewhere for a bite, a pizzeria", PLAN, blank(action="route_stop", kind="pizzeria"), "chat", {"text": "I can help you walk in Milan.", "web": False}),
 ]
 
 GUIDE = "Could you get the guidance going"

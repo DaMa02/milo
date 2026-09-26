@@ -203,3 +203,6 @@ app.include_router(make_nav_router(lambda: ZONE, get))
 
 from tts_api import make_router as make_tts_router  # noqa: E402
 app.include_router(make_tts_router())
+
+from speak_api import make_router as make_speak_router  # noqa: E402
+app.include_router(make_speak_router(get))

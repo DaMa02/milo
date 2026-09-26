@@ -236,8 +236,8 @@ def make_router(get_session, get_zone=lambda: None, llm=None, jev_http=None):
             out = claude(c, body.utterance, {**ctx, "lang": body.lang, "branches": names})
             action, params = to_action(out, ctx)
         except (Unavailable, ValueError, KeyError, StopIteration):
-            return {"utterance": body.utterance, "action": "none", "params": {"reason": "model_unavailable"}, "via": "grammar"}
-        if action == "chat":
+            return chat_reply(c, body)
+        if action in ("chat", "none"):  # never a dead end: anything that fits no action gets a spoken answer
             return chat_reply(c, body)
         if action == "ask":
             params = {"question": body.utterance, **params}

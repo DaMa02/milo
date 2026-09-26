@@ -136,8 +136,6 @@ def overview(zone, session):
                       zone.fact("barrier", x["name"], None, "map_tag", [x["id"]], zone.feature_inputs)]
             barriers.append({"name": x["name"], "kind": "construction", "relative_direction": x["clock"],
                              "distance_m": x["dist"], "osm_ids": [x["id"]], "crossings_on_foot": None})
-        unknown.append("The map does not say whether the construction site blocks any pavement." if len(sites) == 1 else
-                       "The map does not say whether the construction sites block any pavement.")
 
     # main roads within 500 m, grouped by name, nearest first
     roads = []

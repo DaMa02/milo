@@ -500,10 +500,6 @@ def _barrier(zone, session, params):
                              "place": p["name"]}) for p in places]
         facts.append(zone.fact("radius", W, "m", "unknown", [], {"graph": zone.graph_inputs}))
         unknown.append(f"Crossings farther than {r} from {wname} are not counted, so there may be more.")
-    sites = sum(e["kind"] == "construction site" for e in bars)
-    if sites:
-        unknown.append("The map does not say whether the construction site blocks any pavement." if sites == 1 else
-                       "The map does not say whether the construction sites block any pavement.")
     return text, facts, unknown
 
 
@@ -753,8 +749,6 @@ def _extent(zone, session, params):
               zone.fact("longest_side_time", mins(side), "min", "computed", p["evidence"], e_in),
               zone.fact("walk_around_time", mins(perim), "min", "computed", p["evidence"], e_in)]
     unknown = ["The map does not say where the entrances are."]
-    if p["kind"] == "construction site":
-        unknown.append("The map does not say whether the construction site blocks any pavement.")
     return text, facts, unknown
 
 
