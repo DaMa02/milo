@@ -1,11 +1,13 @@
 import { isRecord, type AskRequest, type AskTool, type ExploreCommand } from './contracts';
-import type { ConstraintKind, ConstraintStrength } from './plan-contracts';
+import { stopKinds, type ConstraintKind, type ConstraintStrength, type StopKind } from './plan-contracts';
 import { requestJson } from './http';
 
 export interface CommandContext {
   view: 'overview' | 'explore' | 'plan';
-  pending: 'origin' | 'destination' | null;
+  pending: 'origin' | 'destination' | 'stop' | null;
   candidates: string[];
+  stop_candidates?: string[];
+  last_action?: 'route_stop';
   has_destination: boolean;
   routes: { id: string; label: string }[];
 }
@@ -13,20 +15,25 @@ type SimpleAction = 'overview' | 'more' | 'unknowns' | 'sources' | 'repeat' | 's
 export type VoiceCommand = { action: SimpleAction; params: Record<string, never> }
   | { action: 'explore'; params: { command: ExploreCommand; branch?: number | string } }
   | { action: 'ask'; params: AskRequest }
+  | { action: 'chat'; params: { text: string; web: boolean } }
   | { action: 'speed'; params: { change: 'faster' | 'slower' } }
   | { action: 'navigate'; params: { state: 'start' | 'stop' } }
   | { action: 'set_origin' | 'set_destination'; params: { query: string } }
   | { action: 'confirm'; params: { answer: 'yes' | 'no'; index?: number } }
   | { action: 'route_select'; params: { route_id: string } }
   | { action: 'route_avoid'; params: { kind: ConstraintKind; strength?: ConstraintStrength } }
+  | { action: 'route_stop'; params: { kind: StopKind; duration_min?: number } }
+  | { action: 'stop_duration'; params: { minutes: number } }
+  | { action: 'navigate'; params: { state: 'start' | 'stop' } }
   | { action: 'none'; params: { reason: 'no_fit' | 'outside_area' | 'unclear' | 'model_unavailable' } };
 
 const simple = new Set<string>(['overview', 'more', 'unknowns', 'sources', 'repeat', 'stop', 'help', 'start_over', 'set_origin_here', 'route']);
 const commands = new Set<string>(['start', 'forward', 'left', 'right', 'take', 'back', 'home', 'where']);
-const tools = new Set<string>(['barrier_between', 'extent', 'street_continuity', 'independent_connections', 'walking_vs_straight_line']);
+const tools = new Set<string>(['barrier_between', 'extent', 'street_continuity', 'independent_connections', 'walking_vs_straight_line', 'place_info']);
 const constraints = new Set<string>(['unsignalled_crossings', 'signals_without_sound', 'steps', 'construction', 'main_roads', 'transfers']);
 const text = (v: unknown): v is string => typeof v === 'string' && v.trim().length > 0;
 const index = (v: unknown): v is number => typeof v === 'number' && Number.isSafeInteger(v) && v >= 0;
+const minutes = (v: unknown): v is number => index(v) && v >= 1 && v <= 180;
 
 /** Structural projection of contracts/README.md, not a separate wire schema. */
 export function parseCommand(value: unknown): VoiceCommand {
@@ -34,12 +41,14 @@ export function parseCommand(value: unknown): VoiceCommand {
     || !['grammar', 'jev', 'claude'].includes(String(value.via))) throw new Error('Invalid interpreted command');
   const { action, params: p } = value;
   if (simple.has(action)) return { action: action as SimpleAction, params: {} };
+  if (action === 'chat' && text(p.text) && typeof p.web === 'boolean') return { action, params: { text: p.text, web: p.web } };
   if (action === 'explore' && commands.has(String(p.command))
     && (p.branch === undefined || index(p.branch) || text(p.branch))
     && (p.command !== 'take' || p.branch !== undefined)) {
     return { action, params: { command: p.command as ExploreCommand, ...(p.branch === undefined ? {} : { branch: p.branch as number | string }) } };
   }
   if (action === 'ask' && text(p.question) && tools.has(String(p.tool)) && isRecord(p.params)) {
+    if (p.tool === 'place_info' && (!isRecord(p.params.place) || !text(p.params.place.name))) throw new Error('Invalid place information request');
     return { action, params: { question: p.question, tool: p.tool as AskTool, params: p.params } };
   }
   if (action === 'speed' && (p.change === 'faster' || p.change === 'slower')) return { action, params: { change: p.change } };
@@ -49,6 +58,12 @@ export function parseCommand(value: unknown): VoiceCommand {
     return { action, params: { answer: p.answer, ...(p.index === undefined ? {} : { index: p.index }) } };
   }
   if (action === 'route_select' && text(p.route_id)) return { action, params: { route_id: p.route_id } };
+  if (action === 'route_stop' && stopKinds.includes(p.kind as StopKind)
+    && (p.duration_min === undefined || minutes(p.duration_min))) {
+    return { action, params: { kind: p.kind as StopKind, ...(p.duration_min === undefined ? {} : { duration_min: p.duration_min }) } };
+  }
+  if (action === 'stop_duration' && minutes(p.minutes)) return { action, params: { minutes: p.minutes } };
+  if (action === 'navigate' && (p.state === 'start' || p.state === 'stop')) return { action, params: { state: p.state } };
   if (action === 'route_avoid' && constraints.has(String(p.kind))
     && (p.strength === undefined || p.strength === 'require' || p.strength === 'avoid_when_possible')) {
     return { action, params: { kind: p.kind as ConstraintKind, ...(p.strength === undefined ? {} : { strength: p.strength }) } };

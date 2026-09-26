@@ -25,13 +25,13 @@ export interface Meta {
   computed_at: string;
 }
 
-export type AskTool = 'barrier_between' | 'extent' | 'street_continuity' | 'independent_connections' | 'walking_vs_straight_line';
+export type AskTool = 'barrier_between' | 'extent' | 'street_continuity' | 'independent_connections' | 'walking_vs_straight_line' | 'place_info';
 export type AskRequest = { question: string; tool?: never; params?: never }
   | { question: string; tool: AskTool; params: Record<string, unknown> };
 export interface Answer {
   question: string;
   lang: Language;
-  tool: AskTool | 'place_info' | 'none';
+  tool: AskTool | 'none';
   text: string;
   facts: Fact[];
   unknown: string[];

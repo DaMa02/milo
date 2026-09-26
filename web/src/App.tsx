@@ -24,6 +24,7 @@ import type { Place } from './api/places';
 import type { VoiceCommand } from './api/interpret';
 import { useLiveGuidance } from './hooks/useLiveGuidance';
 import { useCompass } from './hooks/useCompass';
+import { useVoiceStops } from './hooks/useVoiceStops';
 
 const language = 'en';
 const localize = (text: string) => text;
@@ -82,9 +83,12 @@ export function App() {
   }, [view, areaOpen]);
 
   const journey = usePlan(session.current, source === 'saved', run, planResult, t);
+  const stops = useVoiceStops({ sessionId: session.current?.id ?? null, plan: journey.plan,
+    busy, uncertain: journey.uncertain, error: journey.error, t, onMutate: journey.mutate, onMessage: present });
   const planMatchesDestination = !destination || !journey.plan || sameDestination(journey.plan, destination);
   const places = usePlaces({ session: session.current, t, getHeading: compass.getHeading, onSessionReady: acceptSession,
     onDestinationChanged: (place) => {
+      stops.cancel();
       setReadyForGuidance(false);
       guidance.stop();
       setDestination(place);
@@ -93,10 +97,11 @@ export function App() {
       setView('overview'); setAnswer(null);
     }, onMessage: present });
   const commands = useVoiceCommands({ sessionId: session.current?.id, busy: busy || places.busy,
-    context: { view, pending: places.pending ?? (!session.current ? 'origin' : null),
+    context: { view, pending: places.pending ?? stops.pending ?? (!session.current ? 'origin' : null),
+      stop_candidates: stops.candidates.map((candidate) => candidate.place), last_action: stops.lastAction,
       candidates: places.candidates.map((candidate) => candidate.name), has_destination: destination !== null,
       routes: planMatchesDestination ? journey.plan?.routes.map((route) => ({ id: route.id, label: route.summary })) ?? [] : [] },
-    onAction: dispatchCommand, onError: (cause) => {
+    onAction: dispatchCommand, onStatus: present, t, onError: (cause) => {
       const message = cause instanceof ApiError && typeof cause.detail === 'string' ? cause.detail : t.commandUnavailable;
       setError(message); present(message);
     }, onBusy: () => announce(t.commandStillWorking) });
@@ -154,6 +159,7 @@ export function App() {
       present(t.routePreviousDestination.replace('{place}', plan.destination.name));
       return;
     }
+    if (stops.acceptResult(plan, kind)) return;
     if (guideAfterPlan.current && kind === 'plan' && plan.routes.length) {
       guideAfterPlan.current = false;
       setReadyForGuidance(true); return;
@@ -174,6 +180,7 @@ export function App() {
   }
   function stopReading() { mutePendingSpeech.current = true; speech.stop(); }
   function acceptSession(next: AreaSession) {
+    stops.cancel();
     guideAfterPlan.current = false;
     setReadyForGuidance(false);
     guidance?.stop();
@@ -187,6 +194,7 @@ export function App() {
     else present([next.overview.text, ...next.overview.unknown].join(' '), next.overview.unknown);
   }
   function startOver() {
+    stops.cancel();
     guideAfterPlan.current = false;
     setReadyForGuidance(false);
     deferredOriginCommand.current = null; setReadyOriginCommand(null);
@@ -198,6 +206,9 @@ export function App() {
     announce(t.placesIntro);
   }
   function dispatchCommand(command: VoiceCommand, utterance = '') {
+    // Interpretation has already consumed this one-turn hint. Keep any pending
+    // candidate conversation while discarding the hint for the following turn.
+    stops.clearLastAction();
     if (destination && /^(let['’]?s go|take me there|guide me|start navigation)[.!?]?$/i.test(utterance.trim())) {
       command = { action: 'navigate', params: { state: 'start' } };
     }
@@ -223,12 +234,16 @@ export function App() {
         void guidance.start(); return;
       case 'repeat': mutePendingSpeech.current = false; speech.speak(readingText, language); return;
       case 'help': present(t.commandHelp); return;
+      case 'chat': present(command.params.text); return;
       case 'speed': speech.setRate(speech.rate + (command.params.change === 'faster' ? 0.15 : -0.15)); present(t.commandSpeedChanged); return;
       case 'start_over': startOver(); return;
-      case 'set_origin': guidance.stop(); void places.setOriginByQuery(command.params.query); return;
-      case 'set_origin_here': guidance.stop(); void places.setOriginHere(); return;
-      case 'set_destination': guidance.stop(); void places.setDestinationByQuery(command.params.query); return;
-      case 'confirm': void places.confirm(command.params.answer, command.params.index); return;
+      case 'set_origin': stops.cancel(); guidance.stop(); void places.setOriginByQuery(command.params.query); return;
+      case 'set_origin_here': stops.cancel(); guidance.stop(); void places.setOriginHere(); return;
+      case 'set_destination': stops.cancel(); guidance.stop(); void places.setDestinationByQuery(command.params.query); return;
+      case 'confirm':
+        if (stops.pending === 'stop' && !places.pending) stops.confirm(command.params.answer, command.params.index);
+        else void places.confirm(command.params.answer, command.params.index);
+        return;
       case 'none': present(command.params.reason === 'model_unavailable' ? t.commandUnavailable : t.commandNoFit); return;
       case 'overview': if (overview) showOverview(); else present(t.placesIntro); return;
       case 'explore': {
@@ -269,7 +284,15 @@ export function App() {
         if (!journey.plan?.routes.some((route) => route.id === command.params.route_id)) { present(t.commandNoFit); return; }
         setView('plan'); setAnswer(null);
         if (journey.uncertain) { journey.refresh(); return; }
+        stops.cancel();
         journey.mutate('select', { route_id: command.params.route_id });
+        return;
+      case 'route_stop':
+      case 'stop_duration':
+        if (!planMatchesDestination) { present(t.routePreviousDestination.replace('{place}', journey.plan!.destination.name)); return; }
+        setView('plan'); setAnswer(null); guidance.stop();
+        if (command.action === 'route_stop') stops.requestStop(command.params.kind, command.params.duration_min);
+        else stops.setDuration(command.params.minutes);
         return;
       case 'route_avoid':
         if (!journey.plan) { present(t.routeFirst); return; }
@@ -277,6 +300,7 @@ export function App() {
         if (journey.uncertain) { journey.refresh(); return; }
         if (command.params.kind === 'walking_over_min') { present(t.commandNoFit); return; }
         setView('plan'); setAnswer(null);
+        stops.cancel();
         journey.mutate('constraints', { constraints: [
           ...journey.plan.constraints.filter((item) => item.kind !== command.params.kind),
           { kind: command.params.kind, strength: command.params.strength ?? 'avoid_when_possible' },
@@ -289,6 +313,7 @@ export function App() {
     if (!session.current) { present(t.placesIntro); return; }
     setView('plan'); setAnswer(null);
     if (journey.uncertain) { journey.refresh(); return; }
+    stops.cancel();
     journey.create({ destination: place, ...(session.current.origin ? { origin: session.current.origin } : {}),
       depart_at: new Date().toISOString(), constraints: journey.plan?.constraints ?? [],
       detour_tolerance: journey.plan?.detour_tolerance ?? { min: 5, pct: 25 } });

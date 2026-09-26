@@ -74,11 +74,13 @@ export interface PlanRequest {
   constraints?: Constraint[];
   detour_tolerance?: DetourTolerance;
 }
+export type StopKind = 'supermarket' | 'pharmacy' | 'cafe' | 'bakery' | 'atm' | 'shop';
+export const stopKinds: readonly StopKind[] = ['supermarket', 'pharmacy', 'cafe', 'bakery', 'atm', 'shop'];
 interface VersionCondition { if_version?: number }
 /** Keys are endpoint suffixes; values are the exact documented JSON bodies. */
 export interface PlanMutation {
   select: { route_id: string } & VersionCondition;
-  'stop/candidates': { kind: 'supermarket' } & VersionCondition;
+  'stop/candidates': { kind: StopKind } & VersionCondition;
   stop: ({ osm_id: string; duration_min: number } | { osm_id: null }) & VersionCondition;
   constraints: { constraints: Constraint[]; detour_tolerance?: DetourTolerance } & VersionCondition;
   depart: { depart_at: string } & VersionCondition;

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { interpret, type CommandContext, type VoiceCommand } from '../api/interpret';
 import { ApiError } from '../api/http';
+import { dictionaries, type Dictionary } from '../i18n';
 
 interface Options {
   context: CommandContext;
@@ -9,6 +10,8 @@ interface Options {
   onAction: (command: VoiceCommand, utterance?: string) => void;
   onError: (error: unknown) => void;
   onBusy: () => void;
+  onStatus?: (text: string) => void;
+  t?: Pick<Dictionary, 'commandSearchingWeb'>;
 }
 
 /** One dispatcher for typed and spoken input; superseded interpretations cannot act. */
@@ -37,6 +40,9 @@ export function useVoiceCommands(options: Options) {
     const abort = new AbortController(); controller.current = abort;
     inFlight.current = true; setInterpreting(true);
     try {
+      if (/\b(?:search|look\s+up|online)\b/i.test(utterance)) {
+        current.current.onStatus?.((current.current.t ?? dictionaries.en).commandSearchingWeb);
+      }
       const command = await interpret(utterance.trim(), current.current.context, current.current.sessionId, abort.signal);
       if (token === generation.current) {
         if (current.current.busy && command.action !== 'stop') current.current.onBusy();

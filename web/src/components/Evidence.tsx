@@ -29,7 +29,7 @@ export function Evidence({ facts, t }: { facts: Fact[]; t: Dictionary }) {
       <details>
         <summary>{labels[`fact:${fact.type}`] ?? fact.type.replaceAll('_', ' ')}{subject(fact)}: {fact.value === null ? t.unknown : String(fact.value)} {fact.unit === 'count' ? '' : fact.unit} — {t[fact.source]}</summary>
         <p>{t.completeness}: {t[fact.completeness === 'complete' ? 'complete' : 'unknown']}. {t.dataDate}: <time dateTime={fact.data_date}>{fact.data_date}</time>.</p>
-        <ul>{fact.evidence.map((source) => <li key={source}>{evidenceUrl(source) ? <a href={evidenceUrl(source)} target="_blank" rel="noopener noreferrer">{source}</a> : source}</li>)}</ul>
+        <ul>{[...new Set(fact.evidence)].map((source) => <li key={source}>{evidenceUrl(source) ? <a href={evidenceUrl(source)} target="_blank" rel="noopener noreferrer">{source}</a> : source}</li>)}</ul>
         <details><summary>{t.inputs}</summary><pre>{JSON.stringify(fact.inputs, null, 2)}</pre></details>
       </details>
     </li>)}</ul>

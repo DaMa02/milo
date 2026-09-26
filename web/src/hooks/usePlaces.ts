@@ -42,7 +42,7 @@ export function usePlaces(options: Options) {
   function failure(cause: unknown, token: number) {
     if (!valid(token)) return;
     update({ phase: current.current.candidates.length ? 'confirming' : 'idle' });
-    say(cause instanceof ApiError && cause.status === 422 && cause.detail ? cause.detail : callbacks.current.t.placesFailed);
+    say(cause instanceof ApiError && (cause.status === 422 || cause.status === 503) && cause.detail ? cause.detail : callbacks.current.t.placesFailed);
   }
   function propose(candidates: PlaceCandidate[], token: number, message?: string) {
     if (!valid(token)) return;

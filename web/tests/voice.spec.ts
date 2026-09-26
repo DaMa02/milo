@@ -7,8 +7,8 @@ import start from '../../contracts/fixtures/explore-step.start.json' with { type
 import junction from '../../contracts/fixtures/explore-step.first-junction.json' with { type: 'json' };
 import distance from '../../contracts/fixtures/answer.detour-ratio.json' with { type: 'json' };
 
-const help = 'Say where you are starting, then where you want to go. Try where am I, tell me more, how do I get there, or start navigation.';
-const noFit = 'I could not match that request. Try “where am I”, or open all controls.';
+const help = 'Say where you are starting, then where you want to go. Try “how do I get there”, “choose route A”, “start navigation”, “stop at a pharmacy”, or “search online for my destination”.';
+const noFit = "I did not catch that. You can say: what's around me, where am I, I'm going to..., how do I get there, or help.";
 const latest = (page: Page) => page.getByRole('region', { name: 'Latest answer', exact: true });
 const input = (page: Page) => page.getByRole('textbox', { name: 'Type a question or command', exact: true });
 interface Request { path: string; body: Record<string, unknown> }
@@ -122,7 +122,7 @@ test('the conversational entry supports help, an unmatched request and immediate
   await expect(input(page)).toBeFocused();
   expect(engine.requests[0]).toEqual({ path: '/api/interpret', body: {
     utterance: 'help', lang: 'en',
-    context: { view: 'overview', pending: 'origin', candidates: [], has_destination: false, routes: [] },
+    context: { view: 'overview', pending: 'origin', candidates: [], stop_candidates: [], has_destination: false, routes: [] },
   } });
   await send(page, 'a request the interpreter cannot match');
   await expect(latest(page)).toContainText(noFit);
