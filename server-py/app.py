@@ -1,4 +1,4 @@
-"""Lay of the Land engine: FastAPI over the cached demo zone. Routes sit at the root (the Vite proxy strips /api).
+"""Milo engine: FastAPI over the cached demo zone. Routes sit at the root (the Vite proxy strips /api).
 
     uvicorn app:app --port 8000
 """
@@ -38,7 +38,7 @@ async def lifespan(_app):
     yield
 
 
-app = FastAPI(title="Lay of the Land", lifespan=lifespan)
+app = FastAPI(title="Milo", lifespan=lifespan)
 app.add_middleware(CORSMiddleware, allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
                    allow_methods=["*"], allow_headers=["*"])
 
