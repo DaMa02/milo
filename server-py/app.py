@@ -130,3 +130,6 @@ app.include_router(make_voice_router())
 
 from places_api import make_router as places_router  # noqa: E402
 app.include_router(places_router(lambda: ZONE))
+
+from interpret_api import make_router as interpret_router  # noqa: E402
+app.include_router(interpret_router(get, lambda: ZONE))
