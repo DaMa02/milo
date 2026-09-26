@@ -13,4 +13,6 @@ class Session:
     start: tuple = None           # (node, heading) where exploration started
     stack: list = field(default_factory=list)  # saved junctions: (node, heading, came)
     plan: dict = None
+    zone: object = None           # the zone this session answers from (None: the app's zone)
+    destination: dict = None      # {"lat", "lon", "name"}
     id: str = field(default_factory=lambda: uuid.uuid4().hex[:12])

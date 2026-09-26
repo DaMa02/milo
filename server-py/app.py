@@ -2,28 +2,33 @@
 
     uvicorn app:app --port 8000
 """
+import os
 from contextlib import asynccontextmanager
 from typing import Literal, Optional, Union
 
+import osmnx as ox
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 from lotl.explore import explore
-from lotl.overview import overview, ref_heading
+from lotl.overview import _static, overview, ref_heading
 from lotl.session import Session
 from lotl import llm
 from lotl.tools import TOOLS, ask
-from lotl.zone import TALENT_GARDEN, Zone, fmt, meta
+from lotl.zone import TALENT_GARDEN, Zone, centre_name, fmt, meta
 
+CITY = dict(center=(45.4642, 9.19), dist=4000, answer_radius=4000, name="central Milan")  # same call: osmnx cache key
 ZONE = None
+ZONES = {}     # rounded centre -> zone built for an origin outside the city
 SESSIONS = {}  # ponytail: in memory, lost on restart; one process only
 
 
 @asynccontextmanager
 async def lifespan(_app):
     global ZONE
-    ZONE = Zone()
+    ZONE = Zone() if os.environ.get("LOTL_ZONE") == "porta-romana" else Zone(**CITY)
+    _static(ZONE)  # railway places, roads: once here, not on the first session
     yield
 
 
@@ -38,9 +43,16 @@ class Origin(BaseModel):
     name: Optional[str] = Field(None, min_length=1, max_length=120)
 
 
+class Place(BaseModel):
+    lat: float = Field(ge=-90, le=90)
+    lon: float = Field(ge=-180, le=180)
+    name: str = Field("the destination", min_length=1, max_length=120)
+
+
 class NewSession(BaseModel):
     lang: Literal["en", "it"] = "en"
     origin: Optional[Origin] = None
+    destination: Optional[Place] = None
     heading_deg: Optional[float] = Field(None, allow_inf_nan=False)
 
 
@@ -62,6 +74,35 @@ def get(sid):
     return SESSIONS[sid]
 
 
+def zone_of(s):
+    return s.zone or ZONE
+
+
+def zone_for(lat, lon, name):
+    """(zone, source): the city zone, else a 1.5 km zone around the origin, built once per rounded centre."""
+    if ZONE.in_answer_area(lat, lon):
+        return ZONE, "city"
+    if ZONE.dist < CITY["dist"]:  # the small demo zone: no downloads
+        raise HTTPException(422, f"That point is outside the mapped area: choose a place within "
+                                 f"{fmt(ZONE.answer_radius)} of {centre_name(ZONE)}.")
+    key = (round(lat, 3), round(lon, 3))
+    if key in ZONES:
+        return ZONES[key], "cache"
+    try:
+        ZONES[key] = Zone(center=(lat, lon), dist=1500, answer_radius=800, name=name)
+    except Exception:
+        raise HTTPException(503, "The map for that area could not be loaded just now.") from None
+    return ZONES[key], "download"
+
+
+def set_destination(s, d):
+    z = zone_of(s)
+    if not z.in_answer_area(d.lat, d.lon):
+        raise HTTPException(422, f"That destination is outside the mapped area: choose a place within "
+                                 f"{fmt(z.answer_radius)} of {centre_name(z)}.")
+    s.destination = {"lat": d.lat, "lon": d.lon, "name": d.name}
+
+
 @app.get("/health")
 def health():
     return {"ok": True, "zone": ZONE.name}
@@ -72,17 +113,27 @@ def new_session(body: Optional[NewSession] = None):
     body = body or NewSession()
     o = body.origin
     lat, lon, name = (o.lat, o.lon, o.name or "your start point") if o else (*TALENT_GARDEN, "Talent Garden")
-    if not ZONE.in_answer_area(lat, lon):
-        raise HTTPException(422, f"That point is outside the mapped area: choose a place within "
-                                 f"{fmt(ZONE.answer_radius)} of Talent Garden.")
-    s = Session(lang=body.lang, origin=(lat, lon, name), heading=(body.heading_deg or 0) % 360)
+    zone, source = zone_for(lat, lon, name)
+    s = Session(lang=body.lang, origin=(lat, lon, name), heading=(body.heading_deg or 0) % 360,
+                zone=None if zone is ZONE else zone)
+    if body.destination:
+        set_destination(s, body.destination)
     SESSIONS[s.id] = s
-    return {"session_id": s.id, "overview": overview(ZONE, s)}
+    return {"session_id": s.id, "overview": overview(zone, s), "zone": {"name": zone.name, "source": source}}
+
+
+@app.post("/session/{sid}/destination")
+def new_destination(sid: str, body: Place):
+    s = get(sid)
+    set_destination(s, body)
+    d, o = s.destination, s.origin
+    return {"destination": d, "straight_line_m": round(ox.distance.great_circle(o[0], o[1], d["lat"], d["lon"]))}
 
 
 @app.get("/session/{sid}/overview")
 def get_overview(sid: str):
-    return overview(ZONE, get(sid))
+    s = get(sid)
+    return overview(zone_of(s), s)
 
 
 @app.post("/session/{sid}/explore")
@@ -93,7 +144,7 @@ def do_explore(sid: str, body: ExploreIn):
         h = ref_heading(s)  # (re)starting keeps the stated reference facing unless a new one is given
     if body.command == "take" and body.branch is None:
         raise HTTPException(422, "take needs branch: the index in the previous step's branches, or its name.")
-    return explore(ZONE, s, body.command, h, body.branch)
+    return explore(zone_of(s), s, body.command, h, body.branch)
 
 
 @app.post("/session/{sid}/ask")
@@ -109,7 +160,7 @@ def do_ask(sid: str, body: AskIn):
             return no_tool(body.question)
     if tool not in TOOLS:
         raise HTTPException(422, f"Unknown tool {tool!r}: use one of {', '.join(TOOLS)}.")
-    return ask(ZONE, s, tool, params, body.question)
+    return ask(zone_of(s), s, tool, params, body.question)
 
 
 def no_tool(question, missing=None):

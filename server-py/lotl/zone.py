@@ -27,6 +27,8 @@ TALENT_GARDEN = (45.44386, 9.20808)
 DEMO_DESTINATION = (45.44658, 9.20584)  # viale Isonzo
 SNAPSHOT = os.environ.get("LOTL_SNAPSHOT", "2026-09-26")
 SPEED = 80  # metres per walking minute (speaking rule 1)
+WINDOW = 800  # metres the overview describes around the session origin in a large zone
+CENTRE_NAMES = {TALENT_GARDEN: "Talent Garden", (45.4642, 9.19): "the Duomo"}
 FOOT = ("footway", "path", "pedestrian", "steps", "cycleway")
 # same tag set as the cached Overpass query: changing it triggers a new download
 FEATURE_TAGS = {"railway": ["rail", "light_rail"], "waterway": True, "landuse": ["railway", "construction"],
@@ -92,6 +94,18 @@ def now_iso():
 
 def meta(mode="offline", cache="hit"):
     return {"mode": mode, "cache": cache, "computed_at": now_iso()}
+
+
+def centre_name(zone):
+    return CENTRE_NAMES.get(tuple(zone.center), zone.name)
+
+
+def window(zone, session):
+    """(point, radius, name) the overview counts within: a small zone's whole answer area, else 800 m around the origin."""
+    if zone.answer_radius <= WINDOW or session is None or not session.origin:
+        return zone.xy(*zone.center), zone.answer_radius, centre_name(zone)
+    lat, lon, name = session.origin
+    return zone.xy(lat, lon), WINDOW, name
 
 
 class Zone:

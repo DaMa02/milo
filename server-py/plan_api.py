@@ -55,7 +55,7 @@ class Tolerance(Body):
 
 
 class CreateIn(Body):
-    destination: Place
+    destination: Optional[Place] = None  # None: the session destination (lotl.plan)
     origin: Optional[Place] = None
     depart_at: Optional[str] = Field(None, pattern=ISO)
     constraints: Optional[List[Constraint]] = None
@@ -101,7 +101,7 @@ def make_router(get_zone, get_session):
         s = get_session(sid)  # 404 itself
         with locks.setdefault(sid, threading.Lock()):
             try:
-                return fn(get_zone(), s)
+                return fn(getattr(s, "zone", None) or get_zone(), s)
             except PlanError as e:
                 raise HTTPException(e.status, e.message) from None
             except PlaceError as e:

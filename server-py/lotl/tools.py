@@ -17,12 +17,14 @@ import shapely
 from shapely.geometry import LineString, Point
 from shapely.ops import nearest_points, polygonize, unary_union
 
-from .zone import DEMO_DESTINATION, SNAPSHOT, SPEED, TALENT_GARDEN, fmt, ids, join_and, lc, meta, mins, plural, r10
+from .zone import DEMO_DESTINATION, SNAPSHOT, SPEED, TALENT_GARDEN, centre_name, window, fmt, ids, join_and, lc, meta, mins, plural, r10
 
 TOOLS = ("walking_vs_straight_line", "barrier_between", "street_continuity", "independent_connections", "extent")
 DEST_NAME = "the destination on viale Isonzo"
 ALIASES = {"talent garden": (TALENT_GARDEN, "Talent Garden"), "destination": (DEMO_DESTINATION, DEST_NAME),
-           "party": (DEMO_DESTINATION, DEST_NAME), "viale isonzo": (DEMO_DESTINATION, DEST_NAME)}
+           "party": (DEMO_DESTINATION, DEST_NAME), "viale isonzo": (DEMO_DESTINATION, DEST_NAME),
+           "there": (DEMO_DESTINATION, DEST_NAME)}
+DEST_WORDS = {"destination", "there", "party"}  # the session destination when one is set
 HERE = {"here", "me", "my position", "where i am", "start"}
 # a kind of place instead of a name ("the construction site") means the nearest one of that kind
 KIND_WORDS = {"construction site": ("construction site",), "construction": ("construction site",),
@@ -83,8 +85,8 @@ def _radius(zone):
 
 def _outside(zone, what="That is"):
     r = fmt(zone.answer_radius)
-    return PlaceError(f"{what} outside the area I have mapped: {r} around Talent Garden.",
-                      f"The map I answer from ends {r} from Talent Garden.", [_radius(zone)])
+    return PlaceError(f"{what} outside the area I have mapped: {r} around {centre_name(zone)}.",
+                      f"The map I answer from ends {r} from {centre_name(zone)}.", [_radius(zone)])
 
 
 def _kind(row):
@@ -145,7 +147,7 @@ def _given(spec):
     return isinstance(spec, dict) and any(spec.get(k) not in (None, "") for k in ("name", "lat", "lon"))
 
 
-def _find(zone, text, kinds=None, what="a place"):
+def _find(zone, text, kinds=None, what="a place", session=None):
     """Places matching a name inside the answer area, best first; PlaceError when none, far, or several."""
     if not isinstance(text, str):
         raise _unusable()
@@ -156,9 +158,9 @@ def _find(zone, text, kinds=None, what="a place"):
     hits = [p for p in pool if q in (p["name"].lower(), p["label"].lower())] or \
            [p for p in pool if q in p["name"].lower() or set(q.split()) <= set(p["name"].lower().split())]
     if not hits and q in KIND_WORDS:  # the nearest place of that kind to the reference point
-        c = zone.xy(*zone.center)
+        c, ref = zone.xy(*zone.center), window(zone, session)[0]
         near = sorted((p for p in pool if p["kind"] in KIND_WORDS[q] and p["geom"].distance(c) <= zone.answer_radius),
-                      key=lambda p: p["geom"].distance(c))
+                      key=lambda p: p["geom"].distance(ref))
         if near:
             return [near[0]]
     asked = [{"type": "place_query", "value": str(text), "unit": None, "source": "unknown", "evidence": [],
@@ -220,10 +222,13 @@ def _resolve(zone, spec, session=None):
     if not q or q in HERE:
         o = session.origin if session is not None and session.origin else (*TALENT_GARDEN, "Talent Garden")
         return o[0], o[1], o[2], None
+    if q in DEST_WORDS and s is not None and getattr(s, "destination", None):
+        d = s.destination
+        return d["lat"], d["lon"], d["name"], None
     if q in ALIASES:
         (lat, lon), name = ALIASES[q]
         return lat, lon, name, None
-    p = _find(zone, spec["name"])[0]
+    p = _find(zone, spec["name"], session=session)[0]
     lat, lon = zone.ll(_point(zone, p["geom"]))
     return lat, lon, p["label"], p
 
@@ -377,23 +382,24 @@ def _barrier(zone, session, params):
         longs[-2] += ","
     text, unknown = "Yes. In a straight line you would cross " + join_and(longs) + ".", []
     if any(e["kind"] == "railway" for e in bars):
-        pa, r = zone.xy(a[0], a[1]), fmt(zone.answer_radius)
-        places = sorted(({**p, "d": r10(min(q.distance(pa) for q in p["pts"]))} for p in _rail_places(zone)),
-                        key=lambda p: p["d"])
+        pa, (wc, W, wname) = zone.xy(a[0], a[1]), window(zone, session)
+        r = fmt(W)
+        places = sorted(({**p, "d": r10(min(q.distance(pa) for q in p["pts"]))} for p in _rail_places(zone)
+                         if min(q.distance(wc) for q in p["pts"]) <= W), key=lambda p: p["d"])
         if places:
-            text += (f" Within {r} of Talent Garden the railway can be crossed on foot in {plural(len(places), 'place')}: "
+            text += (f" Within {r} of {wname} the railway can be crossed on foot in {plural(len(places), 'place')}: "
                      + " and ".join(f"{p['phrase']}, {fmt(p['d'])} away in a straight line" for p in places) + ".")
         else:
-            text += f" Within {r} of Talent Garden there is no place to cross the railway on foot."
+            text += f" Within {r} of {wname} there is no place to cross the railway on foot."
         facts.append(zone.fact("railway_crossing_places", len(places), "count", "computed",
                                [e for p in places for e in p["evidence"]] or bars[0]["evidence"],
                                {"graph": zone.graph_inputs, "railway": bars[0]["name"], "cluster_m": 40,
-                                "radius_m": zone.answer_radius}, "unknown"))
+                                "radius_m": W}, "unknown"))
         facts += [zone.fact("railway_crossing_distance", p["d"], "m", "computed", p["evidence"],
                             {"graph": zone.graph_inputs, "from": [a[0], a[1]], "method": "straight line to nearest point",
                              "place": p["name"]}) for p in places]
-        facts.append(_radius(zone))
-        unknown.append(f"Crossings farther than {r} from Talent Garden are not counted, so there may be more.")
+        facts.append(zone.fact("radius", W, "m", "unknown", [], {"graph": zone.graph_inputs}))
+        unknown.append(f"Crossings farther than {r} from {wname} are not counted, so there may be more.")
     sites = sum(e["kind"] == "construction site" for e in bars)
     if sites:
         unknown.append("The map does not say whether the construction site blocks any pavement." if sites == 1 else
@@ -450,7 +456,7 @@ def _street(zone, p):
         note, comp = " One end reaches the edge of the downloaded map, so this may not be the whole story.", "unknown"
         unk = ["One end of the street is at the edge of the downloaded map."]
     elif any(not zone.in_answer_area(*zone.LL[n]) for n in ends):
-        note, comp = (f" One end is more than {fmt(zone.answer_radius)} from Talent Garden, beyond the area I answer for, "
+        note, comp = (f" One end is more than {fmt(zone.answer_radius)} from {centre_name(zone)}, beyond the area I answer for, "
                       "so this may not be the whole story."), "unknown"
         nfacts, unk = [_radius(zone)], ["One end of the street is beyond the area I answer for."]
     if opened:
@@ -480,7 +486,7 @@ def _length(zone, S):
 def _continuity(zone, session, params):
     if not params.get("street"):
         raise PlaceError("Which street do you mean?", "No street was given.")
-    st = _street(zone, _find(zone, params["street"], {"street"}, "a street")[0])
+    st = _street(zone, _find(zone, params["street"], {"street"}, "a street", session)[0])
     s, L, dead, conn = st["label"], fmt(st["length"]), st["dead"], st["conn"]
     if not st["ends"]:
         text = f"On foot, {s} forms a loop: it is about {L} long."
@@ -596,7 +602,7 @@ def _extent(zone, session, params):
     q = params.get("place") or params.get("street")
     if not q:
         raise PlaceError("Which place do you mean?", "No place was given.")
-    p = _find(zone, q, AREAS + ("street",), "a park, a garden, a construction site or a street")[0]
+    p = _find(zone, q, AREAS + ("street",), "a park, a garden, a construction site or a street", session)[0]
     if p["kind"] == "street":
         st = _street(zone, p)
         text = (f"{_cap(st['label'])} is about {fmt(st['length'])} long, about {plural(mins(st['metres']), 'minute')} "

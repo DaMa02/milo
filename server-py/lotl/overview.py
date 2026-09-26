@@ -2,9 +2,10 @@
 from functools import lru_cache
 
 from shapely.affinity import rotate
+from shapely.geometry import Point
 from shapely.ops import nearest_points
 
-from .zone import TALENT_GARDEN, clock, bearing, fmt, ids, lc, meta, plural, r10, rel_angle
+from .zone import clock, window, bearing, fmt, ids, lc, meta, plural, r10, rel_angle
 
 SPOKEN_NAMES = {"Cintura sud di Milano": "the southern belt railway"}
 COMPASS = ("north", "north-east", "east", "south-east", "south", "south-west", "west", "north-west")
@@ -13,23 +14,33 @@ MAIN_ROAD_M = 500     # main roads said in the overview
 MAIN = "primary|secondary|trunk"
 
 
-@lru_cache(maxsize=2)
+@lru_cache(maxsize=4)
 def _static(zone):
     """Everything that does not depend on the reference point, computed once per zone."""
     rail = zone.railway()
     s = {"rail": None, "places": zone.railway_places()}
     if rail is not None and not rail.empty:
         u = rail.union_all()
-        disc = zone.xy(*zone.center).buffer(zone.answer_radius)
-        parts = [p for p in getattr(disc.difference(u.buffer(10)), "geoms", [disc]) if p.area > disc.area * 0.05]
-        s["rail"] = {"geom": u, "in_area": u.intersection(disc), "ids": ids("way", [i[1] for i in rail.index]),
-                     "name": rail["name"].dropna().mode()[0], "parts": parts}
+        s["rail"] = {"gdf": rail, "geom": u, "buf": u.buffer(10)}
     f = zone.features
     s["construction"] = f[f["landuse"] == "construction"] if "landuse" in f else f.iloc[:0]
     main = zone.E[zone.E["highway"].astype(str).str.contains(MAIN) & zone.E["name"].notna()]
     names = main["name"].map(lambda n: n[0] if isinstance(n, list) else n)
     s["roads"] = [(lc(n), g.union_all(), ids("way", g["osmid"].tolist())[:10]) for n, g in main.groupby(names)]
     return s
+
+
+@lru_cache(maxsize=64)
+def _rail(zone, x, y, R):
+    """The railway inside the window of radius R around (x, y): None when no railway is there."""
+    r = _static(zone)["rail"]
+    disc = Point(x, y).buffer(R)
+    if r is None or not r["geom"].intersects(disc):
+        return None
+    rows = r["gdf"][r["gdf"].intersects(disc)]
+    parts = [p for p in getattr(disc.difference(r["buf"]), "geoms", [disc]) if p.area > disc.area * 0.05]
+    return {"geom": r["geom"], "in_area": r["geom"].intersection(disc), "ids": ids("way", [i[1] for i in rows.index]),
+            "name": rows["name"].dropna().mode()[0] if rows["name"].notna().any() else "railway", "parts": parts}
 
 
 def ref_heading(session):
@@ -42,9 +53,8 @@ def overview(zone, session):
     lat, lon, name = session.origin
     heading = ref_heading(session)
     st, o = _static(zone), zone.xy(lat, lon)
-    at_center = o.distance(zone.xy(*zone.center)) < 20
-    center = "Talent Garden" if tuple(zone.center) == TALENT_GARDEN else "the zone centre"
-    R = zone.answer_radius
+    wc, R, center = window(zone, session)
+    at_center = o.distance(wc) < 20
 
     def near(geom):
         g = geom.boundary if geom.geom_type in ("Polygon", "MultiPolygon") else geom
@@ -61,8 +71,8 @@ def overview(zone, session):
     text = [f"Facing {facing} from {name}."]
 
     # railway: distance, how it runs across the facing, how it splits the area, crossing places
-    rail, places = st["rail"], []
-    for p in st["places"]:  # copies: the cached places are shared by every session
+    rail, places = _rail(zone, round(wc.x), round(wc.y), R), []
+    for p in (p for p in st["places"] if p["point"].distance(wc) <= R):  # copies: the cached places are shared by every session
         d, c, _q = near(p["point"])
         places.append({**p, "dist": d, "clock": c})
     places.sort(key=lambda p: p["dist"])
@@ -102,7 +112,8 @@ def overview(zone, session):
 
     # construction sites within 400 m, nearest first
     sites = []
-    for idx, row in st["construction"].iterrows():
+    cons = st["construction"]
+    for idx, row in cons[cons.distance(o) <= CONSTRUCTION_M].iterrows():
         d, c, q = near(row.geometry)
         if d <= CONSTRUCTION_M:
             nm = row["name"] if isinstance(row.get("name"), str) else "a construction site"
@@ -152,7 +163,7 @@ def overview(zone, session):
         text.append("The map shows no railway or construction site near you.")
     ref_text = f"Standing at {name}" + (f" on {street}" if street else "") + f", facing {facing}."
     return {
-        "zone": {"name": zone.name, "center": {"lat": zone.center[0], "lon": zone.center[1]}, "radius_m": R},
+        "zone": {"name": zone.name, "center": {"lat": zone.center[0], "lon": zone.center[1]}, "radius_m": zone.answer_radius},
         "lang": "en",
         "reference": {"place": f"{name}, {street}" if street else name, "lat": lat, "lon": lon,
                       "heading_deg": round(heading) % 360, "text": ref_text},

@@ -4,12 +4,14 @@ Every Overview / ExploreStep / Answer body is validated against contracts/, numb
     python tests/test_api.py      (from server-py)
 """
 import json
+import os
 import pathlib
 import sys
 
 HERE = pathlib.Path(__file__).resolve().parent
 CONTRACTS = HERE.parent.parent / "contracts"
 sys.path[:0] = [str(HERE.parent), str(CONTRACTS)]
+os.environ["LOTL_ZONE"] = "porta-romana"  # the small cached zone: fast, and the numbers below are its numbers
 
 from fastapi.testclient import TestClient  # noqa: E402
 from jsonschema import Draft7Validator  # noqa: E402
