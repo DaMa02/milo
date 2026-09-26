@@ -1,0 +1,96 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://bainsa-hackathon-2026/contracts/plan.schema.json",
+  "title": "Plan",
+  "description": "POST /session/{id}/plan and its follow-ups (select, stop, constraints): alternatives under the user's constraints; the user picks one.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["origin", "destination", "depart_at", "lang", "constraints", "detour_tolerance", "text", "routes", "compliant_route_available", "selected_route_id", "stop", "differences", "facts", "unknown", "meta"],
+  "properties": {
+    "origin": {"$ref": "fact.schema.json#/definitions/point"},
+    "destination": {"$ref": "fact.schema.json#/definitions/point"},
+    "depart_at": {"$ref": "fact.schema.json#/definitions/datetime"},
+    "lang": {"$ref": "fact.schema.json#/definitions/lang"},
+    "constraints": {
+      "type": "array",
+      "items": {
+        "type": "object", "additionalProperties": false, "required": ["kind", "strength"],
+        "properties": {
+          "kind": {"$ref": "#/definitions/kind"},
+          "strength": {"enum": ["avoid_when_possible", "require"], "description": "avoid_when_possible: fewest known violations, compared with the shortest route; require: routes known to violate are never offered."},
+          "value": {"type": "number", "minimum": 0, "description": "Minutes, for walking_over_min only."}
+        },
+        "if": {"properties": {"kind": {"const": "walking_over_min"}}}, "then": {"required": ["value"]}
+      }
+    },
+    "detour_tolerance": {
+      "type": "object", "additionalProperties": false, "required": ["min", "pct"],
+      "description": "A compliant route is the main proposal if it costs at most max(min, pct% of the shortest).",
+      "properties": {"min": {"type": "number", "minimum": 0}, "pct": {"type": "number", "minimum": 0}}
+    },
+    "text": {"$ref": "fact.schema.json#/definitions/user_text"},
+    "routes": {"type": "array", "items": {"$ref": "#/definitions/route"}},
+    "compliant_route_available": {"$ref": "fact.schema.json#/definitions/tri", "description": "yes: at least one route verified compliant; no: none verified (offered routes are violating or unverified); unknown: could not be determined, e.g. offline cache miss."},
+    "selected_route_id": {"type": ["string", "null"]},
+    "stop": {
+      "oneOf": [
+        {"type": "null"},
+        {"type": "object", "additionalProperties": false, "required": ["place", "osm_id", "detour_min", "duration_min"],
+         "properties": {
+           "place": {"type": "string"}, "osm_id": {"$ref": "fact.schema.json#/definitions/osm_id"},
+           "detour_min": {"type": "number", "minimum": 0, "description": "Walking A->S->B minus A->B."},
+           "duration_min": {"type": "number", "minimum": 0, "description": "Time spent at the stop, as said by the user."}
+         }}
+      ]
+    },
+    "differences": {"type": "array", "items": {"$ref": "fact.schema.json#/definitions/user_text"}, "description": "What changed since the previous plan, read out after a change."},
+    "facts": {"$ref": "fact.schema.json#/definitions/facts"},
+    "unknown": {"$ref": "fact.schema.json#/definitions/unknown"},
+    "meta": {"$ref": "fact.schema.json#/definitions/meta"}
+  },
+  "definitions": {
+    "kind": {"enum": ["unsignalled_crossings", "signals_without_sound", "steps", "construction", "main_roads", "transfers", "walking_over_min"]},
+    "route": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "mode", "summary", "duration_min", "walk_min", "transfers", "legs", "crossings", "constraint_status", "trade_off", "warnings", "facts"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1},
+        "mode": {"enum": ["foot", "transit"]},
+        "summary": {"$ref": "fact.schema.json#/definitions/user_text"},
+        "duration_min": {"type": "number", "minimum": 0},
+        "walk_min": {"type": "number", "minimum": 0, "description": "Total walking over all legs, transfers included."},
+        "transfers": {"type": "integer", "minimum": 0},
+        "legs": {
+          "type": "array", "minItems": 1,
+          "items": {
+            "type": "object", "additionalProperties": false,
+            "required": ["mode", "from", "to", "distance_m", "duration_min", "line", "departure", "arrival"],
+            "properties": {
+              "mode": {"enum": ["foot", "bus", "tram", "subway", "rail", "other"]},
+              "from": {"$ref": "fact.schema.json#/definitions/point"},
+              "to": {"$ref": "fact.schema.json#/definitions/point"},
+              "distance_m": {"type": ["number", "null"], "minimum": 0},
+              "duration_min": {"type": "number", "minimum": 0},
+              "line": {"type": ["string", "null"]},
+              "departure": {"oneOf": [{"type": "null"}, {"$ref": "fact.schema.json#/definitions/datetime"}]},
+              "arrival": {"oneOf": [{"type": "null"}, {"$ref": "fact.schema.json#/definitions/datetime"}]}
+            }
+          }
+        },
+        "crossings": {"type": "array", "items": {"$ref": "fact.schema.json#/definitions/crossing"}, "description": "Mapped pedestrian crossings on every walking leg, in order."},
+        "constraint_status": {
+          "type": "array",
+          "items": {"type": "object", "additionalProperties": false, "required": ["kind", "status"],
+                    "properties": {"kind": {"$ref": "#/definitions/kind"}, "status": {"enum": ["satisfied", "violated", "unknown"]}}}
+        },
+        "trade_off": {
+          "type": "object", "additionalProperties": false, "required": ["extra_min", "violating_crossings", "unknown_crossings"],
+          "description": "extra_min: this route minus the shortest foot route; crossing counts are this route's, for the first constraint.",
+          "properties": {"extra_min": {"type": "number"}, "violating_crossings": {"type": "integer", "minimum": 0}, "unknown_crossings": {"type": "integer", "minimum": 0}}
+        },
+        "warnings": {"type": "array", "items": {"$ref": "fact.schema.json#/definitions/user_text"}},
+        "facts": {"$ref": "fact.schema.json#/definitions/facts"}
+      }
+    }
+  }
+}

@@ -1,0 +1,86 @@
+{
+  "question": "Does via Arcivescovo Calabiana go through or does it end?",
+  "lang": "en",
+  "meta": {
+    "mode": "offline",
+    "cache": "hit",
+    "computed_at": "2026-09-26T09:36:53Z"
+  },
+  "tool": "street_continuity",
+  "text": "On foot, via Arcivescovo Calabiana does not go through: it is about 600 m long, it has a dead end, and its other ends connect to via Brembo, via Cassano d'Adda, via Vallarsa and viale Ortles.",
+  "facts": [
+    {
+      "type": "street_continuity",
+      "value": "ends",
+      "unit": null,
+      "source": "computed",
+      "evidence": [
+        "node/102239743",
+        "node/102240023",
+        "node/1523158353",
+        "node/1245605364",
+        "way/264612100",
+        "way/11479579",
+        "way/264612098",
+        "way/264612099",
+        "way/138942525",
+        "way/108600570",
+        "way/264612097"
+      ],
+      "inputs": {
+        "graph": {
+          "center": [
+            45.44386,
+            9.20808
+          ],
+          "dist_m": 800,
+          "network_type": "walk",
+          "simplify": false,
+          "snap": "nearest_edge",
+          "snapshot": "2026-09-26",
+          "source": "OpenStreetMap via Overpass, osmnx 2.1.1"
+        },
+        "street": "Via Arcivescovo Calabiana",
+        "method": "street ends checked for other walkable links"
+      },
+      "data_date": "2026-09-26",
+      "completeness": "complete"
+    },
+    {
+      "type": "street_length",
+      "value": 600,
+      "unit": "m",
+      "source": "computed",
+      "evidence": [
+        "way/264612100",
+        "way/11479579",
+        "way/264612098",
+        "way/264612099",
+        "way/138942525",
+        "way/108600570",
+        "way/264612097"
+      ],
+      "inputs": {
+        "graph": {
+          "center": [
+            45.44386,
+            9.20808
+          ],
+          "dist_m": 800,
+          "network_type": "walk",
+          "simplify": false,
+          "snap": "nearest_edge",
+          "snapshot": "2026-09-26",
+          "source": "OpenStreetMap via Overpass, osmnx 2.1.1"
+        },
+        "street": "Via Arcivescovo Calabiana",
+        "method": "street ends checked for other walkable links"
+      },
+      "data_date": "2026-09-26",
+      "completeness": "complete"
+    }
+  ],
+  "unknown": [
+    "The map does not say whether the street has pavements on both sides."
+  ]
+}

@@ -1,0 +1,313 @@
+{
+  "command": "forward",
+  "lang": "en",
+  "position": {
+    "lat": 45.444563,
+    "lon": 9.208316,
+    "osm_node": "node/9340945667"
+  },
+  "heading_deg": 342,
+  "text": "You walked 140 m along the pavement of via Arcivescovo Calabiana and now face the way you walked. 5 ways, from left to right: a pavement, left, 190 m to a junction with the pavement of via Brembo; the crossing of via Arcivescovo Calabiana, ahead, 20 m to a junction with a pavement and the pavement of via Brembo; its crossing has no signal; via Brembo, at 1 o'clock, 120 m to a junction with via Valsugana; its crossing has no signal; the crossing of via Arcivescovo Calabiana, right, 20 m to a junction with the pavement of via Arcivescovo Calabiana and the pavement of via Brembo; its crossing has no signal; via Arcivescovo Calabiana, behind, 160 m to a junction with via Valsugana; its crossing has no signal. Behind you: the pavement of via Arcivescovo Calabiana, where you came from.",
+  "branches": [
+    {
+      "name": "a pavement",
+      "leads_to": "a junction with the pavement of via Brembo",
+      "relative_direction": "left",
+      "distance_m": 190,
+      "crossing": null
+    },
+    {
+      "name": "the crossing of via Arcivescovo Calabiana",
+      "leads_to": "a junction with a pavement and the pavement of via Brembo",
+      "relative_direction": "ahead",
+      "distance_m": 20,
+      "crossing": {
+        "signals": "no",
+        "sound": "no",
+        "tactile_paving": "no",
+        "osm_id": "node/2942696591"
+      }
+    },
+    {
+      "name": "via Brembo",
+      "leads_to": "a junction with via Valsugana",
+      "relative_direction": "at 1 o'clock",
+      "distance_m": 120,
+      "crossing": {
+        "signals": "no",
+        "sound": "no",
+        "tactile_paving": "unknown",
+        "osm_id": "node/2942696592"
+      }
+    },
+    {
+      "name": "the crossing of via Arcivescovo Calabiana",
+      "leads_to": "a junction with the pavement of via Arcivescovo Calabiana and the pavement of via Brembo",
+      "relative_direction": "right",
+      "distance_m": 20,
+      "crossing": {
+        "signals": "no",
+        "sound": "no",
+        "tactile_paving": "unknown",
+        "osm_id": "node/2942696592"
+      }
+    },
+    {
+      "name": "via Arcivescovo Calabiana",
+      "leads_to": "a junction with via Valsugana",
+      "relative_direction": "behind",
+      "distance_m": 160,
+      "crossing": {
+        "signals": "no",
+        "sound": "no",
+        "tactile_paving": "unknown",
+        "osm_id": "node/2942696592"
+      }
+    }
+  ],
+  "came_from": {
+    "name": "the pavement of via Arcivescovo Calabiana",
+    "relative_direction": "behind",
+    "osm_node": "node/13306474029"
+  },
+  "junction_stack_depth": 1,
+  "at_boundary": false,
+  "facts": [
+    {
+      "type": "branch_distance",
+      "value": 190,
+      "unit": "m",
+      "source": "computed",
+      "evidence": [
+        "node/9340945667",
+        "node/10212340007"
+      ],
+      "inputs": {
+        "graph": {
+          "center": [
+            45.44386,
+            9.20808
+          ],
+          "dist_m": 800,
+          "network_type": "walk",
+          "simplify": false,
+          "snap": "nearest_edge",
+          "snapshot": "2026-09-26",
+          "source": "OpenStreetMap via Overpass, osmnx 2.1.1"
+        },
+        "from_node": 9340945667,
+        "to_node": 10212340007,
+        "heading_deg": 342.2428001402208
+      },
+      "data_date": "2026-09-26",
+      "completeness": "complete"
+    },
+    {
+      "type": "branch_distance",
+      "value": 20,
+      "unit": "m",
+      "source": "computed",
+      "evidence": [
+        "node/9340945667",
+        "node/9562205682"
+      ],
+      "inputs": {
+        "graph": {
+          "center": [
+            45.44386,
+            9.20808
+          ],
+          "dist_m": 800,
+          "network_type": "walk",
+          "simplify": false,
+          "snap": "nearest_edge",
+          "snapshot": "2026-09-26",
+          "source": "OpenStreetMap via Overpass, osmnx 2.1.1"
+        },
+        "from_node": 9340945667,
+        "to_node": 9562205682,
+        "heading_deg": 342.2428001402208
+      },
+      "data_date": "2026-09-26",
+      "completeness": "complete"
+    },
+    {
+      "type": "branch_distance",
+      "value": 120,
+      "unit": "m",
+      "source": "computed",
+      "evidence": [
+        "node/9340945667",
+        "node/255895171"
+      ],
+      "inputs": {
+        "graph": {
+          "center": [
+            45.44386,
+            9.20808
+          ],
+          "dist_m": 800,
+          "network_type": "walk",
+          "simplify": false,
+          "snap": "nearest_edge",
+          "snapshot": "2026-09-26",
+          "source": "OpenStreetMap via Overpass, osmnx 2.1.1"
+        },
+        "from_node": 9340945667,
+        "to_node": 255895171,
+        "heading_deg": 342.2428001402208
+      },
+      "data_date": "2026-09-26",
+      "completeness": "complete"
+    },
+    {
+      "type": "branch_distance",
+      "value": 20,
+      "unit": "m",
+      "source": "computed",
+      "evidence": [
+        "node/9340945667",
+        "node/9340945670"
+      ],
+      "inputs": {
+        "graph": {
+          "center": [
+            45.44386,
+            9.20808
+          ],
+          "dist_m": 800,
+          "network_type": "walk",
+          "simplify": false,
+          "snap": "nearest_edge",
+          "snapshot": "2026-09-26",
+          "source": "OpenStreetMap via Overpass, osmnx 2.1.1"
+        },
+        "from_node": 9340945667,
+        "to_node": 9340945670,
+        "heading_deg": 342.2428001402208
+      },
+      "data_date": "2026-09-26",
+      "completeness": "complete"
+    },
+    {
+      "type": "branch_distance",
+      "value": 160,
+      "unit": "m",
+      "source": "computed",
+      "evidence": [
+        "node/9340945667",
+        "node/2702724788"
+      ],
+      "inputs": {
+        "graph": {
+          "center": [
+            45.44386,
+            9.20808
+          ],
+          "dist_m": 800,
+          "network_type": "walk",
+          "simplify": false,
+          "snap": "nearest_edge",
+          "snapshot": "2026-09-26",
+          "source": "OpenStreetMap via Overpass, osmnx 2.1.1"
+        },
+        "from_node": 9340945667,
+        "to_node": 2702724788,
+        "heading_deg": 342.2428001402208
+      },
+      "data_date": "2026-09-26",
+      "completeness": "complete"
+    },
+    {
+      "type": "branch_count",
+      "value": 5,
+      "unit": "count",
+      "source": "computed",
+      "evidence": [
+        "node/9340945667"
+      ],
+      "inputs": {
+        "graph": {
+          "center": [
+            45.44386,
+            9.20808
+          ],
+          "dist_m": 800,
+          "network_type": "walk",
+          "simplify": false,
+          "snap": "nearest_edge",
+          "snapshot": "2026-09-26",
+          "source": "OpenStreetMap via Overpass, osmnx 2.1.1"
+        },
+        "node": 9340945667,
+        "heading_deg": 342.2428001402208
+      },
+      "data_date": "2026-09-26",
+      "completeness": "complete"
+    },
+    {
+      "type": "walked_distance",
+      "value": 140,
+      "unit": "m",
+      "source": "computed",
+      "evidence": [
+        "way/1038282838"
+      ],
+      "inputs": {
+        "graph": {
+          "center": [
+            45.44386,
+            9.20808
+          ],
+          "dist_m": 800,
+          "network_type": "walk",
+          "simplify": false,
+          "snap": "nearest_edge",
+          "snapshot": "2026-09-26",
+          "source": "OpenStreetMap via Overpass, osmnx 2.1.1"
+        },
+        "path_nodes": [
+          13306474029,
+          9340945667
+        ]
+      },
+      "data_date": "2026-09-26",
+      "completeness": "complete"
+    },
+    {
+      "type": "heading",
+      "value": 342,
+      "unit": "deg",
+      "source": "computed",
+      "evidence": [
+        "node/13306474029",
+        "node/9340945667"
+      ],
+      "inputs": {
+        "graph": {
+          "center": [
+            45.44386,
+            9.20808
+          ],
+          "dist_m": 800,
+          "network_type": "walk",
+          "simplify": false,
+          "snap": "nearest_edge",
+          "snapshot": "2026-09-26",
+          "source": "OpenStreetMap via Overpass, osmnx 2.1.1"
+        },
+        "segment": [
+          13306474029,
+          9340945667
+        ]
+      },
+      "data_date": "2026-09-26",
+      "completeness": "complete"
+    }
+  ],
+  "meta": {
+    "mode": "offline",
+    "cache": "hit",
+    "computed_at": "2026-09-26T09:36:53Z"
+  }
+}

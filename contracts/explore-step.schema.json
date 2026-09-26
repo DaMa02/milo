@@ -1,0 +1,44 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://bainsa-hackathon-2026/contracts/explore-step.schema.json",
+  "title": "ExploreStep",
+  "description": "POST /session/{id}/explore {command}: where the virtual walker stands and the ways out, left to right relative to heading_deg.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["command", "lang", "position", "heading_deg", "text", "branches", "came_from", "junction_stack_depth", "at_boundary", "facts", "meta"],
+  "properties": {
+    "command": {"enum": ["start", "forward", "left", "right", "back", "home", "where"]},
+    "lang": {"$ref": "fact.schema.json#/definitions/lang"},
+    "position": {
+      "type": "object", "additionalProperties": false, "required": ["lat", "lon", "osm_node"],
+      "properties": {"lat": {"type": "number"}, "lon": {"type": "number"}, "osm_node": {"$ref": "fact.schema.json#/definitions/osm_id"}}
+    },
+    "heading_deg": {"type": "number", "minimum": 0, "exclusiveMaximum": 360, "description": "Facing, degrees from north. Never spoken; changes are announced in text."},
+    "text": {"$ref": "fact.schema.json#/definitions/user_text"},
+    "branches": {
+      "type": "array", "description": "Ordered from left to right; excludes the way the walker came from.",
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["name", "leads_to", "relative_direction", "distance_m", "crossing"],
+        "properties": {
+          "name": {"type": "string"},
+          "leads_to": {"type": "string"},
+          "relative_direction": {"$ref": "fact.schema.json#/definitions/relative_direction"},
+          "distance_m": {"type": "number", "minimum": 0, "description": "Along the way to the next junction, rounded to 10 m."},
+          "crossing": {"oneOf": [{"type": "null"}, {"$ref": "fact.schema.json#/definitions/crossing"}], "description": "First mapped pedestrian crossing on this branch, null if none."}
+        }
+      }
+    },
+    "came_from": {
+      "oneOf": [
+        {"type": "null"},
+        {"type": "object", "additionalProperties": false, "required": ["name", "relative_direction", "osm_node"],
+         "properties": {"name": {"type": "string"}, "relative_direction": {"const": "behind"}, "osm_node": {"$ref": "fact.schema.json#/definitions/osm_id"}}}
+      ]
+    },
+    "junction_stack_depth": {"type": "integer", "minimum": 0, "description": "Junctions saved for 'back to the last junction'."},
+    "at_boundary": {"type": "boolean", "description": "The node is on the edge of the downloaded area: some ways may continue beyond it."},
+    "facts": {"$ref": "fact.schema.json#/definitions/facts"},
+    "meta": {"$ref": "fact.schema.json#/definitions/meta"}
+  }
+}

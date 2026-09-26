@@ -1,0 +1,18 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://bainsa-hackathon-2026/contracts/answer.schema.json",
+  "title": "Answer",
+  "description": "POST /session/{id}/ask {question}: one of the deterministic tools answered in the user's language.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["question", "lang", "tool", "text", "facts", "unknown", "meta"],
+  "properties": {
+    "question": {"type": "string", "minLength": 1},
+    "lang": {"$ref": "fact.schema.json#/definitions/lang"},
+    "tool": {"enum": ["barrier_between", "extent", "street_continuity", "independent_connections", "walking_vs_straight_line", "place_info"]},
+    "text": {"$ref": "fact.schema.json#/definitions/user_text"},
+    "facts": {"$ref": "fact.schema.json#/definitions/facts"},
+    "unknown": {"$ref": "fact.schema.json#/definitions/unknown"},
+    "meta": {"$ref": "fact.schema.json#/definitions/meta"}
+  }
+}

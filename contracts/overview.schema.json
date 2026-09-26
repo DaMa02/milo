@@ -1,0 +1,53 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://bainsa-hackathon-2026/contracts/overview.schema.json",
+  "title": "Overview",
+  "description": "GET /session/{id}/overview: the shape of the zone from a stated reference (place and facing). text is the short version, details are read on 'more'.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["zone", "lang", "reference", "text", "details", "landmarks", "barriers", "facts", "unknown", "meta"],
+  "properties": {
+    "zone": {
+      "type": "object", "additionalProperties": false, "required": ["name", "center", "radius_m"],
+      "properties": {
+        "name": {"type": "string"},
+        "center": {"type": "object", "additionalProperties": false, "required": ["lat", "lon"], "properties": {"lat": {"type": "number"}, "lon": {"type": "number"}}},
+        "radius_m": {"type": "number", "exclusiveMinimum": 0}
+      }
+    },
+    "lang": {"$ref": "fact.schema.json#/definitions/lang"},
+    "reference": {
+      "type": "object", "additionalProperties": false, "required": ["place", "lat", "lon", "heading_deg", "text"],
+      "description": "The start point and facing that every relative direction below refers to.",
+      "properties": {
+        "place": {"type": "string"}, "lat": {"type": "number"}, "lon": {"type": "number"},
+        "heading_deg": {"type": "number", "minimum": 0, "exclusiveMaximum": 360},
+        "text": {"$ref": "fact.schema.json#/definitions/user_text"}
+      }
+    },
+    "text": {"$ref": "fact.schema.json#/definitions/user_text"},
+    "details": {"type": "array", "items": {"$ref": "fact.schema.json#/definitions/user_text"}},
+    "landmarks": {"type": "array", "items": {"$ref": "#/definitions/feature"}},
+    "barriers": {
+      "type": "array",
+      "items": {"allOf": [{"$ref": "#/definitions/feature"}, {"required": ["crossings_on_foot"]}]}
+    },
+    "facts": {"$ref": "fact.schema.json#/definitions/facts"},
+    "unknown": {"$ref": "fact.schema.json#/definitions/unknown"},
+    "meta": {"$ref": "fact.schema.json#/definitions/meta"}
+  },
+  "definitions": {
+    "feature": {
+      "type": "object", "additionalProperties": false,
+      "required": ["name", "kind", "relative_direction", "distance_m", "osm_ids"],
+      "properties": {
+        "name": {"type": "string"},
+        "kind": {"enum": ["railway", "water", "construction", "main_road", "bridge", "underpass", "stop", "park", "square", "other"]},
+        "relative_direction": {"$ref": "fact.schema.json#/definitions/relative_direction"},
+        "distance_m": {"type": "number", "minimum": 0, "description": "Straight line to the nearest point, rounded to 10 m."},
+        "osm_ids": {"type": "array", "items": {"$ref": "fact.schema.json#/definitions/osm_id"}},
+        "crossings_on_foot": {"type": ["integer", "null"], "minimum": 0}
+      }
+    }
+  }
+}

@@ -1,0 +1,498 @@
+{
+  "zone": {
+    "name": "Porta Romana, Milan",
+    "center": {
+      "lat": 45.44386,
+      "lon": 9.20808
+    },
+    "radius_m": 800
+  },
+  "lang": "en",
+  "reference": {
+    "place": "Talent Garden, via Arcivescovo Calabiana",
+    "lat": 45.44386,
+    "lon": 9.20808,
+    "heading_deg": 0,
+    "text": "Standing at Talent Garden on via Arcivescovo Calabiana, facing north."
+  },
+  "text": "Facing north from Talent Garden. The southern belt railway runs from your left to your right, 160 m ahead, and splits the area in two; you are on this side. Within 800 m you can cross it on foot in 2 places, the nearest is the corso Lodi bridge, 410 m at 2 o'clock.",
+  "details": [
+    "Between you and the railway there is a construction site, Villaggio Olimpico 2026 - Parco Porta Romana, 100 m ahead.",
+    "Main roads you will hear: viale Isonzo, 330 m ahead; corso Lodi, 400 m at 2 o'clock; piazza Trento, 430 m at 11 o'clock.",
+    "Railway crossings on foot: the corso Lodi bridge, with an underpass beside it, 410 m at 2 o'clock; an unnamed bridge, 760 m left."
+  ],
+  "landmarks": [
+    {
+      "name": "the corso Lodi bridge, with an underpass beside it",
+      "kind": "bridge",
+      "relative_direction": "at 2 o'clock",
+      "distance_m": 410,
+      "osm_ids": [
+        "way/561116048",
+        "way/561116049",
+        "way/561116044",
+        "way/561116052",
+        "way/1074766979"
+      ]
+    },
+    {
+      "name": "an unnamed bridge",
+      "kind": "bridge",
+      "relative_direction": "left",
+      "distance_m": 760,
+      "osm_ids": [
+        "way/1074764738",
+        "way/1074764740"
+      ]
+    },
+    {
+      "name": "viale Isonzo",
+      "kind": "main_road",
+      "relative_direction": "ahead",
+      "distance_m": 330,
+      "osm_ids": [
+        "way/58841262",
+        "way/23799892",
+        "way/288900527"
+      ]
+    },
+    {
+      "name": "corso Lodi",
+      "kind": "main_road",
+      "relative_direction": "at 2 o'clock",
+      "distance_m": 400,
+      "osm_ids": [
+        "way/36874245",
+        "way/37036128",
+        "way/290130631",
+        "way/290130627",
+        "way/561116047"
+      ]
+    },
+    {
+      "name": "piazza Trento",
+      "kind": "main_road",
+      "relative_direction": "at 11 o'clock",
+      "distance_m": 430,
+      "osm_ids": [
+        "way/22493284",
+        "way/161716538",
+        "way/85684647",
+        "way/23799891",
+        "way/291121969"
+      ]
+    }
+  ],
+  "barriers": [
+    {
+      "name": "Cintura sud di Milano",
+      "kind": "railway",
+      "relative_direction": "ahead",
+      "distance_m": 160,
+      "osm_ids": [
+        "way/141197445",
+        "way/141197790",
+        "way/1188280516",
+        "way/1188280517",
+        "way/1188280519"
+      ],
+      "crossings_on_foot": 2
+    },
+    {
+      "name": "Villaggio Olimpico 2026 - Parco Porta Romana",
+      "kind": "construction",
+      "relative_direction": "ahead",
+      "distance_m": 100,
+      "osm_ids": [
+        "way/142400274"
+      ],
+      "crossings_on_foot": null
+    }
+  ],
+  "facts": [
+    {
+      "type": "barrier_distance",
+      "value": 160,
+      "unit": "m",
+      "source": "computed",
+      "evidence": [
+        "way/141197445",
+        "way/141197790",
+        "way/1188280516",
+        "way/1188280517",
+        "way/1188280519",
+        "way/1188280520",
+        "way/1346896414",
+        "way/1346896415"
+      ],
+      "inputs": {
+        "graph": {
+          "center": [
+            45.44386,
+            9.20808
+          ],
+          "dist_m": 800,
+          "network_type": "walk",
+          "simplify": false,
+          "snap": "nearest_edge",
+          "snapshot": "2026-09-26",
+          "source": "OpenStreetMap via Overpass, osmnx 2.1.1"
+        },
+        "from": [
+          45.44386,
+          9.20808
+        ],
+        "method": "straight line to nearest point",
+        "feature": "Cintura sud di Milano"
+      },
+      "data_date": "2026-09-26",
+      "completeness": "complete"
+    },
+    {
+      "type": "barrier_distance",
+      "value": 100,
+      "unit": "m",
+      "source": "computed",
+      "evidence": [
+        "way/142400274"
+      ],
+      "inputs": {
+        "graph": {
+          "center": [
+            45.44386,
+            9.20808
+          ],
+          "dist_m": 800,
+          "network_type": "walk",
+          "simplify": false,
+          "snap": "nearest_edge",
+          "snapshot": "2026-09-26",
+          "source": "OpenStreetMap via Overpass, osmnx 2.1.1"
+        },
+        "from": [
+          45.44386,
+          9.20808
+        ],
+        "method": "straight line to nearest point",
+        "feature": "Villaggio Olimpico 2026 - Parco Porta Romana"
+      },
+      "data_date": "2026-09-26",
+      "completeness": "complete"
+    },
+    {
+      "type": "railway_crossing_places",
+      "value": 2,
+      "unit": "count",
+      "source": "computed",
+      "evidence": [
+        "way/561116048",
+        "way/561116049",
+        "way/561116044",
+        "way/561116052",
+        "way/1074766979",
+        "way/561116051",
+        "way/1074766980",
+        "way/1458774479",
+        "way/1074764738",
+        "way/1074764740"
+      ],
+      "inputs": {
+        "graph": {
+          "center": [
+            45.44386,
+            9.20808
+          ],
+          "dist_m": 800,
+          "network_type": "walk",
+          "simplify": false,
+          "snap": "nearest_edge",
+          "snapshot": "2026-09-26",
+          "source": "OpenStreetMap via Overpass, osmnx 2.1.1"
+        },
+        "railway": "Cintura sud di Milano",
+        "cluster_m": 40,
+        "radius_m": 800
+      },
+      "data_date": "2026-09-26",
+      "completeness": "unknown"
+    },
+    {
+      "type": "railway_crossing_distance",
+      "value": 410,
+      "unit": "m",
+      "source": "computed",
+      "evidence": [
+        "way/561116048",
+        "way/561116049",
+        "way/561116044",
+        "way/561116052",
+        "way/1074766979",
+        "way/561116051",
+        "way/1074766980",
+        "way/1458774479"
+      ],
+      "inputs": {
+        "graph": {
+          "center": [
+            45.44386,
+            9.20808
+          ],
+          "dist_m": 800,
+          "network_type": "walk",
+          "simplify": false,
+          "snap": "nearest_edge",
+          "snapshot": "2026-09-26",
+          "source": "OpenStreetMap via Overpass, osmnx 2.1.1"
+        },
+        "from": [
+          45.44386,
+          9.20808
+        ],
+        "method": "straight line to nearest point",
+        "place": "the corso Lodi bridge"
+      },
+      "data_date": "2026-09-26",
+      "completeness": "complete"
+    },
+    {
+      "type": "railway_crossing_distance",
+      "value": 760,
+      "unit": "m",
+      "source": "computed",
+      "evidence": [
+        "way/1074764738",
+        "way/1074764740"
+      ],
+      "inputs": {
+        "graph": {
+          "center": [
+            45.44386,
+            9.20808
+          ],
+          "dist_m": 800,
+          "network_type": "walk",
+          "simplify": false,
+          "snap": "nearest_edge",
+          "snapshot": "2026-09-26",
+          "source": "OpenStreetMap via Overpass, osmnx 2.1.1"
+        },
+        "from": [
+          45.44386,
+          9.20808
+        ],
+        "method": "straight line to nearest point",
+        "place": "an unnamed bridge"
+      },
+      "data_date": "2026-09-26",
+      "completeness": "complete"
+    },
+    {
+      "type": "barrier",
+      "value": "Cintura sud di Milano",
+      "unit": null,
+      "source": "map_tag",
+      "evidence": [
+        "way/141197445",
+        "way/141197790",
+        "way/1188280516",
+        "way/1188280517",
+        "way/1188280519",
+        "way/1188280520",
+        "way/1346896414",
+        "way/1346896415"
+      ],
+      "inputs": {
+        "center": [
+          45.44386,
+          9.20808
+        ],
+        "dist_m": 800,
+        "tags": {
+          "railway": [
+            "rail",
+            "light_rail"
+          ],
+          "waterway": true,
+          "landuse": [
+            "railway",
+            "construction"
+          ]
+        },
+        "snapshot": "2026-09-26"
+      },
+      "data_date": "2026-09-26",
+      "completeness": "complete"
+    },
+    {
+      "type": "barrier",
+      "value": "Villaggio Olimpico 2026 - Parco Porta Romana",
+      "unit": null,
+      "source": "map_tag",
+      "evidence": [
+        "way/142400274"
+      ],
+      "inputs": {
+        "center": [
+          45.44386,
+          9.20808
+        ],
+        "dist_m": 800,
+        "tags": {
+          "railway": [
+            "rail",
+            "light_rail"
+          ],
+          "waterway": true,
+          "landuse": [
+            "railway",
+            "construction"
+          ]
+        },
+        "snapshot": "2026-09-26"
+      },
+      "data_date": "2026-09-26",
+      "completeness": "complete"
+    },
+    {
+      "type": "radius",
+      "value": 800,
+      "unit": "m",
+      "source": "unknown",
+      "evidence": [],
+      "inputs": {
+        "graph": {
+          "center": [
+            45.44386,
+            9.20808
+          ],
+          "dist_m": 800,
+          "network_type": "walk",
+          "simplify": false,
+          "snap": "nearest_edge",
+          "snapshot": "2026-09-26",
+          "source": "OpenStreetMap via Overpass, osmnx 2.1.1"
+        }
+      },
+      "data_date": "2026-09-26",
+      "completeness": "complete"
+    },
+    {
+      "type": "main_road_distance",
+      "value": 330,
+      "unit": "m",
+      "source": "computed",
+      "evidence": [
+        "way/58841262",
+        "way/23799892",
+        "way/288900527"
+      ],
+      "inputs": {
+        "graph": {
+          "center": [
+            45.44386,
+            9.20808
+          ],
+          "dist_m": 800,
+          "network_type": "walk",
+          "simplify": false,
+          "snap": "nearest_edge",
+          "snapshot": "2026-09-26",
+          "source": "OpenStreetMap via Overpass, osmnx 2.1.1"
+        },
+        "from": [
+          45.44386,
+          9.20808
+        ],
+        "method": "straight line to nearest point",
+        "road": "viale Isonzo"
+      },
+      "data_date": "2026-09-26",
+      "completeness": "complete"
+    },
+    {
+      "type": "main_road_distance",
+      "value": 400,
+      "unit": "m",
+      "source": "computed",
+      "evidence": [
+        "way/36874245",
+        "way/37036128",
+        "way/290130631",
+        "way/290130627",
+        "way/561116047",
+        "way/561116048",
+        "way/85890884",
+        "way/900636756",
+        "way/290523325",
+        "way/161606037"
+      ],
+      "inputs": {
+        "graph": {
+          "center": [
+            45.44386,
+            9.20808
+          ],
+          "dist_m": 800,
+          "network_type": "walk",
+          "simplify": false,
+          "snap": "nearest_edge",
+          "snapshot": "2026-09-26",
+          "source": "OpenStreetMap via Overpass, osmnx 2.1.1"
+        },
+        "from": [
+          45.44386,
+          9.20808
+        ],
+        "method": "straight line to nearest point",
+        "road": "corso Lodi"
+      },
+      "data_date": "2026-09-26",
+      "completeness": "complete"
+    },
+    {
+      "type": "main_road_distance",
+      "value": 430,
+      "unit": "m",
+      "source": "computed",
+      "evidence": [
+        "way/22493284",
+        "way/161716538",
+        "way/85684647",
+        "way/23799891",
+        "way/291121969",
+        "way/175568503"
+      ],
+      "inputs": {
+        "graph": {
+          "center": [
+            45.44386,
+            9.20808
+          ],
+          "dist_m": 800,
+          "network_type": "walk",
+          "simplify": false,
+          "snap": "nearest_edge",
+          "snapshot": "2026-09-26",
+          "source": "OpenStreetMap via Overpass, osmnx 2.1.1"
+        },
+        "from": [
+          45.44386,
+          9.20808
+        ],
+        "method": "straight line to nearest point",
+        "road": "piazza Trento"
+      },
+      "data_date": "2026-09-26",
+      "completeness": "complete"
+    }
+  ],
+  "unknown": [
+    "The area is mapped only within 800 m of Talent Garden: railway crossings farther away are not counted.",
+    "The map does not say whether the construction site blocks any pavement."
+  ],
+  "meta": {
+    "mode": "offline",
+    "cache": "hit",
+    "computed_at": "2026-09-26T09:36:53Z"
+  }
+}

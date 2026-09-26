@@ -1,0 +1,354 @@
+{
+  "question": "Is it close to here?",
+  "lang": "en",
+  "meta": {
+    "mode": "offline",
+    "cache": "hit",
+    "computed_at": "2026-09-26T09:36:53Z"
+  },
+  "tool": "walking_vs_straight_line",
+  "text": "350 m in a straight line, but 1,080 m on foot, about 14 minutes: the southern belt railway is in between. On foot you cross it on the corso Lodi bridge. The walk is 3.1 times the straight-line distance.",
+  "facts": [
+    {
+      "type": "straight_line_distance",
+      "value": 350,
+      "unit": "m",
+      "source": "computed",
+      "evidence": [
+        "https://www.openstreetmap.org/directions?route=45.44386%2C9.20808%3B45.44658%2C9.20584"
+      ],
+      "inputs": {
+        "from": [
+          45.44386,
+          9.20808
+        ],
+        "to": [
+          45.44658,
+          9.20584
+        ],
+        "method": "great circle"
+      },
+      "data_date": "2026-09-26",
+      "completeness": "complete"
+    },
+    {
+      "type": "walking_distance",
+      "value": 1080,
+      "unit": "m",
+      "source": "computed",
+      "evidence": [
+        "way/1012491788",
+        "way/1012491791",
+        "way/1012491789",
+        "way/37518310",
+        "way/264835831",
+        "way/297203174",
+        "way/943943036",
+        "way/943943037",
+        "way/1074766979",
+        "way/1079413421",
+        "way/1079413422",
+        "way/423495023",
+        "way/1079412251",
+        "way/1079412252",
+        "way/1079412253",
+        "way/1079412254",
+        "way/1057832021",
+        "way/1012734059"
+      ],
+      "inputs": {
+        "graph": {
+          "center": [
+            45.44386,
+            9.20808
+          ],
+          "dist_m": 800,
+          "network_type": "walk",
+          "simplify": false,
+          "snap": "nearest_edge",
+          "snapshot": "2026-09-26",
+          "source": "OpenStreetMap via Overpass, osmnx 2.1.1"
+        },
+        "origin": [
+          45.44386,
+          9.20808
+        ],
+        "destination": [
+          45.44658,
+          9.20584
+        ],
+        "speed_m_per_min": 80,
+        "origin_snap_m": 41,
+        "destination_snap_m": 10
+      },
+      "data_date": "2026-09-26",
+      "completeness": "complete"
+    },
+    {
+      "type": "walking_time",
+      "value": 14,
+      "unit": "min",
+      "source": "computed",
+      "evidence": [
+        "way/1012491788",
+        "way/1012491791",
+        "way/1012491789",
+        "way/37518310",
+        "way/264835831",
+        "way/297203174",
+        "way/943943036",
+        "way/943943037",
+        "way/1074766979",
+        "way/1079413421",
+        "way/1079413422",
+        "way/423495023",
+        "way/1079412251",
+        "way/1079412252",
+        "way/1079412253",
+        "way/1079412254",
+        "way/1057832021",
+        "way/1012734059"
+      ],
+      "inputs": {
+        "graph": {
+          "center": [
+            45.44386,
+            9.20808
+          ],
+          "dist_m": 800,
+          "network_type": "walk",
+          "simplify": false,
+          "snap": "nearest_edge",
+          "snapshot": "2026-09-26",
+          "source": "OpenStreetMap via Overpass, osmnx 2.1.1"
+        },
+        "origin": [
+          45.44386,
+          9.20808
+        ],
+        "destination": [
+          45.44658,
+          9.20584
+        ],
+        "speed_m_per_min": 80,
+        "origin_snap_m": 41,
+        "destination_snap_m": 10
+      },
+      "data_date": "2026-09-26",
+      "completeness": "complete"
+    },
+    {
+      "type": "detour_ratio",
+      "value": 3.1,
+      "unit": "ratio",
+      "source": "computed",
+      "evidence": [
+        "way/1012491788",
+        "way/1012491791",
+        "way/1012491789",
+        "way/37518310",
+        "way/264835831",
+        "way/297203174",
+        "way/943943036",
+        "way/943943037",
+        "way/1074766979",
+        "way/1079413421",
+        "way/1079413422",
+        "way/423495023",
+        "way/1079412251",
+        "way/1079412252",
+        "way/1079412253",
+        "way/1079412254",
+        "way/1057832021",
+        "way/1012734059"
+      ],
+      "inputs": {
+        "graph": {
+          "center": [
+            45.44386,
+            9.20808
+          ],
+          "dist_m": 800,
+          "network_type": "walk",
+          "simplify": false,
+          "snap": "nearest_edge",
+          "snapshot": "2026-09-26",
+          "source": "OpenStreetMap via Overpass, osmnx 2.1.1"
+        },
+        "origin": [
+          45.44386,
+          9.20808
+        ],
+        "destination": [
+          45.44658,
+          9.20584
+        ],
+        "speed_m_per_min": 80,
+        "origin_snap_m": 41,
+        "destination_snap_m": 10
+      },
+      "data_date": "2026-09-26",
+      "completeness": "complete"
+    },
+    {
+      "type": "barrier",
+      "value": "Cintura sud di Milano",
+      "unit": null,
+      "source": "map_tag",
+      "evidence": [
+        "way/141197445",
+        "way/141197790",
+        "way/1188280516",
+        "way/1188280517",
+        "way/1188280519",
+        "way/1188280520",
+        "way/1346896414",
+        "way/1346896415"
+      ],
+      "inputs": {
+        "center": [
+          45.44386,
+          9.20808
+        ],
+        "dist_m": 800,
+        "tags": {
+          "railway": [
+            "rail",
+            "light_rail"
+          ],
+          "waterway": true,
+          "landuse": [
+            "railway",
+            "construction"
+          ]
+        },
+        "snapshot": "2026-09-26",
+        "line": [
+          [
+            45.44386,
+            9.20808
+          ],
+          [
+            45.44658,
+            9.20584
+          ]
+        ]
+      },
+      "data_date": "2026-09-26",
+      "completeness": "complete"
+    },
+    {
+      "type": "railway_crossing_on_route",
+      "value": "the corso Lodi bridge",
+      "unit": null,
+      "source": "computed",
+      "evidence": [
+        "way/1074766979"
+      ],
+      "inputs": {
+        "graph": {
+          "center": [
+            45.44386,
+            9.20808
+          ],
+          "dist_m": 800,
+          "network_type": "walk",
+          "simplify": false,
+          "snap": "nearest_edge",
+          "snapshot": "2026-09-26",
+          "source": "OpenStreetMap via Overpass, osmnx 2.1.1"
+        },
+        "origin": [
+          45.44386,
+          9.20808
+        ],
+        "destination": [
+          45.44658,
+          9.20584
+        ],
+        "speed_m_per_min": 80,
+        "origin_snap_m": 41,
+        "destination_snap_m": 10
+      },
+      "data_date": "2026-09-26",
+      "completeness": "complete"
+    },
+    {
+      "type": "snap_distance",
+      "value": 41,
+      "unit": "m",
+      "source": "computed",
+      "evidence": [
+        "node/13306474029",
+        "node/9340945667"
+      ],
+      "inputs": {
+        "graph": {
+          "center": [
+            45.44386,
+            9.20808
+          ],
+          "dist_m": 800,
+          "network_type": "walk",
+          "simplify": false,
+          "snap": "nearest_edge",
+          "snapshot": "2026-09-26",
+          "source": "OpenStreetMap via Overpass, osmnx 2.1.1"
+        },
+        "origin": [
+          45.44386,
+          9.20808
+        ],
+        "destination": [
+          45.44658,
+          9.20584
+        ],
+        "speed_m_per_min": 80,
+        "origin_snap_m": 41,
+        "destination_snap_m": 10
+      },
+      "data_date": "2026-09-26",
+      "completeness": "complete"
+    },
+    {
+      "type": "snap_distance",
+      "value": 10,
+      "unit": "m",
+      "source": "computed",
+      "evidence": [
+        "node/9340898284",
+        "node/9343409902"
+      ],
+      "inputs": {
+        "graph": {
+          "center": [
+            45.44386,
+            9.20808
+          ],
+          "dist_m": 800,
+          "network_type": "walk",
+          "simplify": false,
+          "snap": "nearest_edge",
+          "snapshot": "2026-09-26",
+          "source": "OpenStreetMap via Overpass, osmnx 2.1.1"
+        },
+        "origin": [
+          45.44386,
+          9.20808
+        ],
+        "destination": [
+          45.44658,
+          9.20584
+        ],
+        "speed_m_per_min": 80,
+        "origin_snap_m": 41,
+        "destination_snap_m": 10
+      },
+      "data_date": "2026-09-26",
+      "completeness": "complete"
+    }
+  ],
+  "unknown": [
+    "Distances start and end at the nearest mapped footpath: 41 m from Talent Garden and 10 m from the destination point."
+  ]
+}
