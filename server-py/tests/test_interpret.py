@@ -13,6 +13,7 @@ from types import SimpleNamespace as NS
 HERE = pathlib.Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE.parent))
 os.environ.pop("ANTHROPIC_API_KEY", None)
+os.environ.pop("TYPESAFE_API_KEY", None)
 
 
 def _no_network(_sock, address, *_a):
@@ -22,6 +23,7 @@ def _no_network(_sock, address, *_a):
 socket.socket.connect = _no_network
 
 import anthropic  # noqa: E402
+import httpx  # noqa: E402
 from fastapi import FastAPI, HTTPException  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
 
@@ -34,8 +36,8 @@ def no_session(sid):
 
 def blank(**kw):
     out = {k: "" for k in ("action", "command", "branch", "tool", "from_place", "to_place", "street", "place", "query",
-                           "answer", "change", "route_id", "kind", "strength", "reason")}
-    return {**out, "index": -1, **kw}
+                           "answer", "change", "route_id", "kind", "strength", "reason", "state")}
+    return {**out, "index": -1, "minutes": -1, **kw}
 
 
 class Fake:
@@ -60,6 +62,13 @@ REAL = {"view": "plan", "has_destination": True, "routes": [  # labels as the pl
     {"id": "B", "label": "Route B, on foot, the shortest, 14 minutes: 3 crossings without a signal."},
     {"id": "C", "label": "Route C, bus 92 from Viale Umbria: you arrive 29 minutes after it; route B on foot takes 14."}]}
 PENDING = {"view": "home", "pending": "destination", "candidates": ["Bocconi University", "Bocconi Library"]}
+STOPS = {"view": "plan", "has_destination": True, "routes": ROUTES, "pending": "stop",
+         "stop_candidates": ["Lidl", "Carrefour Express", "Farmacia Ripamonti"]}
+
+
+def info(u, name):
+    return u, {}, "ask", {"question": u, "tool": "place_info", "params": {"place": {"name": name}}}
+
 
 GRAMMAR = [  # (utterance, context, action, params)
     ("Use my location.", {}, "set_origin_here", {}),
@@ -150,6 +159,43 @@ GRAMMAR = [  # (utterance, context, action, params)
     ("The last one.", PENDING, "confirm", {"answer": "yes", "index": 1}),
     ("Take me there.", {"has_destination": True}, "route", {}),
     ("Go to the left.", EXPLORE, "explore", {"command": "left"}),
+    # navigation, stops on the way, place info
+    ("Start navigation.", PLAN, "navigate", {"state": "start"}),
+    ("Let's go!", PLAN, "navigate", {"state": "start"}),
+    ("Guide me", PLAN, "navigate", {"state": "start"}),
+    ("Take me there now.", PLAN, "navigate", {"state": "start"}),
+    ("Start guiding", PLAN, "navigate", {"state": "start"}),
+    ("Portami", PLAN, "navigate", {"state": "start"}),
+    ("Andiamo!", PLAN, "navigate", {"state": "start"}),
+    ("Avvia la navigazione", PLAN, "navigate", {"state": "start"}),
+    ("Let's go", EXPLORE, "explore", {"command": "forward"}),
+    ("Stop navigation.", PLAN, "navigate", {"state": "stop"}),
+    ("Stop guiding", PLAN, "navigate", {"state": "stop"}),
+    ("Ferma la navigazione", PLAN, "navigate", {"state": "stop"}),
+    ("Stop at a supermarket for 15 minutes.", PLAN, "route_stop", {"kind": "supermarket", "duration_min": 15}),
+    ("I need to buy something on the way", PLAN, "route_stop", {"kind": "shop"}),
+    ("Add a pharmacy.", PLAN, "route_stop", {"kind": "pharmacy"}),
+    ("I want a coffee on the way", PLAN, "route_stop", {"kind": "cafe"}),
+    ("Fermati in farmacia", PLAN, "route_stop", {"kind": "pharmacy"}),
+    ("I need cash on the way", PLAN, "route_stop", {"kind": "atm"}),
+    ("Stop at a bakery for ten minutes", PLAN, "route_stop", {"kind": "bakery", "duration_min": 10}),
+    ("For 10 minutes.", STOPS, "stop_duration", {"minutes": 10}),
+    ("A quarter of an hour", {"view": "plan", "last_action": "route_stop"}, "stop_duration", {"minutes": 15}),
+    ("Half an hour", STOPS, "stop_duration", {"minutes": 30}),
+    ("Un quarto d'ora", STOPS, "stop_duration", {"minutes": 15}),
+    ("The first one.", STOPS, "confirm", {"answer": "yes", "index": 0}),
+    ("Lidl", STOPS, "confirm", {"answer": "yes", "index": 0}),
+    ("Carrefour please", STOPS, "confirm", {"answer": "yes", "index": 1}),
+    ("Il terzo", STOPS, "confirm", {"answer": "yes", "index": 2}),
+    ("Yes", STOPS, "confirm", {"answer": "yes"}),
+    ("Bocconi Library", PENDING, "confirm", {"answer": "yes", "index": 1}),
+    info("Is the pharmacy open?", "the pharmacy"),
+    info("Tell me about Lidl.", "Lidl"),
+    info("Is there wheelchair access at Esselunga?", "Esselunga"),
+    info("When does the bakery close?", "the bakery"),
+    info("La farmacia è aperta?", "the pharmacy"),
+    ("Go to the pharmacy", {}, "set_destination", {"query": "pharmacy"}),
+    ("Fermati", {}, "stop", {}),
 ]
 
 BETWEEN = "Is there anything between me and Bocconi?"
@@ -173,7 +219,60 @@ CLAUDE = [  # (utterance, context, fake model answer, action, params)
     ("What colour is the sky?", {}, blank(action="none", reason="no_fit"), "none", {"reason": "no_fit"}),
     ("Go down the street on my left", EXPLORE, blank(action="explore", command="take", branch="0"),
      "explore", {"command": "take", "branch": 0}),
+    ("Could we pop into a chemist somewhere along the route", PLAN, blank(action="route_stop", kind="pharmacy", minutes=10),
+     "route_stop", {"kind": "pharmacy", "duration_min": 10}),
+    ("What are the opening times of that Carrefour", {}, blank(action="ask", tool="place_info", place="Carrefour"),
+     "ask", {"question": "What are the opening times of that Carrefour", "tool": "place_info",
+             "params": {"place": {"name": "Carrefour"}}}),
+    ("Right, let's get moving with the directions", PLAN, blank(action="navigate", state="start"), "navigate", {"state": "start"}),
+    ("Make it twenty-five minutes", STOPS, blank(action="stop_duration", minutes=25), "stop_duration", {"minutes": 25}),
+    ("Stop somewhere for a bite, a pizzeria", PLAN, blank(action="route_stop", kind="pizzeria"), "none", {"reason": "unclear"}),
 ]
+
+GUIDE = "Could you get the guidance going"
+JEV = {  # utterance -> {question: (choice, confidence)}; a string is an error to raise
+    GUIDE: {"action": ("navigate_start", 0.98)},
+    "I'll go with the one on the big streets": {"action": ("route_select", 0.97), "route": ("B", 0.93)},
+    "I'd love an espresso somewhere, 20 minutes": {"action": ("route_stop", 0.95), "kind": ("cafe", 0.99)},
+    "The one on the corner, the Carrefour I think": {"action": ("confirm_pick", 0.92), "candidate": ("Carrefour Express", 0.9)},
+    "Talk a bit quicker": {"action": ("speed_faster", 0.99)},
+    BETWEEN: {"action": ("ask", 0.99)},  # free text: Claude fills it
+    "Go down the street on my left": {"action": ("explore_take", 0.5)},  # not sure: Claude
+    "Let's go with the one on the big streets": {"action": ("route_select", 0.95), "route": ("B", 0.4)},  # route not sure
+    "Could you describe the neighbourhood for me": "timeout",
+    "I would rather avoid the busy stuff": "500",
+    "Pick that one over there": {"action": ("confirm_pick", 0.95), "candidate": ("Lidl", 0.95)},  # nothing listed
+}
+JEV_WANT = [
+    (GUIDE, PLAN, "navigate", {"state": "start"}, "jev"),
+    ("I'll go with the one on the big streets", PLAN, "route_select", {"route_id": "B"}, "jev"),
+    ("I'd love an espresso somewhere, 20 minutes", PLAN, "route_stop", {"kind": "cafe", "duration_min": 20}, "jev"),
+    ("The one on the corner, the Carrefour I think", STOPS, "confirm", {"answer": "yes", "index": 1}, "jev"),
+    ("Talk a bit quicker", {}, "speed", {"change": "faster"}, "jev"),
+    (BETWEEN, PLAN, "ask", CLAUDE[0][4], "claude"),
+    ("Go down the street on my left", EXPLORE, "explore", {"command": "take", "branch": 0}, "claude"),
+    ("Let's go with the one on the big streets", PLAN, "route_select", {"route_id": "B"}, "claude"),
+    ("Could you describe the neighbourhood for me", {}, "overview", {}, "claude"),
+    ("I would rather avoid the busy stuff", PLAN, "route_avoid", {"kind": "main_roads"}, "claude"),
+]
+
+
+class FakeJev:
+    """Stands in for api.typesafe.ai through an httpx MockTransport; records every request body and header."""
+    def __init__(self):
+        self.calls = []
+        self.http = httpx.Client(transport=httpx.MockTransport(self.handle))
+
+    def handle(self, request):
+        body = json.loads(request.content)
+        self.calls.append((request, body))
+        a = JEV.get(body["state"]["utterance"], {})
+        if a == "timeout":
+            raise httpx.ReadTimeout("slow", request=request)
+        if a == "500":
+            return httpx.Response(500, json={})
+        return httpx.Response(200, json={"answers": {q: {"type": "choice", "choice": c, "confidence": p,
+                                                        "probabilities": {c: p}} for q, (c, p) in a.items()}})
 
 
 def post(client, utterance, ctx):
@@ -195,6 +294,9 @@ def main():
     got = post(bare, "Is it far?", REAL)  # a short question never picks a route by a shared word
     if got["action"] != "none":
         errors.append(f"'Is it far?': {got}")
+    for u in ("Tell me about the area", "Is it open?", "I want to know something"):  # no place name, no stop: the model
+        if post(bare, u, {})["action"] != "none":
+            errors.append(f"{u!r} did not reach the model")
     got = post(bare, BETWEEN, PLAN)
     if (got["action"], got["params"]) != ("none", {"reason": "model_unavailable"}):
         errors.append(f"no key: {got}")
@@ -228,7 +330,43 @@ def main():
     if got["action"] != "stop":
         errors.append(f"stale session: {got}")
 
-    print(f"{len(GRAMMAR)} grammar + {len(CLAUDE)} model utterances, {len(errors)} errors")
+    # Jev between the grammar and Claude, through a fake transport
+    os.environ["TYPESAFE_API_KEY"] = "test-key"
+    tj, fake = FakeJev(), Fake({u: a for u, _, a, _, _ in CLAUDE})
+    app = FastAPI()
+    app.include_router(make_router(no_session, llm=fake, jev_http=tj.http))
+    c = TestClient(app)
+    for u, ctx, action, params, via in JEV_WANT:
+        got = post(c, u, ctx)
+        if (got["action"], got["params"], got["via"]) != (action, params, via):
+            errors.append(f"jev {u!r}: {got['action']} {got['params']} via {got['via']}, expected {action} {params} via {via}")
+    jev_claude = [u for u, *_, via in JEV_WANT if via == "claude"]
+    if [k["messages"][0]["content"].rsplit("Utterance: ", 1)[1] for k in fake.calls] != jev_claude:
+        errors.append("Claude was called for a sure Jev answer, or not called after Jev fell through")
+    req, body = tj.calls[0]
+    if (req.headers["authorization"], body["model"], sorted(body["questions"])) != (
+            "Bearer test-key", "jev-latest", ["action", "avoid", "kind", "route"]):
+        errors.append(f"jev request: {body['model']} {sorted(body['questions'])}")
+    if "candidate" not in tj.calls[3][1]["questions"] or body["questions"]["action"]["type"] != "choice":
+        errors.append("jev questions lack the candidates or the choice type")
+    n = len(tj.calls)
+    for u, ctx, action, params in GRAMMAR:
+        post(c, u, ctx)
+    if len(tj.calls) != n:
+        errors.append("a grammar phrase reached Jev")
+    try:
+        if post(c, "Pick that one over there", {})["via"] == "jev":
+            errors.append("Jev picked a candidate when none was listed")
+    except Exception as e:  # noqa: BLE001
+        errors.append(f"Jev odd answer crashed /interpret: {e!r}")
+    os.environ.pop("TYPESAFE_API_KEY")
+    got = post(c, GUIDE, PLAN)  # no key: Jev skipped, the fake Claude does not know it
+    if len(tj.calls) != n or (got["action"], got["via"]) != ("none", "grammar"):
+        errors.append(f"no key, Jev still called or answered: {got}")
+    if post(c, "For 10 minutes", PLAN)["action"] != "none":  # a duration with no stop pending is not a stop_duration
+        errors.append("stop_duration without a pending stop")
+
+    print(f"{len(GRAMMAR)} grammar + {len(CLAUDE)} model + {len(JEV_WANT)} Jev utterances, {len(errors)} errors")
     for e in errors:
         print("FAIL", e)
     sys.exit(1 if errors else 0)

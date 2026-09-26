@@ -53,6 +53,30 @@ KIND = [("signals_without_sound", r"(?:signal|light)s? without (?:sound|audio)|s
         ("construction", r"construction|roadworks|road works|cantier"),
         ("main_roads", r"main (?:road|street)|busy (?:road|street)|big (?:road|street)|traffic|strade principali|traffico"),
         ("transfers", r"transfer|chang(?:e|ing) (?:bus|line)|cambi")]
+# place kinds for stops on the way and place_info; the order settles "coffee shop" (cafe) and "buy bread" (bakery)
+PLACES = [("supermarket", r"supermarket|grocer|groceries|supermercato|spesa"),
+          ("pharmacy", r"pharmac|chemist|drugstore|farmaci"),
+          ("cafe", r"caf[eé]|coffee|espresso|\bbar\b|caff[eè]"),
+          ("bakery", r"baker|bread|panetteri|panific|forno|\bpane\b"),
+          ("atm", r"\batms?\b|cash|bancomat|money|soldi|contanti"),
+          ("shop", r"shop|store|\bbuy\b|negozio|comprare")]
+PLACE_KINDS = [k for k, _ in PLACES]
+NAV = {"start": "start navigation|start navigating|start the navigation|start guiding|start guidance|guide me|guide me there|"
+                "let's go|lets go|take me there now|go now|portami|andiamo|avvia la navigazione|inizia la navigazione|guidami|partiamo",
+       "stop": "stop navigation|stop navigating|stop the navigation|stop guiding|stop guiding me|stop guidance|end navigation|cancel navigation|"
+               "ferma la navigazione|interrompi la navigazione|stop la navigazione"}
+NAV = {k: set(v.split("|")) for k, v in NAV.items()}
+STOP_AT = (r"\b(?:stop|add|buy|get|grab|need|want|pass by|stop by|on the way|along the way|on my way|fermati|fermarmi|fermarci|"
+           r"ferma|aggiungi|passa|passare|comprare|prendere|lungo la strada|per strada|sulla strada)\b")
+WAY = r"on the way|along the way|on my way|lungo la strada|per strada|sulla strada"
+NUM = {"five": 5, "ten": 10, "fifteen": 15, "twenty": 20, "thirty": 30, "forty": 40,
+       "cinque": 5, "dieci": 10, "quindici": 15, "venti": 20, "trenta": 30, "quaranta": 40}
+INFO = [r"^(?:is|are) (.+?) (?:still )?open(?: now| today| right now)?$", r"^when does (.+?) (?:open|close)$",
+        r"^what time does (.+?) (?:open|close)$", r"^(?:opening hours|hours) (?:of|for|at) (.+)$",
+        r"^(?:tell me about|what do you know about|information about|info about|parlami di|dimmi di) (.+)$",
+        r"^is there (?:wheelchair|step-free|disabled) access (?:at|to|in|for) (.+)$",
+        r"^is (.+?) (?:wheelchair accessible|accessible|step-free)$",
+        r"^(?:è|e) apert[oa] (.+)$", r"^(.+?) (?:è|e) apert[oa](?: adesso| ora| oggi)?$", r"^orari (?:di|del|della|dello) (.+)$"]
 SIDE_ONLY = r"only (?:side|quiet|small|secondary) (?:streets|roads)|side streets only|solo strade secondarie"
 TAKE = r"^(?:take|use|choose|pick|go with|i'll take|let's take|prendi|scegli|prendiamo)\s+(.+)$"
 # route ids are fixed by lotl/plan.py: B the shortest on foot, A main streets or fewest violations, C public transport
@@ -83,6 +107,27 @@ def ordinal(s):
     return ORD.get(s)
 
 
+def place_kind(t):
+    return next((k for k, rx in PLACES if re.search(rx, t)), None)
+
+
+def place_ref(s):
+    """'la farmacia', 'the chemist' -> 'the pharmacy' (the nearest of that kind, lotl/tools.py); a name stays as it is."""
+    k = place_kind(s.lower()) if re.fullmatch(r"(?:(?:the|a|an|la|il|lo|l'|una|un)\s*)?\S+", s.strip(), re.I) else None
+    return f"the {k}" if k else s
+
+
+def minutes(t):
+    """'for 15 minutes', 'ten minutes', 'a quarter of an hour', 'mezz'ora' -> minutes; None without a duration."""
+    m = re.search(r"(?<![\w-])(\d+|" + "|".join(NUM) + r")\s*(?:min|mins|minute|minutes|minuto|minuti)\b", t)
+    if m:
+        return NUM.get(m.group(1)) or int(m.group(1))
+    for rx, n in ((r"quarter of an hour|quarter hour|quarto d'ora", 15), (r"half an hour|half hour|mezz'?ora|mezza ora", 30),
+                  (r"\ban hour\b|\bone hour\b|\bun'?ora\b", 60)):
+        if re.search(rx, t):
+            return n
+
+
 def route_match(phrase, routes, strict=False):
     """strict (no "take"): every word must be in the label, so "is it far" never picks a route."""
     ids = {r["id"].lower(): r["id"] for r in routes}
@@ -106,11 +151,20 @@ def parse(utterance, ctx=None):
     if not t:
         return None
     routes = [r for r in ctx.get("routes") or [] if r.get("id")]
+    full = re.sub(r"\s+", " ", re.sub(r"[.!?,;:¿¡\"]+", " ", utterance.lower())).strip()
+    if (ctx.get("pending") == "stop" or ctx.get("last_action") == "route_stop") and len(t.split()) <= 7 \
+            and minutes(t) and not place_kind(t):
+        return "stop_duration", {"minutes": minutes(t)}
     if ctx.get("pending"):
+        cands = ctx.get("stop_candidates") if ctx["pending"] == "stop" else ctx.get("candidates")
+        name = query(re.sub(TAKE, r"\1", t))
+        hits = [i for i, c in enumerate(cands or []) if len(name) > 2 and re.search(r"\b" + re.escape(name) + r"\b", c.lower())]
+        if len(hits) == 1 and name not in YES | NO:
+            return "confirm", {"answer": "yes", "index": hits[0]}
         m = re.fullmatch(r"(?:yes|yeah|sì|si|no|nope)\b\s*(.+)", t)
         i = ordinal(m.group(1) if m else t)  # "no, the second one" picks the second
         if i is not None:
-            n = len(ctx.get("candidates") or [])
+            n = len(cands or [])
             i = i + n if i < 0 else i
             return "confirm", {"answer": "yes", **({"index": i} if i >= 0 else {})}
         if t in YES or re.fullmatch(r"(?:yes|yeah|sì|si)\b.*", t):
@@ -125,11 +179,24 @@ def parse(utterance, ctx=None):
             if re.search(rx, m.group(1)):
                 strong = t.startswith("never") or re.search(r"\bat all\b|\bmai\b", t)
                 return "route_avoid", {"kind": kind, **({"strength": "require"} if strong else {})}
+    explore = ctx.get("view") == "explore"
+    for state, phrases in NAV.items():
+        if (t in phrases or full in phrases) and not (explore and t in FIXED[("explore", "forward")]):
+            return "navigate", {"state": state}
     for (action, sub), phrases in FIXED.items():
         if t in phrases:
             if action == "explore":
                 return action, {"command": sub}
             return action, ({"change": sub} if action == "speed" else {})
+    for rx in INFO:
+        m = re.fullmatch(rx, raw, flags=re.I)
+        if m and not re.search(r"\b(?:route|way|path|percorso|strada|area|neighbou?rhood|here|it|this|that|you|yourself|"
+                               r"street|road|crossing|zona|quartiere)\b", m.group(1).lower()):
+            return "ask", {"tool": "place_info", "params": {"place": {"name": place_ref(m.group(1))}}}
+    kind = place_kind(t) if re.search(STOP_AT, t) else None
+    if kind and (re.search(WAY, t) or not re.fullmatch(DEST + r"\s+.+", t)):
+        d = minutes(t)
+        return "route_stop", {"kind": kind, **({"duration_min": d} if d else {})}
     m = re.fullmatch(DEST + r"\s+(.+)", raw, flags=re.I)
     if m and query(m.group(1)) and ordinal(query(m.group(1)).lower()) is None:
         return "set_destination", {"query": query(m.group(1))}
@@ -138,7 +205,6 @@ def parse(utterance, ctx=None):
         return "set_origin", {"query": query(m.group(1))}
     m = re.fullmatch(TAKE, t)
     phrase = m.group(1) if m else t
-    explore = ctx.get("view") == "explore"
     if routes and not explore and (m or len(t.split()) <= 3):
         rid = route_match(phrase, routes, strict=not m)
         i = ordinal(phrase)

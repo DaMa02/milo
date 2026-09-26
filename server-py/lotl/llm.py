@@ -9,7 +9,7 @@ import os
 import anthropic
 
 MODEL = os.environ.get("ANTHROPIC_MODEL", "claude-opus-5-5")
-TOOLS = ("walking_vs_straight_line", "barrier_between", "street_continuity", "independent_connections", "extent")
+TOOLS = ("walking_vs_straight_line", "barrier_between", "street_continuity", "independent_connections", "extent", "place_info")
 
 SYSTEM = """You route a question from a blind person exploring a neighbourhood in Milan to exactly one of five deterministic map tools. You never answer the question yourself.
 
@@ -19,6 +19,7 @@ Tools:
 - independent_connections (from_place optional, to_place): how many different ways connect two places, what if one street is closed.
 - street_continuity (street): does a street go through or end, is it a dead end.
 - extent (place): how big a park, square, construction site or street is, how far it extends.
+- place_info (place): is a shop, pharmacy, café or other place open, its hours, its wheelchair access, what it is.
 
 Rules:
 - Copy place and street names exactly as the user wrote them. Never translate, correct, invent or add places, numbers or coordinates.
@@ -80,7 +81,8 @@ def interpret(question, llm=None):
               "barrier_between": {"from": place(out["from_place"]), "to": place(out["to_place"])},
               "independent_connections": {"from": place(out["from_place"]), "to": place(out["to_place"])},
               "street_continuity": {"street": out["street"]},
-              "extent": {"place": out["place"]}}[tool]
+              "extent": {"place": out["place"]},
+              "place_info": {"place": place(out["place"])}}[tool]
     return tool, {k: v for k, v in params.items() if v is not None}
 
 

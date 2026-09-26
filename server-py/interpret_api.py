@@ -1,4 +1,5 @@
-"""POST /interpret: any utterance -> one action for the app. Grammar first (no model), then Claude picks from a schema.
+"""POST /interpret: any utterance -> one action for the app. Grammar first (no model), then Jev (lotl/jev.py, only with
+TYPESAFE_API_KEY, sure answers without free text), then Claude picks from a schema.
 
     app.include_router(make_router(get, lambda: ZONE))
 
@@ -13,12 +14,13 @@ import anthropic
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from lotl import grammar
+from lotl import grammar, jev
 from lotl.explore import branches
 from lotl.llm import MODEL, TOOLS, client
 
 ACTIONS = ("explore", "ask", "overview", "more", "unknowns", "sources", "repeat", "stop", "help", "speed", "start_over",
-           "set_origin", "set_origin_here", "set_destination", "confirm", "route", "route_select", "route_avoid", "none")
+           "set_origin", "set_origin_here", "set_destination", "confirm", "route", "route_select", "route_avoid", "route_stop",
+           "stop_duration", "navigate", "none")
 COMMANDS = ("start", "forward", "left", "right", "take", "back", "home", "where")
 KINDS = ("unsignalled_crossings", "signals_without_sound", "steps", "construction", "main_roads", "transfers")
 
@@ -32,10 +34,14 @@ Actions:
   independent_connections (from_place optional, to_place): how many different ways connect two places.
   street_continuity (street): does a street go through or end.
   extent (place): how big a park, square, site or street is.
+  place_info (place): is a shop, pharmacy, café or other place open, its hours, its wheelchair access; place may be a kind: "the pharmacy".
 - overview (describe the area), more (more detail), unknowns (what the app does not know), sources, repeat, stop (be quiet), help, speed (change: faster|slower), start_over.
 - set_origin (query: where the user is or starts from), set_origin_here (use the device location), set_destination (query: where the user is going).
-- confirm (answer: yes|no; index: 0-based choice among the candidates, -1 if none): only when something is pending.
+- confirm (answer: yes|no; index: 0-based choice among the candidates, or stop_candidates when pending is "stop", -1 if none): only when something is pending.
 - route (plan or read the route to the destination), route_select (route_id: one of the offered routes' ids), route_avoid (kind: unsignalled_crossings, signals_without_sound, steps, construction, main_roads, transfers; strength: avoid_when_possible, or require for "never" / "only side streets").
+- route_stop (kind: supermarket, pharmacy, cafe, bakery, atm, or shop for anything else to buy; minutes: how long, -1 if not said): a stop on the way.
+- stop_duration (minutes): how long the stop lasts, when a stop is pending or was just added.
+- navigate (state: start|stop): start or stop turn-by-turn guidance.
 - none: nothing fits (reason: no_fit), the place is clearly outside Milan (outside_area), or the utterance is unclear (unclear).
 
 Rules:
@@ -48,7 +54,7 @@ SCHEMA = {
     "type": "object",
     "additionalProperties": False,
     "required": ["action", "command", "branch", "tool", "from_place", "to_place", "street", "place", "query", "answer",
-                 "index", "change", "route_id", "kind", "strength", "reason"],
+                 "index", "change", "route_id", "kind", "strength", "reason", "state", "minutes"],
     "properties": {
         "action": {"type": "string", "enum": list(ACTIONS)},
         "command": {"type": "string", "enum": ["", *COMMANDS]},
@@ -57,7 +63,8 @@ SCHEMA = {
         "answer": {"type": "string", "enum": ["", "yes", "no"]},
         "index": {"type": "integer"},
         "change": {"type": "string", "enum": ["", "faster", "slower"]},
-        "route_id": S, "kind": {"type": "string", "enum": ["", *KINDS]},
+        "route_id": S, "kind": {"type": "string", "enum": ["", *KINDS, *grammar.PLACE_KINDS]},
+        "state": {"type": "string", "enum": ["", "start", "stop"]}, "minutes": {"type": "integer"},
         "strength": {"type": "string", "enum": ["", "avoid_when_possible", "require"]},
         "reason": {"type": "string", "enum": ["", "no_fit", "outside_area", "unclear"]},
     },
@@ -71,8 +78,10 @@ class Route(BaseModel):
 
 class Context(BaseModel):
     view: Optional[str] = None
-    pending: Optional[Literal["origin", "destination"]] = None
+    pending: Optional[Literal["origin", "destination", "stop"]] = None
     candidates: List[str] = []
+    stop_candidates: List[str] = []
+    last_action: Optional[str] = None
     has_destination: bool = False
     routes: List[Route] = []
 
@@ -94,6 +103,8 @@ def ask_params(tool, out):
         return {"street": out["street"]}
     if tool == "extent":
         return {"place": out["place"]}
+    if tool == "place_info":
+        return {"place": {"name": grammar.place_ref(out["place"])}}
     return {k: v for k, v in (("from", place(out["from_place"])), ("to", place(out["to_place"]))) if v}
 
 
@@ -118,7 +129,14 @@ def to_action(out, ctx):
         return a, {"change": out["change"]}
     if a == "route_select" and out["route_id"] in [r["id"] for r in ctx["routes"]]:
         return a, {"route_id": out["route_id"]}
-    if a == "route_avoid" and out["kind"]:
+    n = out.get("minutes", -1)
+    if a == "route_stop" and out["kind"] in grammar.PLACE_KINDS:
+        return a, {"kind": out["kind"], **({"duration_min": n} if n > 0 else {})}
+    if a == "stop_duration" and n > 0:
+        return a, {"minutes": n}
+    if a == "navigate" and out.get("state"):
+        return a, {"state": out["state"]}
+    if a == "route_avoid" and out["kind"] in KINDS:
         return a, {"kind": out["kind"], **({"strength": out["strength"]} if out["strength"] else {})}
     if a in ("overview", "more", "unknowns", "sources", "repeat", "stop", "help", "start_over", "set_origin_here", "route"):
         return a, {}
@@ -142,8 +160,9 @@ def claude(llm, utterance, ctx):
     return json.loads(next(b.text for b in r.content if b.type == "text"))
 
 
-def make_router(get_session, get_zone=lambda: None, llm=None):
-    """llm: a client with .beta.messages.create (tests pass a fake); default: lotl.llm.client() when a key is set."""
+def make_router(get_session, get_zone=lambda: None, llm=None, jev_http=None):
+    """llm: a client with .beta.messages.create (tests pass a fake); default: lotl.llm.client() when a key is set.
+    jev_http: an httpx.Client for Jev (tests pass a fake transport); default: httpx."""
     router = APIRouter()
 
     def branch_names(sid):
@@ -162,14 +181,21 @@ def make_router(get_session, get_zone=lambda: None, llm=None):
         if not body.utterance.strip() or len(body.utterance) > 500:
             raise HTTPException(422, "I did not catch that: please say it again, in one short sentence.")
         ctx = (body.context or Context()).model_dump()
-        hit = grammar.parse(body.utterance, ctx)
+        hit, via = grammar.parse(body.utterance, ctx), "grammar"
+        names = []
+        if not hit:
+            names = branch_names(body.session_id)
+            hit, via = jev.pick(body.utterance, ctx, names, jev_http), "jev"
         if hit:
-            return {"utterance": body.utterance, "action": hit[0], "params": hit[1], "via": "grammar"}
+            action, params = hit
+            if action == "ask":
+                params = {"question": body.utterance, **params}
+            return {"utterance": body.utterance, "action": action, "params": params, "via": via}
         c = llm or (client() if os.environ.get("ANTHROPIC_API_KEY") else None)
         if c is None:
             return {"utterance": body.utterance, "action": "none", "params": {"reason": "model_unavailable"}, "via": "grammar"}
         try:
-            out = claude(c, body.utterance, {**ctx, "lang": body.lang, "branches": branch_names(body.session_id)})
+            out = claude(c, body.utterance, {**ctx, "lang": body.lang, "branches": names})
             action, params = to_action(out, ctx)
         except (Unavailable, ValueError, KeyError, StopIteration):
             return {"utterance": body.utterance, "action": "none", "params": {"reason": "model_unavailable"}, "via": "grammar"}
