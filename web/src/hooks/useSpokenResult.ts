@@ -23,6 +23,24 @@ function firstSentence(request: PrepareSpokenRequest): string {
   }
 }
 
+function fallback(request: PrepareSpokenRequest): string {
+  const sentence = firstSentence(request);
+  // Exact recovery prompts agreed in issue #1, comment 5846803188.
+  const hints: Partial<Record<SpeakRequest['kind'], string>> = {
+    plan: "Say 'let's go' to start, or 'other routes'.",
+    overview: "Say 'take me to…' or 'what's around me'.",
+    answer: "Say 'how do I get there' to plan the route.",
+  };
+  const result = request.result;
+  const confirmation = request.kind === 'places' && isRecord(result)
+    && Array.isArray(result.candidates) && result.candidates.length > 0 && !('destination' in result);
+  const hint = confirmation ? 'Is that right?' : hints[request.kind];
+  if (!hint) return sentence;
+  const normalise = (value: string) => value.toLowerCase().replace(/[’‘]/g, "'").replace(/\s+/g, ' ').trim().replace(/[.!?]+$/, '');
+  if (normalise(sentence).includes(normalise(hint))) return sentence;
+  return [sentence, hint].filter(Boolean).join(' ');
+}
+
 /** Prepares speech only; the caller retains the full result and owns playback. */
 export function useSpokenResult(options: Options) {
   const current = useRef(options); current.current = options;
@@ -56,7 +74,7 @@ export function useSpokenResult(options: Options) {
     } catch (error) {
       if (!active()) return null;
       current.current.onFailure?.(error);
-      text = firstSentence(request);
+      text = fallback(request);
     } finally {
       if (token === generation.current) { controller.current = null; setPending(false); }
     }

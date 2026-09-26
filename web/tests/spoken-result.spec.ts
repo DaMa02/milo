@@ -17,6 +17,7 @@ interface Harness {
 type TestWindow = Window & { __spoken: Harness };
 const request = { utterance: 'Take me to Bocconi.', lang: 'en', kind: 'plan', session_id: 'test-session',
   result: { text: 'Walk 1.5 km to Bocconi. A longer second sentence.', unknown: ['Opening hours are unknown.'] } };
+const planFallback = "Walk 1.5 km to Bocconi. Say 'let's go' to start, or 'other routes'.";
 
 async function harness(page: Page) {
   // Every HTTP response is simulated in the browser; no model/API traffic.
@@ -117,12 +118,12 @@ test('cancel suppresses both a late success and a late failure without fallback 
   await expect(page.getByTestId('state')).toHaveText('{"pending":false,"lastText":null}');
 });
 
-test('network failure falls back to the first engine sentence without appending unknowns', async ({ page }) => {
+test('network failure gives the first engine sentence and plan hint without appending unknowns', async ({ page }) => {
   await harness(page); await run(page);
   await page.evaluate(() => (window as TestWindow).__spoken.reject(0));
-  await expect.poll(async () => (await snapshot(page)).texts).toEqual(['Walk 1.5 km to Bocconi.']);
+  await expect.poll(async () => (await snapshot(page)).texts).toEqual([planFallback]);
   expect((await snapshot(page)).failures).toEqual(['network']);
-  await expect(page.getByTestId('state')).toContainText('"lastText":"Walk 1.5 km to Bocconi."');
+  await expect(page.getByTestId('state')).toContainText(JSON.stringify(planFallback));
 });
 
 test('invalid responses use a client-only fallback when engine text is absent and never invent text', async ({ page }) => {
@@ -140,12 +141,44 @@ test('invalid responses use a client-only fallback when engine text is absent an
 
 test('the four-second client timeout ends waiting and emits a single fallback', async ({ page }) => {
   await harness(page); await run(page);
-  await expect.poll(async () => (await snapshot(page)).texts, { timeout: 6_000 }).toEqual(['Walk 1.5 km to Bocconi.']);
+  await expect.poll(async () => (await snapshot(page)).texts, { timeout: 6_000 }).toEqual([planFallback]);
   expect((await snapshot(page)).calls[0].aborted).toBe(true);
   expect((await snapshot(page)).failures).toHaveLength(1);
   await expect(page.getByTestId('state')).toContainText('"pending":false');
   await resolve(page, 0, { text: 'Too late.', via: 'claude' });
-  expect((await snapshot(page)).texts).toEqual(['Walk 1.5 km to Bocconi.']);
+  expect((await snapshot(page)).texts).toEqual([planFallback]);
+});
+
+test('a missing speak endpoint preserves per-kind next steps without duplicating an existing hint', async ({ page }) => {
+  await harness(page);
+  const cases = [
+    { kind: 'plan', text: request.result.text, expected: planFallback },
+    { kind: 'overview', text: 'The railway is ahead. More detail.', expected: "The railway is ahead. Say 'take me to…' or 'what's around me'." },
+    { kind: 'answer', text: 'The park is nearby. More detail.', expected: "The park is nearby. Say 'how do I get there' to plan the route." },
+    { kind: 'plan', text: "Say 'let’s go' to start, or 'other routes'. Extra.", expected: "Say 'let’s go' to start, or 'other routes'." },
+  ];
+  for (const [index, item] of cases.entries()) {
+    await run(page, { ...request, kind: item.kind, result: { text: item.text, unknown: ['Do not read this automatically.'] } });
+    await resolve(page, index, { detail: 'Not Found' }, 404);
+    await expect.poll(async () => (await snapshot(page)).texts.at(-1)).toBe(item.expected);
+  }
+  expect((await snapshot(page)).failures).toEqual(Array(cases.length).fill('expired'));
+});
+
+test('place recovery asks for confirmation only for offered candidates before destination confirmation', async ({ page }) => {
+  await harness(page);
+  const cases = [
+    { kind: 'places', result: { text: 'Bocconi University. A second sentence.', candidates: [{ name: 'Bocconi University' }] }, expected: 'Bocconi University. Is that right?' },
+    { kind: 'places', result: { text: 'Is that right?', candidates: [{ name: 'Bocconi University' }] }, expected: 'Is that right?' },
+    { kind: 'places', result: { text: 'No places found. Try another name.', candidates: [] }, expected: 'No places found.' },
+    { kind: 'places', result: { text: 'Destination saved. Planning your route.', destination: { name: 'Bocconi University' }, candidates: [{ name: 'Bocconi University' }] }, expected: 'Destination saved.' },
+    { kind: 'error', result: { text: 'The request failed. Try again.', candidates: [{ name: 'Bocconi University' }] }, expected: 'The request failed.' },
+  ];
+  for (const [index, item] of cases.entries()) {
+    await run(page, { ...request, kind: item.kind, result: item.result });
+    await resolve(page, index, { detail: 'Not Found' }, 404);
+    await expect.poll(async () => (await snapshot(page)).texts.at(-1)).toBe(item.expected);
+  }
 });
 
 test('unmount aborts the request and ignores a late result', async ({ page }) => {
