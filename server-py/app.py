@@ -184,3 +184,6 @@ app.include_router(places_router(lambda: ZONE))
 
 from interpret_api import make_router as interpret_router  # noqa: E402
 app.include_router(interpret_router(get, lambda: ZONE))
+
+from navigate_api import make_router as make_nav_router  # noqa: E402
+app.include_router(make_nav_router(lambda: ZONE, get))
