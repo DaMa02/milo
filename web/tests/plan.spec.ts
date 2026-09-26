@@ -69,6 +69,7 @@ async function installEngine(page: Page) {
     failGet: false,
     holdStop: null as Promise<void> | null,
     reorder: false,
+    emptyCandidates: false,
   };
   let position: typeof start | typeof junction = start;
   page.on('pageerror', (error) => errors.push(error.message));
@@ -110,6 +111,10 @@ async function installEngine(page: Page) {
       state.current = { ...clone(candidates), stop_candidates: [] };
     } else if (path.endsWith('/stop/candidates')) {
       state.current = clone(candidates);
+      if (state.emptyCandidates) {
+        state.current.stop_candidates = [];
+        state.current.text = 'I found no supermarket near route A in the mapped area.';
+      }
     } else if (path.endsWith('/stop')) {
       state.current = clone(body?.duration_min === 5 ? stop5 : stop15);
     } else if (path.endsWith('/constraints')) {
@@ -144,6 +149,29 @@ async function addSavedStop(page: Page) {
   await chooseAndFind(page);
   await panel(page).getByRole('button', { name: 'Add Lidl', exact: true }).click();
   await expect(routeA(page)).toContainText('30 minutes');
+}
+
+for (const empty of [false, true]) {
+  test(`candidate search narrates the ${empty ? 'empty' : 'successful'} result without changing the journey`, async ({ page }) => {
+    await recordSpeech(page);
+    const engine = await installEngine(page);
+    engine.state.emptyCandidates = empty;
+    await openPlan(page, true);
+    await page.getByRole('checkbox', { name: 'Read new results aloud', exact: true }).check();
+    await panel(page).getByRole('button', { name: 'Choose route A', exact: true }).click();
+    const version = engine.state.current.plan_version;
+    await panel(page).getByRole('button', { name: 'Find supermarkets', exact: true }).click();
+    const expected = empty ? 'I found no supermarket near route A in the mapped area.' : candidates.text;
+    await expect.poll(() => page.evaluate(() => (window as PlanSpeechWindow).__planSpeech.readings.at(-1))).toContain(expected);
+    await expect(page.locator('.sr-only[role="status"]')).toContainText(expected);
+    expect(engine.state.current.plan_version).toBe(version);
+    await showSummary(page);
+    await expect(summary(page)).toContainText('Route A');
+    await expect(panel(page).getByRole('button', { name: 'Add Lidl', exact: true })).toHaveCount(empty ? 0 : 1);
+    const spoken = await page.evaluate(() => (window as PlanSpeechWindow).__planSpeech.readings.at(-1));
+    expect(spoken).not.toContain('Confirmed journey comparison');
+    expect(spoken).not.toContain('You chose route A.');
+  });
 }
 
 test('the saved party journey works by keyboard from exploration to a chosen five-minute stop', async ({ page }) => {

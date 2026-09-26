@@ -191,6 +191,7 @@
   "milanTime": "Milan time",
   "minutes": "minutes",
   "planInvalidNumber": "Enter a valid number of minutes, zero or more.",
+  "planInvalidStopDuration": "Enter a whole number of minutes from 1 to 180.",
   "planMissingPlaces": "Enter both the journey origin and destination.",
   "planInvalidTime": "Enter a valid, unambiguous departure date and time in Milan.",
   "totalDuration": "Total journey time",

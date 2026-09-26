@@ -56,10 +56,14 @@ export function App() {
   useEffect(() => {
     if (journey.error) {
       announce(journey.error);
-      if (journey.uncertain) setLastReading(journey.error);
+      if (journey.uncertain || !journey.plan) setLastReading(journey.error);
     }
-  }, [journey.error, journey.uncertain, announce]);
-  function planResult(plan: Plan, changed = true) {
+  }, [journey.error, journey.uncertain, journey.plan, announce]);
+  function planResult(plan: Plan, changed = true, kind: 'plan' | 'candidates' = 'plan') {
+    if (kind === 'candidates') {
+      present([plan.text, ...plan.unknown].join(' '));
+      return;
+    }
     const selected = findSelectedRoute(plan);
     const summary = changed && plan.differences.length ? plan.differences.join(' ')
       : selected?.summary ?? plan.text.split(/(?<=[.!?])\s+(?=[A-Z])/).slice(0, 2).join(' ');

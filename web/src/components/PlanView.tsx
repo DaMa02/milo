@@ -26,6 +26,7 @@ interface Props {
 const kinds: ConstraintKind[] = ['unsignalled_crossings', 'signals_without_sound', 'steps', 'construction', 'main_roads', 'transfers', 'walking_over_min'];
 const clock = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
 const displayClock = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/Rome', dateStyle: 'medium', timeStyle: 'short' });
+type PlanField = 'origin' | 'destination' | 'departure' | 'walk' | 'duration';
 
 function wallTime(instant: number) {
   const parts = Object.fromEntries(clock.formatToParts(instant).map((part) => [part.type, part.value]));
@@ -52,18 +53,29 @@ export function PlanView({ plan, busy, pending, uncertain, onCreate, onMutate, o
   const [strengths, setStrengths] = useState<Record<ConstraintKind, ConstraintStrength | 'off'>>(() => Object.fromEntries(
     kinds.map((kind) => [kind, (plan?.constraints ?? initial.constraints).find((item) => item.kind === kind)?.strength ?? 'off']),
   ) as Record<ConstraintKind, ConstraintStrength | 'off'>);
-  const [error, setError] = useState('');
+  const [attempted, setAttempted] = useState<Partial<Record<PlanField, boolean>>>({});
   const blocked = busy || uncertain;
   const selected = plan ? findSelectedRoute(plan) : null;
   const labels: Record<string, string> = t;
   const kindLabel = (kind: ConstraintKind) => labels[`constraint:${kind}`];
   const time = (iso: string) => `${displayClock.format(Date.parse(iso))} ${t.milanTime}`;
   const status = (value: string) => labels[`compliance:${value}`] ?? t.unknown;
+  const walkingRequired = strengths.walking_over_min !== 'off';
+  const errors: Record<PlanField, string> = {
+    origin: !origin.trim() ? t.planMissingPlaces : '',
+    destination: !destination.trim() ? t.planMissingPlaces : '',
+    departure: !departureISO(departure) ? t.planInvalidTime : '',
+    walk: walkingRequired && (!walkLimit.trim() || !Number.isFinite(Number(walkLimit)) || Number(walkLimit) < 0) ? t.planInvalidNumber : '',
+    duration: !duration.trim() || !Number.isInteger(Number(duration)) || Number(duration) < 1 || Number(duration) > 180 ? t.planInvalidStopDuration : '',
+  };
+  const fieldError = (field: PlanField) => attempted[field] ? errors[field] : '';
+  const errorId = (field: PlanField) => `${id}-${field}-error`;
+  function validate(fields: PlanField[]) {
+    setAttempted((previous) => ({ ...previous, ...Object.fromEntries(fields.filter((field) => errors[field]).map((field) => [field, true])) }));
+    return fields.every((field) => !errors[field]);
+  }
 
-  function constraints(): Constraint[] | null {
-    if (strengths.walking_over_min !== 'off' && (!walkLimit.trim() || !Number.isFinite(Number(walkLimit)) || Number(walkLimit) < 0)) {
-      setError(t.planInvalidNumber); return null;
-    }
+  function constraints(): Constraint[] {
     return kinds.flatMap((kind): Constraint[] => {
       const strength = strengths[kind];
       if (strength === 'off') return [];
@@ -72,31 +84,26 @@ export function PlanView({ plan, busy, pending, uncertain, onCreate, onMutate, o
   }
   function create(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); if (blocked) return;
+    if (!validate(['origin', 'destination', 'departure', 'walk'])) return;
     const depart_at = departureISO(departure);
     const preferences = constraints();
-    if (!origin.trim() || !destination.trim()) { setError(t.planMissingPlaces); return; }
-    if (!depart_at) { setError(t.planInvalidTime); return; }
-    if (!preferences) return;
-    setError('');
+    if (!depart_at) return;
     onCreate({ origin: origin.trim() === initial.origin.name ? { ...initial.origin } : { name: origin.trim() },
       destination: destination.trim() === initial.destination.name ? { ...initial.destination } : { name: destination.trim() },
       depart_at, constraints: preferences, detour_tolerance: plan?.detour_tolerance ?? initial.detour_tolerance });
   }
   function changeDeparture() {
-    if (blocked) return;
+    if (blocked || !validate(['departure'])) return;
     const depart_at = departureISO(departure);
-    if (!depart_at) { setError(t.planInvalidTime); return; }
-    setError(''); onMutate('depart', { depart_at });
+    if (depart_at) onMutate('depart', { depart_at });
   }
   function applyConstraints() {
-    if (blocked) return;
-    const next = constraints(); if (!next) return;
-    setError(''); onMutate('constraints', { constraints: next });
+    if (blocked || !validate(['walk'])) return;
+    onMutate('constraints', { constraints: constraints() });
   }
   function setStop(osm_id: string) {
-    if (blocked) return;
-    if (!duration.trim() || !Number.isFinite(Number(duration)) || Number(duration) < 0) { setError(t.planInvalidNumber); return; }
-    setError(''); onMutate('stop', { osm_id, duration_min: Number(duration) });
+    if (blocked || !validate(['duration'])) return;
+    onMutate('stop', { osm_id, duration_min: Number(duration) });
   }
   const stopReading = () => { if (speaking || busy) onStop(); };
   const voice = (text: string) => <div className="button-row">
@@ -133,12 +140,15 @@ export function PlanView({ plan, busy, pending, uncertain, onCreate, onMutate, o
     <p className="hint">{t.planDraftHint}</p>
     <form onSubmit={create} noValidate>
       <label htmlFor={`${id}-origin`}>{t.journeyOrigin}</label>
-      <input id={`${id}-origin`} value={origin} onChange={(event) => setOrigin(event.target.value)} autoComplete="off" />
+      <input id={`${id}-origin`} value={origin} onChange={(event) => setOrigin(event.target.value)} autoComplete="off" maxLength={120}
+        aria-required="true" aria-invalid={Boolean(fieldError('origin'))} aria-describedby={fieldError('origin') ? errorId('origin') : undefined} />
       <label htmlFor={`${id}-destination`}>{t.destination}</label>
-      <input id={`${id}-destination`} value={destination} onChange={(event) => setDestination(event.target.value)} autoComplete="off" />
+      <input id={`${id}-destination`} value={destination} onChange={(event) => setDestination(event.target.value)} autoComplete="off" maxLength={120}
+        aria-required="true" aria-invalid={Boolean(fieldError('destination'))} aria-describedby={fieldError('destination') ? errorId('destination') : undefined} />
       <label htmlFor={`${id}-depart`}>{t.departureMilan}</label>
-      <input id={`${id}-depart`} type="datetime-local" value={departure} onChange={(event) => setDeparture(event.target.value)} />
-      <p className="hint">{t.departureHint}</p>
+      <input id={`${id}-depart`} type="datetime-local" value={departure} onChange={(event) => setDeparture(event.target.value)}
+        aria-required="true" aria-invalid={Boolean(fieldError('departure'))} aria-describedby={`${id}-departure-hint${fieldError('departure') ? ` ${errorId('departure')}` : ''}`} />
+      <p id={`${id}-departure-hint`} className="hint">{t.departureHint}</p>
       <p>{t.planDefaultPreference}</p>
       <details><summary>{t.journeyPreferences}</summary>
         <fieldset><legend>{t.draftConstraints}</legend>
@@ -149,7 +159,8 @@ export function PlanView({ plan, busy, pending, uncertain, onCreate, onMutate, o
             </select>
           </div>)}
           <label htmlFor={`${id}-walk`}>{t.maximumWalking}</label>
-          <input id={`${id}-walk`} type="number" min="0" step="any" value={walkLimit} onChange={(event) => setWalkLimit(event.target.value)} />
+          <input id={`${id}-walk`} type="number" min="0" step="any" value={walkLimit} onChange={(event) => setWalkLimit(event.target.value)}
+            aria-required={walkingRequired} aria-invalid={Boolean(fieldError('walk'))} aria-describedby={fieldError('walk') ? errorId('walk') : undefined} />
           <p className="hint">{t.requireHint}</p>
           {plan && <button type="button" aria-disabled={blocked} onClick={applyConstraints}>{t.applyConstraints}</button>}
         </fieldset>
@@ -157,7 +168,8 @@ export function PlanView({ plan, busy, pending, uncertain, onCreate, onMutate, o
       <div className="button-row"><button type="submit" aria-disabled={blocked}>{t.compareRoutes}</button>
         {plan && <button type="button" aria-disabled={blocked} onClick={changeDeparture}>{t.updateDeparture}</button>}
       </div>
-      <p role="status">{error}</p>
+      <div role="status">{(['origin', 'destination', 'departure', 'walk'] as PlanField[]).map((field) => fieldError(field)
+        ? <p id={errorId(field)} key={field}>{fieldError(field)}</p> : null)}</div>
     </form>
     {pending && <p className="notice">{t.planPending}</p>}
     {uncertain && <p className="notice">{t.planUncertain}</p>}
@@ -204,7 +216,9 @@ export function PlanView({ plan, busy, pending, uncertain, onCreate, onMutate, o
         {!selected && <p>{t.chooseBeforeStop}</p>}
         <button type="button" aria-disabled={blocked || !selected} onClick={() => { if (!blocked && selected) onMutate('stop/candidates', { kind: 'supermarket' }); }}>{t.findSupermarkets}</button>
         <label htmlFor={`${id}-duration`}>{t.stopDuration}</label>
-        <input id={`${id}-duration`} type="number" min="0" step="any" value={duration} onChange={(event) => setDuration(event.target.value)} />
+        <input id={`${id}-duration`} type="number" min="1" max="180" step="1" value={duration} onChange={(event) => setDuration(event.target.value)}
+          aria-required="true" aria-invalid={Boolean(fieldError('duration'))} aria-describedby={fieldError('duration') ? errorId('duration') : undefined} />
+        <p id={errorId('duration')} role="status">{fieldError('duration')}</p>
         {plan.stop ? <>
           <p>{t.confirmedStop}: {plan.stop.place}; {plan.stop.duration_min} {t.minutes}. {t.extraWalking}: {plan.stop.detour_min} {t.minutes}.</p>
           <div className="button-row"><button type="button" aria-disabled={blocked} onClick={() => setStop(plan.stop!.osm_id)}>{t.updateStopDuration}</button>

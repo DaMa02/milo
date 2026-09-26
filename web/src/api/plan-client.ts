@@ -14,6 +14,14 @@ export interface PlanClient {
   mutate<K extends keyof PlanMutation>(endpoint: K, body: PlanMutation[K]): Promise<Plan>;
 }
 
+/** Current server-py/lotl/plan.py::_current emits this exact FastAPI detail.
+ * There is no machine error code yet. Use only for a GET of the current plan;
+ * every other 404 (including app.py::get's missing session) fails closed. */
+export function isNoPlanError(error: unknown): boolean {
+  return error instanceof ApiError && error.status === 404
+    && error.detail === 'There is no plan yet: tell me where you want to go.';
+}
+
 const unavailable = (): never => { throw new ApiError('unavailable'); };
 const onlyKeys = (value: object, allowed: readonly string[]) => Object.keys(value).every((key) => allowed.includes(key));
 
