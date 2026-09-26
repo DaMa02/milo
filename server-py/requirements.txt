@@ -1,0 +1,9 @@
+fastapi
+uvicorn
+osmnx==2.1.1
+networkx
+shapely
+geopandas
+pyproj
+jsonschema
+httpx
