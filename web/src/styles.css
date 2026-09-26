@@ -36,6 +36,14 @@ button[aria-disabled="true"] { cursor: default; color: var(--muted); }
 .view-nav { display: flex; gap: 1rem; border-bottom: 1px solid var(--line); padding-bottom: 1rem; }
 .view-nav [aria-current="page"] { font-weight: 700; background: var(--accent); color: white; }
 .result-panel { max-width: 80ch; }
+.ask-panel { max-width: 80ch; margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--line); }
+.ask-panel form { display: grid; gap: .65rem; margin-top: 1.5rem; }
+.ask-panel input, .ask-panel select { width: 100%; min-width: 0; margin: 0; }
+.ask-panel form button { justify-self: start; }
+.ask-panel fieldset { min-width: 0; border: 1px solid var(--line); padding: 1rem; }
+.ask-panel legend { font-weight: 650; }
+.answer-panel { margin-top: 2rem; }
+.start-panel select { max-width: 100%; }
 .result-text { font-size: 1.16rem; }
 .reference { color: var(--muted); }
 .warnings { margin-block: 1.5rem; padding: 1rem 1.25rem; background: #f6edda; color: #473519; }

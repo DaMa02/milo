@@ -73,7 +73,7 @@ test('keyboard exploration preserves the recorded position, uncertainty and retu
 
   await keyboardActivate(page, page.getByRole('button', { name: 'Where am I?', exact: true }));
   await expect(narration).toHaveText(junctionSummary!);
-  await expect(page.locator('.sr-only[role="status"]')).toContainText(`Current saved position. ${junctionSummary}`);
+  await expect(page.locator('.sr-only[role="status"]')).toHaveText(junctionSummary!);
   await keyboardActivate(page, page.getByRole('button', { name: 'Turn left', exact: true }));
   await expect(page.locator('.error-message')).toContainText('This action is not available in the saved example. Your position has not changed.');
   await expect(narration).toHaveText(junctionSummary!);
@@ -112,7 +112,7 @@ test('switching views keeps the junction and English commands preserve the retur
   await command.fill('where');
   await command.press('Enter');
   await expect(narration).toHaveText(englishJunction!);
-  await expect(page.locator('.sr-only[role="status"]')).toContainText('Current saved position. You walked 140 m');
+  await expect(page.locator('.sr-only[role="status"]')).toHaveText(englishJunction!);
   await command.fill('back');
   await command.press('Enter');
   await expect(narration).toContainText('Start at Talent Garden');

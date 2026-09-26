@@ -9,6 +9,9 @@ import { createSavedSession } from './api/fixtures';
 import { ApiError } from './api/http';
 import type { ExploreCommand, ExploreStep, Overview } from './api/contracts';
 import { exploreSummary } from './api/narration';
+import { AskView } from './components/AskView';
+import { createConnectedSession, type AreaSession } from './api/session';
+import type { Answer, AskRequest } from './api/contracts';
 
 const language = 'en';
 const localize = (text: string) => text;
@@ -22,28 +25,33 @@ export function App() {
   const [view, setView] = useState<'overview' | 'explore'>('overview');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const session = useRef<ReturnType<typeof createSavedSession> | null>(null);
+  const [source, setSource] = useState<'saved' | 'connected'>('saved');
+  const [answer, setAnswer] = useState<Answer | null>(null);
+  const [lastReading, setLastReading] = useState('');
+  const [positionUncertain, setPositionUncertain] = useState(false);
+  const session = useRef<AreaSession | null>(null);
   const busyRef = useRef(false);
   const resultHeading = useRef<HTMLHeadingElement>(null);
   const t = dictionaries.en;
   const overviewText = overview ? [localize(overview.text), ...overview.unknown.map(localize)].join(' ') : '';
   const currentText = view === 'explore' && step
     ? exploreSummary(step, localize, t) : overviewText;
-  const readingText = currentText || `${t.title}. ${t.intro}`;
+  const readingText = lastReading || currentText || `${t.title}. ${t.intro}`;
   const areaOpen = overview !== null;
   useEffect(() => { document.documentElement.lang = language; }, []);
   useEffect(() => { if (areaOpen) resultHeading.current?.focus(); }, [view, areaOpen]);
 
   function present(text: string) {
+    setLastReading(text);
     announce(text);
     if (automatic && speech.supported) speech.speak(text, language);
   }
-  async function run(action: () => Promise<void>, status = t.working) {
+  async function run(action: () => Promise<void>, status = t.working, unavailable = t.unavailableOffline) {
     if (busyRef.current) return;
     busyRef.current = true; setBusy(true); setError(null); speech.stop(); announce(status);
     try { await action(); }
     catch (cause) {
-      const message = cause instanceof ApiError && cause.kind === 'unavailable' ? t.unavailableOffline
+      const message = cause instanceof ApiError && cause.kind === 'unavailable' ? unavailable
         : cause instanceof ApiError && cause.kind === 'expired' ? t.sessionExpired
         : cause instanceof ApiError && cause.kind === 'network' ? t.connectionFailed : t.invalidResponse;
       setError(message); announce(message);
@@ -51,19 +59,35 @@ export function App() {
   }
   function openArea() {
     void run(async () => {
-      const next = createSavedSession(); session.current = next;
-      setOverview(next.overview); setStep(null); setView('overview');
+      const next = source === 'saved' ? createSavedSession() : await createConnectedSession(); session.current = next;
+      setOverview(next.overview); setStep(null); setAnswer(null); setPositionUncertain(false); setView('overview');
       present([localize(next.overview.text), ...next.overview.unknown.map(localize)].join(' '));
-    }, t.loadingExamples);
+    }, source === 'saved' ? t.loadingExamples : t.loading);
   }
   function explore(command: ExploreCommand, branch?: number) {
     void run(async () => {
       if (!session.current) throw new ApiError('expired');
-      const result = await session.current.explore(command, branch);
-      setStep(result); setView('explore');
-      present(`${command === 'where' ? `${t.savedPosition}. ` : ''}${exploreSummary(result, localize, t)}`);
+      if (positionUncertain && command !== 'where') { announce(t.unknownOutcomeExplore); return; }
+      let result: ExploreStep;
+      try { result = await session.current.explore(command, branch); }
+      catch (cause) {
+        if (source === 'connected') setPositionUncertain(true);
+        throw cause;
+      }
+      setStep(result); setPositionUncertain(false); setView('explore');
+      present(exploreSummary(result, localize, t));
       if (command === 'take') requestAnimationFrame(() => resultHeading.current?.focus());
     });
+  }
+  function ask(request: AskRequest) {
+    void run(async () => {
+      if (!session.current) throw new ApiError('expired');
+      const result = await session.current.ask(request);
+      setAnswer(result);
+      const short = [result.text.split(/(?<=[.!?])\s+(?=[A-Z])/).slice(0, 2).join(' '), ...result.unknown].join(' ');
+      setLastReading(short); announce(t.answerReady);
+      if (automatic && speech.supported) speech.speak(short, language);
+    }, t.asking, source === 'saved' ? t.unavailableAnswer : t.connectionFailed);
   }
   function showOverview() {
     if (busyRef.current) return;
@@ -86,16 +110,19 @@ export function App() {
       {!overview ? <>
         <p className="intro">{t.intro}</p>
         <section className="start-panel" aria-labelledby="start-heading">
-          <h2 id="start-heading" tabIndex={-1}>{t.savedMode}</h2>
-          <p>{t.savedNote}</p>
+          <h2 id="start-heading" tabIndex={-1}>{t.chooseMode}</h2>
+          <label htmlFor="data-source">{t.dataSource}</label>
+          <select id="data-source" value={source} aria-disabled={busy} onChange={(event) => { if (!busyRef.current) setSource(event.target.value as 'saved' | 'connected'); }}>
+            <option value="saved">{t.savedMode}</option><option value="connected">{t.liveMode}</option>
+          </select>
+          <p>{source === 'saved' ? t.savedNote : t.sourceHint}</p>
           <button className="primary" type="button" aria-disabled={busy} onClick={openArea}>{t.startSession}</button>
-          <p className="hint">{t.serverPending}</p>
         </section>
       </> : <>
-        <div className="session-strip"><p><strong>{localize(overview.zone.name)}</strong> · {t.savedMode}</p>
+        <div className="session-strip"><p><strong>{localize(overview.zone.name)}</strong> · {source === 'saved' ? t.savedMode : t.liveMode}</p>
           <button type="button" aria-disabled={busy} onClick={() => {
             if (busyRef.current) return;
-            speech.stop(); session.current = null; setOverview(null); setStep(null); setError(null); setView('overview');
+            speech.stop(); session.current = null; setOverview(null); setStep(null); setAnswer(null); setLastReading(''); setError(null); setPositionUncertain(false); setView('overview');
             announce(t.startOver); requestAnimationFrame(() => document.getElementById('start-heading')?.focus());
           }}>{t.startOver}</button>
         </div>
@@ -120,6 +147,8 @@ export function App() {
           </> : step && <ExploreView step={step} t={t} localize={localize} busy={busy} onCommand={explore} summary={currentText} onReadDetails={() => speech.speak(localize(step.text), language)} onStopReading={speech.stop} speaking={speech.speaking} canSpeak={speech.supported} />}
           {result && <><ResultMeta meta={result.meta} t={t} /><Evidence facts={result.facts} t={t} /></>}
         </section>
+        {positionUncertain && <div className="warnings"><p>{t.unknownOutcomeExplore}</p><button type="button" aria-disabled={busy} onClick={() => explore('where')}>{t.whereAmI}</button></div>}
+        <AskView answer={answer} busy={busy} onAsk={ask} onRead={(text) => speech.speak(text, language)} onStop={speech.stop} speaking={speech.speaking} canSpeak={speech.supported} saved={source === 'saved'} t={t} />
       </>}
       {error && <p className="error-message">{error}</p>}
       {busy && <p>{t.working}</p>}

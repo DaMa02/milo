@@ -11,7 +11,7 @@ export class ApiError extends Error {
 export async function requestJson<T>(
   path: string,
   parse: (value: unknown) => T,
-  options: { body?: unknown; signal?: AbortSignal } = {},
+  options: { body?: unknown; signal?: AbortSignal; timeoutMs?: number } = {},
 ): Promise<T> {
   let response: Response;
   try {
@@ -19,7 +19,9 @@ export async function requestJson<T>(
       method: options.body === undefined ? 'GET' : 'POST',
       headers: { Accept: 'application/json', ...(options.body === undefined ? {} : { 'Content-Type': 'application/json' }) },
       body: options.body === undefined ? undefined : JSON.stringify(options.body),
-      signal: options.signal,
+      signal: options.signal
+        ? AbortSignal.any([options.signal, AbortSignal.timeout(options.timeoutMs ?? 20_000)])
+        : AbortSignal.timeout(options.timeoutMs ?? 20_000),
     });
   } catch (error) {
     if (error instanceof DOMException && error.name === 'AbortError') throw new ApiError('aborted');

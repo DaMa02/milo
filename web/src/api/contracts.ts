@@ -25,6 +25,18 @@ export interface Meta {
   computed_at: string;
 }
 
+export type AskTool = 'barrier_between' | 'extent' | 'street_continuity' | 'independent_connections' | 'walking_vs_straight_line';
+export interface AskRequest { question: string; tool: AskTool; params: Record<string, unknown> }
+export interface Answer {
+  question: string;
+  lang: Language;
+  tool: AskTool | 'place_info' | 'none';
+  text: string;
+  facts: Fact[];
+  unknown: string[];
+  meta: Meta;
+}
+
 interface Feature {
   name: string;
   kind: 'railway' | 'water' | 'construction' | 'main_road' | 'bridge'
@@ -185,4 +197,13 @@ export function parseOverview(value: unknown): Overview {
 export function parseExploreStep(value: unknown): ExploreStep {
   if (!isExploreStep(value)) throw new Error('Invalid explore response');
   return value;
+}
+
+export function parseAnswer(value: unknown): Answer {
+  if (!isRecord(value) || !isText(value.question) || !isLanguage(value.lang)
+    || !isOneOf(value.tool, ['barrier_between', 'extent', 'street_continuity', 'independent_connections', 'walking_vs_straight_line', 'place_info', 'none'])
+    || !isText(value.text) || !isArrayOf(value.facts, isFact) || !isArrayOf(value.unknown, isText) || !isMeta(value.meta)) {
+    throw new Error('Invalid answer response');
+  }
+  return value as unknown as Answer;
 }
