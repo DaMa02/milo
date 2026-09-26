@@ -1,10 +1,13 @@
-"""Live guidance over HTTP: walk the demo route (Talent Garden -> viale Isonzo) fix by fix. Offline, no network.
+"""Live guidance for a blind walker on the city zone: Talent Garden -> Bocconi University, one fix a second at
+1.3 m/s with GPS noise and compass heartbeats. Offline, no network. Writes the spoken transcript to
+tests/guidance_transcript.txt.
 
     python tests/test_navigate.py      (from server-py)
 """
 import math
 import os
 import pathlib
+import random
 import socket
 import sys
 import time
@@ -20,18 +23,15 @@ def _no_network(_sock, address, *_a):
 
 socket.socket.connect = _no_network
 
-from fastapi import FastAPI, HTTPException  # noqa: E402
-from fastapi.testclient import TestClient  # noqa: E402
-
-import navigate_api  # noqa: E402
-import plan_api  # noqa: E402
+from lotl import navigate, plan  # noqa: E402
 from lotl.session import Session  # noqa: E402
-from lotl.zone import TALENT_GARDEN, Zone  # noqa: E402
+from lotl.zone import Zone  # noqa: E402
 
-CREATE = {"destination": {"lat": 45.44658, "lon": 9.20584, "name": "viale Isonzo"},
-          "depart_at": "2026-09-26T18:00:00+02:00",
-          "constraints": [{"kind": "unsignalled_crossings", "strength": "avoid_when_possible"}]}
-failed, slow = [], []
+TALENT = (45.44386, 9.20808)
+DUOMO = (45.4642, 9.19)
+CENTRALE = {"lat": 45.4855, "lon": 9.2036, "name": "Stazione Centrale"}
+BOCCONI = {"lat": 45.4499044, "lon": 9.1892641, "name": "Bocconi University"}
+failed, slow, log = [], [], []
 
 
 def check(cond, what):
@@ -40,124 +40,181 @@ def check(cond, what):
         print("FAIL", what)
 
 
-def densify(line, step_m=10):
-    """Points every ~step_m metres along [[lat, lon], ...]."""
-    out = []
-    for (a, b), (c, d) in zip(line, line[1:]):
-        m = math.hypot((c - a) * 111_000, (d - b) * 111_000 * math.cos(math.radians(a)))
-        n = max(1, int(m // step_m))
-        out += [(a + (c - a) * i / n, b + (d - b) * i / n) for i in range(n)]
+def m_between(a, b):
+    return math.hypot((b[0] - a[0]) * 111_000, (b[1] - a[1]) * 111_000 * math.cos(math.radians(a[0])))
+
+
+def walk_points(line, step_m=1.3):
+    """Points every step_m metres along [[lat, lon], ...]."""
+    out, carry = [tuple(line[0])], 0.0
+    for a, b in zip(line, line[1:]):
+        L = m_between(a, b)
+        d = step_m - carry
+        while d <= L:
+            out.append((a[0] + (b[0] - a[0]) * d / L, a[1] + (b[1] - a[1]) * d / L))
+            d += step_m
+        carry = L - (d - step_m)
     return out + [tuple(line[-1])]
 
 
+def offset(p, dn, de):
+    return (p[0] + dn / 111_000, p[1] + de / (111_000 * math.cos(math.radians(p[0]))))
+
+
+class Walk:
+    def __init__(self, zone, session, label):
+        self.zone, self.s, self.state, self.t, self.label = zone, session, {}, 0.0, label
+        self.said = []  # (t, text)
+
+    def fix(self, p, acc=8.0, heading=None, noise=1.5, beat=True):
+        rnd = random.random
+        q = (p[0] + (rnd() - .5) * noise / 111_000, p[1] + (rnd() - .5) * noise / 76_000)
+        t0 = time.perf_counter()
+        r = navigate.step(self.zone, self.s, self.state, *q, acc, heading, self.t)
+        ms = (time.perf_counter() - t0) * 1000
+        if ms > 100 and r["route_line"] is None:  # the first call and a re-route compute a path
+            slow.append(round(ms))
+        if r["text"]:
+            self.said.append((self.t, r["text"]))
+            log.append(f"[{self.label} {self.t:6.1f}s] {r['text']}")
+        if beat:  # compass heartbeat: same position, new heading
+            hb = navigate.step(self.zone, self.s, self.state, *q, acc, (heading or 0) + 7 * rnd(), self.t + 0.5)
+            check(hb["text"] is None or r["text"] is None or hb["text"] != r["text"], "heartbeat repeats speech")
+            if hb["text"]:
+                self.said.append((self.t + 0.5, hb["text"]))
+                log.append(f"[{self.label} {self.t + .5:6.1f}s] {hb['text']}")
+        self.t += 1
+        return r
+
+    def texts(self, since=0):
+        return [x for t, x in self.said if t >= since]
+
+
 def main():
-    zone, sessions = Zone(), {}
+    random.seed(7)
+    zone = Zone(center=(45.4642, 9.19), dist=4000, answer_radius=4000, name="central Milan")
+    s = Session(origin=(*TALENT, "Talent Garden"))
+    st = {}
+    r = navigate.step(zone, s, st, *TALENT)
+    check(r["status"] == "no_route" and r["text"] == navigate.NO_PLAN, f"no plan: {r}")
+    check(navigate.step(zone, s, st, *TALENT)["text"] is None, "no-plan said once")
+    doc = plan.create(zone, s, destination=BOCCONI, depart_at="2026-09-26T15:00:00+02:00")
+    ids = [x["id"] for x in doc["routes"]]
+    if "C" in ids:
+        plan.select(zone, s, "C")
+        r = navigate.step(zone, s, {}, *TALENT)
+        check(r["status"] == "no_route" and r["text"].startswith("Live guidance works"), f"transit: {r}")
+    plan.select(zone, s, "A")
 
-    def get(sid):
-        if sid not in sessions:
-            raise HTTPException(404, "No such session: start a new one.")
-        return sessions[sid]
+    # 1. the full walk
+    w = Walk(zone, s, "walk")
+    first = w.fix(TALENT, beat=False)
+    line = first["route_line"]
+    check(first["text"].startswith("Guidance started to Bocconi University: "), f"start: {first['text']}")
+    turns = [dict(t) for t in w.state["turns"]]
+    cross = list(w.state["cross"])
+    pts = walk_points(line)
+    for p in pts[1:]:
+        r = w.fix(p)
+        if r["status"] == "arrived":
+            break
+        check(r["status"] == "on_route", f"walking the line stays on route at {w.t}: {r['off_route_m']}")
+    check(r["status"] == "arrived", f"arrived: {r['status']}")
+    all_ = w.texts()
+    arr = [x for x in all_ if x.startswith("You have arrived")]
+    check(len(arr) == 1, f"arrival said exactly once: {arr}")
+    r = w.fix(pts[-1])
+    check(r["text"] is None and r["status"] == "arrived", "nothing after arrival")
+    cur = 0  # turns in route order: an early cue, then the 'now' cue, each after the previous turn's 'now'
+    for t in turns:
+        now = next((i for i in range(cur, len(all_)) if f"Turn {t['side']} now, {navigate._onto(t)}" in all_[i]), None)
+        check(now is not None, f"'now' cue for turn {t['side']} onto {t['onto']}")
+        if now is None:
+            continue
+        early = [i for i in range(max(0, cur - 1), now) if f"turn {t['side']} {navigate._onto(t)}" in all_[i]]
+        check(early, f"early cue before 'now' for {t['side']} onto {t['onto']}")
+        cur = now + 1
+    n_cross = sum(x.count("a crossing") + x.count("Crossing here") for x in all_)
+    check(n_cross >= len(cross), f"every crossing cued: {n_cross} of {len(cross)}")
+    times = [t for t, _ in w.said]
+    gaps = [b - a for a, b in zip(times, times[1:])]
+    check(max(gaps) <= 30, f"no silence over 30 s while walking: {max(gaps)}")
+    for i, (ta, xa) in enumerate(w.said):
+        check(not any(xb == xa and tb - ta < 10 for tb, xb in w.said[i + 1:]), f"repeated within 10 s: {xa}")
 
-    app = FastAPI()
-    app.include_router(plan_api.make_router(lambda: zone, get))
-    app.include_router(navigate_api.make_router(lambda: zone, get))
-    s = Session(origin=(*TALENT_GARDEN, "Talent Garden"))
-    sessions[s.id] = s
-    N = f"/session/{s.id}/navigate"
+    # 2. start facing away from the route, then turn to it
+    w2 = Walk(zone, s, "orient")
+    away = (navigate.bearing(zone.xy(*line[0]), zone.xy(*line[4])) + 180) % 360
+    r = w2.fix(TALENT, heading=away, beat=False)
+    check("Turn around" in r["text"] or "o'clock" in r["text"], f"orientation: {r['text']}")
+    ln = w2.state["line"]
+    rb = navigate.bearing(ln.interpolate(w2.state["progress"]), ln.interpolate(w2.state["progress"] + 10))
+    r = w2.fix(TALENT, heading=rb, beat=False)
+    check(r["text"] == "Good, walk straight ahead.", f"oriented: {r['text']}")
 
-    with TestClient(app) as c:
-        def fix(lat, lon, **kw):
-            t = time.perf_counter()
-            r = c.post(N, json={"lat": lat, "lon": lon, **kw})
-            ms = (time.perf_counter() - t) * 1000
-            if ms > 250:  # one GPS fix a second; 50 ms was flaky under load
-                slow.append(round(ms))
-            check(r.status_code == 200, f"navigate {r.status_code} {r.text[:200]}")
-            return r.json()
+    # 3. U-turn after 150 m -> wrong way, then the right way again
+    k = int(150 / 1.3)
+    for p in pts[1:k]:
+        w2.fix(p)
+    t0 = w2.t
+    for p in reversed(pts[k - 20:k]):
+        w2.fix(p)
+    check(any("wrong way" in x for x in w2.texts(t0)), "U-turn -> wrong way")
+    t1 = w2.t
+    for p in pts[k - 20:k + 20]:
+        w2.fix(p)
+    check(any("right way" in x for x in w2.texts(t1)), "right way again")
 
-        check(c.post(f"/session/nope/navigate", json={"lat": 45.44, "lon": 9.2}).status_code == 404, "unknown session 404")
-        r = fix(*TALENT_GARDEN)
-        check(r["status"] == "no_route" and r["text"] == "Ask me how to get there first.", f"no plan: {r}")
-        check(fix(*TALENT_GARDEN)["text"] is None, "no-plan message said once")
+    # 4. 50 m sidestep -> off route, then back
+    base = pts[k + 20]
+    far = max((offset(base, 50 * math.cos(math.radians(a)), 50 * math.sin(math.radians(a))) for a in range(0, 360, 15)),
+              key=lambda q: min(m_between(q, x) for x in pts))
+    t2 = w2.t
+    for _ in range(3):
+        w2.fix(far)
+    check(any(x.startswith("You are off the route, about") for x in w2.texts(t2)), f"off route: {w2.texts(t2)}")
+    t3 = w2.t
+    w2.fix(base)
+    check(any(x.startswith("Back on the route.") for x in w2.texts(t3)), f"back: {w2.texts(t3)}")
 
-        plan = c.post(f"/session/{s.id}/plan", json=CREATE).json()
-        ids = [x["id"] for x in plan["routes"]]
-        print("routes", [(x["id"], x["mode"]) for x in plan["routes"]])
+    # 5. 90 m detour for 30 s -> re-route
+    base = pts[k + 60]
+    far = max((offset(base, 90 * math.cos(math.radians(a)), 90 * math.sin(math.radians(a))) for a in range(0, 360, 15)),
+              key=lambda q: min(m_between(q, x) for x in pts))
+    t4 = w2.t
+    for _ in range(30):
+        w2.fix(far)
+    check(any(x.startswith("New route. ") for x in w2.texts(t4)), f"re-route: {w2.texts(t4)}")
+    check(not any("wrong way" in x for x in w2.texts(t4)), f"no 'wrong way' right after a re-route: {w2.texts(t4)}")
 
-        # transit route selected -> no_route
-        if "C" in ids:
-            c.post(f"/session/{s.id}/plan/select", json={"route_id": "C"})
-            r = fix(*TALENT_GARDEN)
-            check(r["status"] == "no_route" and r["text"].startswith("Live guidance works on walking routes"), f"transit: {r}")
-            c.post(f"/session/{s.id}/plan/select", json={"route_id": "A" if "A" in ids else "B"})
-        else:
-            check(False, f"no transit route C offered offline: {ids}")
+    # 6. a noisy fix says nothing
+    r = w2.fix(offset(far, 30, 0), acc=90)
+    check(r["text"] is None, f"noisy fix silent: {r['text']}")
 
-        # walk the route: started, one turn said once, crossings, arrived
-        first = fix(*TALENT_GARDEN)
-        print("start:", first["text"])
-        check(first["status"] == "on_route" and first["text"].startswith("Guidance started: "), f"start: {first['text']}")
-        check(first["route_line"] and len(first["route_line"]) > 2, "route_line on the first call")
-        check(first["remaining_m"] % 10 == 0 and first["remaining_min"] >= 1, f"remaining {first['remaining_m']}")
-        line, said = first["route_line"], [first["text"]]
-        for lat, lon in densify(line)[1:]:
-            r = fix(lat, lon, accuracy_m=10)
-            check(r["route_line"] is None, "route_line only on the first call")
-            if r["text"]:
-                said.append(r["text"])
-            if r["status"] == "arrived":
-                break
-            check(r["status"] == "on_route", f"walking the line stays on route: {r['status']} {r['off_route_m']}")
-        print("\n".join(said))
-        turns = [t for t in said if "turn " in t]
-        check(len(turns) >= 1, "a turn instruction is said")
-        check(len(turns) == len(set(turns)), f"each turn said once: {turns}")
-        check(any("a crossing with" in t for t in said), "crossing warnings")
-        check(r["status"] == "arrived" and said[-1] == "You have arrived at viale Isonzo.", f"arrived: {said[-1]}")
-        check(fix(lat, lon)["text"] is None, "arrived said once")
+    # 7. a second route, starting while facing away: Duomo -> Stazione Centrale
+    s2 = Session(origin=(*DUOMO, "Duomo"))
+    d2 = plan.create(zone, s2, destination=CENTRALE, depart_at="2026-09-26T15:00:00+02:00")
+    plan.select(zone, s2, next(x["id"] for x in d2["routes"] if x["mode"] == "foot"))
+    w3 = Walk(zone, s2, "centrale")
+    l3 = navigate.step(zone, s2, {}, *DUOMO)["route_line"]
+    away = (navigate.bearing(zone.xy(*l3[0]), zone.xy(*l3[min(4, len(l3) - 1)])) + 180) % 360
+    r = w3.fix(DUOMO, heading=away, beat=False)
+    check("Turn around" in r["text"] or "o'clock" in r["text"], f"centrale orientation: {r['text']}")
+    for p in walk_points(l3)[1:]:
+        r = w3.fix(p, heading=away)
+        if r["status"] == "arrived":
+            break
+    check(r["status"] == "arrived", f"centrale arrived: {r['status']}")
+    all3 = w3.texts()
+    check(sum(x.startswith("You have arrived") for x in all3) == 1, "centrale arrival once")
+    check(not any("wrong way" in x for x in all3), "centrale: no false 'wrong way' walking the line")
+    check(not any("along a " in x or "along the crossing" in x for x in all3), "centrale: no 'along a pavement'")
+    t3s = [t for t, _ in w3.said]
+    check(max(b - a for a, b in zip(t3s, t3s[1:])) <= 30, "centrale: no silence over 30 s")
 
-        # off route: 50 m off the line twice -> off_route with a direction, then back on route
-        c.post(f"{N}/stop")
-        pts = densify(line)
-        mid = pts[len(pts) // 3]
-        check(fix(*pts[len(pts) // 3 - 3])["text"].startswith("Guidance started"), "restart after stop")
-        fix(*pts[len(pts) // 3 - 1])
-        best = None
-        for ang in range(0, 360, 15):  # a point 50 m from mid, at least 45 m from the whole line
-            q = (mid[0] + 50 / 111_000 * math.cos(math.radians(ang)),
-                 mid[1] + 50 / 111_000 * math.sin(math.radians(ang)) / math.cos(math.radians(mid[0])))
-            dmin = min(math.hypot((q[0] - a) * 111_000, (q[1] - b) * 111_000 * math.cos(math.radians(a))) for a, b in pts)
-            if best is None or dmin > best[0]:
-                best = (dmin, q)
-        q = best[1]
-        r1 = fix(*q, accuracy_m=10)
-        check(r1["status"] == "on_route" and r1["text"] is None, f"one fix off is not yet off route: {r1}")
-        r2 = fix(*q, accuracy_m=10)
-        print("off:", r2["text"])
-        check(r2["status"] == "off_route" and r2["text"].startswith("You are off the route, about"), f"off: {r2}")
-        check(" to the " in r2["text"] or "o'clock" in r2["text"] or "your" in r2["text"] or "behind" in r2["text"]
-              or "ahead" in r2["text"], f"off direction: {r2['text']}")
-        check(fix(*q, accuracy_m=10)["text"] is None, "no reminder before 15 s")
-        r3 = fix(*mid, accuracy_m=10)
-        print("back:", r3["text"])
-        check(r3["status"] == "on_route" and r3["text"].startswith("Back on the route."), f"back: {r3}")
-
-        # heading given -> clock position
-        fix(*q, heading_deg=0)
-        r = fix(*q, heading_deg=0)
-        check("o'clock" in r["text"] or any(w in r["text"] for w in ("ahead", "your", "behind")), f"clock: {r['text']}")
-        fix(*mid)
-
-        # a single 80 m jump -> off route at once
-        far = (mid[0] + 80 / 111_000, mid[1])
-        far = far if min(math.hypot((far[0] - a) * 111_000, (far[1] - b) * 111_000 * math.cos(math.radians(a)))
-                         for a, b in pts) > 62 else (mid[0] - 80 / 111_000, mid[1])
-        r = fix(*far)
-        check(r["status"] == "off_route" and r["text"] and r["text"].startswith("You are off the route"), f"jump: {r}")
-
-        check(c.post(f"{N}/stop").json() == {"status": "stopped"}, "stop")
-
-    check(not slow, f"calls over 50 ms: {slow}")
+    (HERE / "guidance_transcript.txt").write_text("\n".join(log) + "\n")
+    print("\n".join(log))
+    check(not slow, f"calls over 100 ms: {slow[:10]}")
     print(f"{'FAIL' if failed else 'OK'}: {len(failed)} failed")
     sys.exit(1 if failed else 0)
 

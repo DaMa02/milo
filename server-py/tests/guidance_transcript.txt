@@ -1,0 +1,217 @@
+[walk    0.0s] Guidance started to Bocconi University: 2,280 metres, about 29 minutes. Walk along via Arcivescovo Calabiana for 85 metres, then turn left onto a pavement.
+[walk   16.0s] In 60 metres, turn left onto a pavement.
+[walk   44.0s] In 25 metres, turn left onto a pavement.
+[walk   56.0s] Turn left now, onto a pavement.
+[walk   77.0s] Now continue straight ahead for 380 metres.
+[walk  102.0s] Keep going straight ahead: 340 metres to the next turn.
+[walk  127.0s] Keep going straight ahead: 310 metres to the next turn.
+[walk  152.0s] Keep going straight ahead: 280 metres to the next turn.
+[walk  177.0s] Keep going straight ahead: 240 metres to the next turn.
+[walk  192.5s] In 35 metres, a crossing without signals: stop at the kerb and listen before you cross.
+[walk  211.0s] Crossing now.
+[walk  236.0s] Keep going along via Giovanni Lorenzini: 170 metres to the next turn.
+[walk  261.0s] Keep going along via Giovanni Lorenzini: 130 metres to the next turn.
+[walk  286.0s] Keep going along via Giovanni Lorenzini: 100 metres to the next turn.
+[walk  311.0s] Keep going along via Giovanni Lorenzini: 70 metres to the next turn.
+[walk  315.5s] In 65 metres, turn right to cross via Giovanni Lorenzini.
+[walk  343.0s] In 25 metres, turn right to cross via Giovanni Lorenzini, a crossing without signals: stop at the kerb and listen before you cross.
+[walk  355.5s] Turn right now, to cross via Giovanni Lorenzini.
+[walk  361.5s] Crossing now.
+[walk  376.0s] Now on via Giovanni Lorenzini. Continue for 340 metres.
+[walk  383.5s] In 30 metres, a crossing without signals: stop at the kerb and listen before you cross.
+[walk  401.5s] Crossing now.
+[walk  427.0s] Keep going along via Giovanni Lorenzini: 270 metres to the next turn.
+[walk  452.0s] Keep going along via Giovanni Lorenzini: 240 metres to the next turn.
+[walk  470.5s] In 35 metres, a crossing without signals: stop at the kerb and listen before you cross.
+[walk  490.5s] Crossing now.
+[walk  516.0s] Keep going along via Giovanni Lorenzini: 160 metres to the next turn.
+[walk  541.0s] Keep going along via Giovanni Lorenzini: 130 metres to the next turn.
+[walk  566.0s] Keep going along via Giovanni Lorenzini: 95 metres to the next turn.
+[walk  589.0s] In 65 metres, turn left to cross via Giovanni Lorenzini.
+[walk  616.0s] In 30 metres, turn left to cross via Giovanni Lorenzini, a crossing without signals: stop at the kerb and listen before you cross.
+[walk  629.5s] Turn left now, to cross via Giovanni Lorenzini. Then in 10 metres, a crossing with traffic lights, the map does not say if it has a sound signal.
+[walk  631.5s] Crossing now.
+[walk  646.0s] In 30 metres, turn right to cross via Carlo De Angeli, a crossing without signals: stop at the kerb and listen before you cross.
+[walk  660.5s] Turn right now, to cross via Carlo De Angeli.
+[walk  662.0s] Crossing now.
+[walk  680.0s] Now on via Giuseppe Ripamonti. Continue for 310 metres.
+[walk  705.0s] Keep going straight ahead: 280 metres to the next turn.
+[walk  730.0s] Keep going straight ahead: 240 metres to the next turn.
+[walk  755.0s] Keep going straight ahead: 210 metres to the next turn.
+[walk  780.0s] Keep going straight ahead: 180 metres to the next turn.
+[walk  805.0s] Keep going straight ahead: 150 metres to the next turn.
+[walk  830.0s] Keep going straight ahead: 110 metres to the next turn.
+[walk  855.0s] Keep going straight ahead: 80 metres to the next turn.
+[walk  870.5s] In 60 metres, turn left onto viale Toscana.
+[walk  897.0s] In 30 metres, turn left onto viale Toscana.
+[walk  910.0s] Turn left now, onto viale Toscana.
+[walk  930.0s] Now on viale Toscana. Continue for 230 metres.
+[walk  955.0s] Keep going along viale Toscana: 200 metres to the next turn.
+[walk  981.0s] Keep going along viale Toscana: 170 metres to the next turn.
+[walk 1006.0s] Keep going along viale Toscana: 130 metres to the next turn.
+[walk 1031.0s] Keep going along viale Toscana: 100 metres to the next turn.
+[walk 1056.0s] Keep going along viale Toscana: 70 metres to the next turn.
+[walk 1061.5s] In 65 metres, turn right to cross viale Toscana.
+[walk 1088.0s] In 25 metres, turn right to cross viale Toscana, a crossing with traffic lights, the map does not say if it has a sound signal.
+[walk 1101.5s] Turn right now, to cross viale Toscana. Then in 35 metres, turn left onto viale Toscana.
+[walk 1127.5s] Turn left now, onto viale Toscana. Then in 10 metres, a crossing with traffic lights, the map does not say if it has a sound signal.
+[walk 1139.0s] In 25 metres, after the crossing, turn right, then left onto a footpath.
+[walk 1151.5s] Turn right, then left now, onto a footpath.
+[walk 1172.0s] Now on via Antonio Boselli. Continue for 140 metres.
+[walk 1197.0s] Keep going straight ahead: 110 metres to the next turn.
+[walk 1222.0s] Keep going straight ahead: 80 metres to the next turn.
+[walk 1234.0s] In 60 metres, turn left onto viale Giovanni Brahms.
+[walk 1261.5s] In 30 metres, turn left onto viale Giovanni Brahms.
+[walk 1273.5s] Turn left now, onto viale Giovanni Brahms.
+[walk 1299.0s] In 65 metres, turn right onto a footpath.
+[walk 1326.5s] In 30 metres, turn right onto a footpath.
+[walk 1340.0s] Turn right now, onto a footpath.
+[walk 1356.5s] In 65 metres, turn left, then right onto a footpath.
+[walk 1384.0s] In 25 metres, turn left, then right onto a footpath.
+[walk 1395.5s] Turn left, then right now, onto a footpath.
+[walk 1417.0s] Now continue straight ahead for 110 metres.
+[walk 1442.0s] Keep going along viale Giovanni Sebastiano Bach: 80 metres to the next turn.
+[walk 1456.0s] In 60 metres, turn left onto via Roberto Sarfatti.
+[walk 1470.5s] In 35 metres, a crossing with traffic lights, the map does not say if it has a sound signal.
+[walk 1483.5s] In 25 metres, after the crossing, turn left onto via Roberto Sarfatti.
+[walk 1495.5s] Turn left now, onto via Roberto Sarfatti.
+[walk 1521.0s] Keep going along via Roberto Sarfatti: 75 metres to the next turn.
+[walk 1532.5s] In 65 metres, turn right onto via Ulisse Gobbi.
+[walk 1559.5s] In 30 metres, turn right onto via Ulisse Gobbi.
+[walk 1572.0s] Turn right now, onto via Ulisse Gobbi.
+[walk 1597.0s] Keep going along via Ulisse Gobbi: 70 metres to the next turn.
+[walk 1601.5s] In 65 metres, turn right onto a footpath.
+[walk 1628.0s] In 25 metres, turn right onto a footpath.
+[walk 1641.5s] Turn right now, onto a footpath.
+[walk 1667.0s] Keep going straight ahead: 75 metres to the next turn.
+[walk 1676.5s] In 60 metres, turn right onto a footpath.
+[walk 1703.0s] In 30 metres, turn right onto a footpath.
+[walk 1715.5s] Turn right now, onto a footpath.
+[walk 1739.0s] You have arrived at Bocconi University. It is at 11 o'clock, about 15 metres.
+[orient    0.0s] Guidance started to Bocconi University: 2,280 metres, about 29 minutes. The route starts at 9 o'clock: turn to your left. Walk along via Arcivescovo Calabiana for 85 metres, then turn left onto a pavement.
+[orient    1.0s] Good, walk straight ahead.
+[orient   17.5s] In 60 metres, turn left onto a pavement.
+[orient   43.5s] In 30 metres, turn left onto a pavement.
+[orient   56.5s] Turn left now, onto a pavement.
+[orient   77.0s] Now continue straight ahead for 380 metres.
+[orient  102.0s] Keep going straight ahead: 340 metres to the next turn.
+[orient  122.0s] You are going the wrong way. Turn around.
+[orient  137.0s] Good, now you are heading the right way.
+[orient  162.0s] Keep going straight ahead: 320 metres to the next turn.
+[orient  176.5s] You are off the route, about 50 metres from it. The route is straight ahead.
+[orient  179.0s] Back on the route. Walk straight ahead for 300 metres, then turn right to cross via Giovanni Lorenzini.
+[orient  180.0s] You are off the route, about 90 metres from it. The route is at 5 o'clock.
+[orient  180.5s] New route. Walk along via Orobia for 80 metres, then turn right onto via Orobia.
+[orient  206.0s] Keep going along via Orobia: 80 metres to the next turn.
+[centrale    0.0s] Guidance started to Stazione Centrale: 2,870 metres, about 36 minutes. Turn around: the route is behind you. Walk along steps for 270 metres, then turn left onto a footpath.
+[centrale   25.0s] Keep going straight ahead: 240 metres to the next turn.
+[centrale   50.0s] Keep going along Galleria Vittorio Emanuele Secondo: 210 metres to the next turn.
+[centrale   75.0s] Keep going along Galleria Vittorio Emanuele Secondo: 180 metres to the next turn.
+[centrale  100.0s] Keep going along Galleria Vittorio Emanuele Secondo: 140 metres to the next turn.
+[centrale  125.0s] Keep going along Galleria Vittorio Emanuele Secondo: 110 metres to the next turn.
+[centrale  150.0s] Keep going along Galleria Vittorio Emanuele Secondo: 80 metres to the next turn.
+[centrale  161.5s] In 65 metres, turn left onto a footpath.
+[centrale  188.5s] In 30 metres, turn left onto a footpath.
+[centrale  201.5s] Turn left now, onto a footpath.
+[centrale  227.0s] Keep going straight ahead: 75 metres to the next turn.
+[centrale  235.0s] In 60 metres, turn right to cross piazza della Scala.
+[centrale  261.0s] In 30 metres, turn right to cross piazza della Scala, a crossing with traffic lights, with a sound signal.
+[centrale  274.0s] Turn right now, to cross piazza della Scala.
+[centrale  295.0s] Now on piazza della Scala. Continue for 270 metres.
+[centrale  320.0s] Keep going along via Alessandro Manzoni: 240 metres to the next turn.
+[centrale  345.0s] Keep going along via Alessandro Manzoni: 210 metres to the next turn.
+[centrale  358.5s] In 35 metres, a crossing without signals: stop at the kerb and listen before you cross.
+[centrale  379.0s] Crossing now.
+[centrale  404.0s] Keep going along via Alessandro Manzoni: 130 metres to the next turn.
+[centrale  429.0s] Keep going along via Alessandro Manzoni: 100 metres to the next turn.
+[centrale  446.5s] In 35 metres, a crossing without signals: stop at the kerb and listen before you cross.
+[centrale  455.5s] In 65 metres, turn left onto vicolo Giardino.
+[centrale  466.5s] Crossing now.
+[centrale  482.5s] In 30 metres, turn left onto vicolo Giardino.
+[centrale  495.0s] Turn left now, onto vicolo Giardino. Then in 5 metres, a crossing without signals: stop at the kerb and listen before you cross.
+[centrale  501.5s] Crossing now.
+[centrale  527.0s] Keep going along vicolo Giardino: 80 metres to the next turn.
+[centrale  542.0s] In 60 metres, turn left onto via Alessandro Manzoni.
+[centrale  568.0s] In 30 metres, turn left onto via Alessandro Manzoni.
+[centrale  581.5s] Turn left now, onto via Alessandro Manzoni. Then in 45 metres, turn right onto via dei Giardini.
+[centrale  602.5s] In 30 metres, turn right onto via dei Giardini.
+[centrale  615.5s] Turn right now, onto via dei Giardini.
+[centrale  636.0s] Now on via dei Giardini. Continue for 490 metres.
+[centrale  662.0s] In 30 metres, a crossing without signals: stop at the kerb and listen before you cross.
+[centrale  680.5s] Crossing now.
+[centrale  706.0s] Keep going along via dei Giardini: 400 metres to the next turn.
+[centrale  731.0s] Keep going along via dei Giardini: 370 metres to the next turn.
+[centrale  756.0s] Keep going along via dei Giardini: 340 metres to the next turn.
+[centrale  784.5s] In 35 metres, a crossing without signals: stop at the kerb and listen before you cross.
+[centrale  804.0s] Crossing now.
+[centrale  808.5s] In 35 metres, a crossing with traffic lights, with a sound signal.
+[centrale  834.0s] Keep going along via Fatebenefratelli: 230 metres to the next turn.
+[centrale  859.0s] Keep going straight ahead: 200 metres to the next turn.
+[centrale  884.0s] Keep going straight ahead: 170 metres to the next turn.
+[centrale  909.0s] Keep going straight ahead: 140 metres to the next turn.
+[centrale  932.5s] In 35 metres, a crossing without signals: stop at the kerb and listen before you cross.
+[centrale  953.5s] Crossing now.
+[centrale  966.5s] In 60 metres, turn left, then right onto via Montebello.
+[centrale  983.5s] In 35 metres, a crossing without signals: stop at the kerb and listen before you cross.
+[centrale  993.0s] In 25 metres, after the crossing, turn left, then right onto via Montebello.
+[centrale 1003.5s] Crossing now.
+[centrale 1005.5s] Turn left, then right now, onto via Montebello.
+[centrale 1027.0s] Now continue straight ahead for 120 metres.
+[centrale 1052.0s] Keep going straight ahead: 85 metres to the next turn.
+[centrale 1069.5s] In 65 metres, turn right to cross piazza Stati Uniti d'America.
+[centrale 1096.0s] In 30 metres, turn right to cross piazza Stati Uniti d'America, a crossing with traffic lights, with a sound signal.
+[centrale 1110.0s] Turn right now, to cross piazza Stati Uniti d'America.
+[centrale 1129.0s] Now on via Filippo Turati. Continue for 200 metres.
+[centrale 1154.0s] Keep going along via Filippo Turati: 170 metres to the next turn.
+[centrale 1165.0s] In 35 metres, a crossing without signals: stop at the kerb and listen before you cross.
+[centrale 1185.5s] Crossing now.
+[centrale 1211.0s] Keep going straight ahead: 95 metres to the next turn.
+[centrale 1236.0s] Keep going straight ahead: 65 metres to the next turn.
+[centrale 1237.5s] In 65 metres, turn right onto piazza della Repubblica.
+[centrale 1264.0s] In 30 metres, turn right onto piazza della Repubblica.
+[centrale 1278.0s] Turn right now, onto piazza della Repubblica. Then in 10 metres, a crossing without signals: stop at the kerb and listen before you cross.
+[centrale 1288.0s] Crossing now.
+[centrale 1313.0s] Keep going along piazza della Repubblica: 75 metres to the next turn.
+[centrale 1322.0s] In 60 metres, turn right onto piazza della Repubblica.
+[centrale 1349.0s] In 25 metres, turn right onto piazza della Repubblica.
+[centrale 1362.5s] Turn right now, onto piazza della Repubblica. Then in 5 metres, a crossing with traffic lights, the map does not say if it has a sound signal.
+[centrale 1370.5s] In 35 metres, a crossing with traffic lights, the map does not say if it has a sound signal.
+[centrale 1386.0s] In 65 metres, turn right onto piazza della Repubblica.
+[centrale 1397.0s] In 30 metres, a crossing with traffic lights, the map does not say if it has a sound signal.
+[centrale 1412.5s] In 30 metres, after the crossing, turn right onto piazza della Repubblica.
+[centrale 1426.0s] Turn right now, onto piazza della Repubblica.
+[centrale 1446.0s] Now on piazza della Repubblica. Continue for 190 metres.
+[centrale 1471.0s] Keep going straight ahead: 160 metres to the next turn.
+[centrale 1500.5s] In 35 metres, a crossing with traffic lights, the map does not say if it has a sound signal.
+[centrale 1526.0s] Keep going along piazza della Repubblica: 85 metres to the next turn.
+[centrale 1545.0s] In 60 metres, turn left onto a pavement.
+[centrale 1571.5s] In 30 metres, turn left onto a pavement.
+[centrale 1584.5s] Turn left now, onto a pavement. Then in 35 metres, turn right to cross, a crossing with traffic lights, the map does not say if it has a sound signal.
+[centrale 1610.0s] Turn right now, to cross. Then in 20 metres, turn right onto via Vittor Pisani.
+[centrale 1624.5s] Turn right now, onto via Vittor Pisani.
+[centrale 1646.0s] Now on via Vittor Pisani. Continue for 140 metres.
+[centrale 1671.0s] Keep going along via Vittor Pisani: 110 metres to the next turn.
+[centrale 1696.0s] Keep going along via Vittor Pisani: 80 metres to the next turn.
+[centrale 1709.0s] In 60 metres, turn left onto via Leopoldo Marangoni.
+[centrale 1735.5s] In 30 metres, turn left onto via Leopoldo Marangoni.
+[centrale 1748.0s] Turn left now, onto via Leopoldo Marangoni. Then in 15 metres, a crossing with traffic lights, with a sound signal.
+[centrale 1768.0s] Now continue straight ahead for 280 metres.
+[centrale 1793.0s] Keep going straight ahead: 250 metres to the next turn.
+[centrale 1813.5s] In 35 metres, a crossing without signals: stop at the kerb and listen before you cross.
+[centrale 1832.0s] Crossing now.
+[centrale 1857.0s] Keep going straight ahead: 170 metres to the next turn.
+[centrale 1885.0s] In 30 metres, a crossing with traffic lights, the map does not say if it has a sound signal.
+[centrale 1910.0s] Keep going along via Achille Zezon: 100 metres to the next turn.
+[centrale 1935.0s] Keep going along via Achille Zezon: 65 metres to the next turn.
+[centrale 1938.5s] In 65 metres, turn left onto via Vittor Pisani.
+[centrale 1964.5s] In 30 metres, turn left onto via Vittor Pisani.
+[centrale 1978.0s] Turn left now, onto via Vittor Pisani. Then in 35 metres, turn left onto piazza Duca d'Aosta.
+[centrale 2006.5s] Turn left now, onto piazza Duca d'Aosta. Then in 25 metres, turn sharp right onto a footpath.
+[centrale 2024.5s] Turn sharp right now, onto a footpath.
+[centrale 2045.0s] Now continue straight ahead for 210 metres.
+[centrale 2070.0s] Keep going straight ahead: 180 metres to Stazione Centrale.
+[centrale 2095.0s] Keep going straight ahead: 150 metres to Stazione Centrale.
+[centrale 2120.0s] Keep going straight ahead: 110 metres to Stazione Centrale.
+[centrale 2145.0s] Keep going straight ahead: 80 metres to Stazione Centrale.
+[centrale 2170.0s] Keep going along steps: 50 metres to Stazione Centrale.
+[centrale 2185.0s] You have arrived at Stazione Centrale. It is at 11 o'clock, about 15 metres.
