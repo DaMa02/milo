@@ -12,8 +12,9 @@ from pydantic import BaseModel, Field
 from lotl.explore import explore
 from lotl.overview import overview, ref_heading
 from lotl.session import Session
+from lotl import llm
 from lotl.tools import TOOLS, ask
-from lotl.zone import TALENT_GARDEN, Zone, fmt
+from lotl.zone import TALENT_GARDEN, Zone, fmt, meta
 
 ZONE = None
 SESSIONS = {}  # ponytail: in memory, lost on restart; one process only
@@ -51,7 +52,7 @@ class ExploreIn(BaseModel):
 
 class AskIn(BaseModel):
     question: str = Field(min_length=1, max_length=500)
-    tool: str
+    tool: Optional[str] = None  # without it, Claude picks one of the five tools from the question
     params: dict = Field(default_factory=dict)
 
 
@@ -98,6 +99,20 @@ def do_explore(sid: str, body: ExploreIn):
 @app.post("/session/{sid}/ask")
 def do_ask(sid: str, body: AskIn):
     s = get(sid)
-    if body.tool not in TOOLS:
-        raise HTTPException(422, f"Unknown tool {body.tool!r}: use one of {', '.join(TOOLS)}.")
-    return ask(ZONE, s, body.tool, body.params, body.question)  # a place it cannot use comes back as a question
+    tool, params = body.tool, body.params
+    if tool is None:
+        try:
+            tool, params = llm.interpret(body.question)
+        except llm.Unavailable:
+            return no_tool(body.question, "I could not interpret the question just now.")
+        if tool == "none":
+            return no_tool(body.question)
+    if tool not in TOOLS:
+        raise HTTPException(422, f"Unknown tool {tool!r}: use one of {', '.join(TOOLS)}.")
+    return ask(ZONE, s, tool, params, body.question)
+
+
+def no_tool(question, missing=None):
+    """No tool fits (or the model is unreachable): say what can be asked, in fixed words, never model-written."""
+    return {"question": question, "lang": "en", "tool": "none", "text": llm.CLARIFY, "facts": [],
+            "unknown": [missing] if missing else [], "meta": meta(mode="live", cache="none")}  # a place it cannot use comes back as a question

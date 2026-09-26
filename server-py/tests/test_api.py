@@ -105,6 +105,25 @@ def main():
         call(c, "GET", f"/session/{sid}/overview", schema="overview")  # still the start reference after walking
         check(c.get(f"/session/{sid}/overview").json()["reference"]["heading_deg"] == 0, "reference unchanged by the walk")
 
+        # question only: the model picks the tool (stubbed here, tests never call a paid API)
+        import lotl.llm as L
+        real = L.interpret
+        try:
+            L.interpret = lambda q, llm=None: ("walking_vs_straight_line", {"to": {"name": "destination"}})
+            a = call(c, "POST", f"/session/{sid}/ask", json={"question": "Is the party close to here?"}, schema="answer")
+            check(a["tool"] == "walking_vs_straight_line" and "1,080 m on foot" in a["text"], "question-only ask runs the picked tool")
+            L.interpret = lambda q, llm=None: ("none", {})
+            a = call(c, "POST", f"/session/{sid}/ask", json={"question": "What colour is the sky?"}, schema="answer")
+            check(a["tool"] == "none" and a["text"] == L.CLARIFY and not a["unknown"], "no tool fits: fixed text")
+
+            def down(q, llm=None):
+                raise L.Unavailable("offline")
+            L.interpret = down
+            a = call(c, "POST", f"/session/{sid}/ask", json={"question": "Is it far?"}, schema="answer")
+            check(a["tool"] == "none" and a["unknown"], "model unreachable: fixed text and the reason in unknown")
+        finally:
+            L.interpret = real
+
         # the five tools
         check(set(ASKS) == set(TOOLS), f"test covers every tool {TOOLS}")
         for tool, (q, params) in ASKS.items():

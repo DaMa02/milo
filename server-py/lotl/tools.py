@@ -24,6 +24,11 @@ DEST_NAME = "the destination on viale Isonzo"
 ALIASES = {"talent garden": (TALENT_GARDEN, "Talent Garden"), "destination": (DEMO_DESTINATION, DEST_NAME),
            "party": (DEMO_DESTINATION, DEST_NAME), "viale isonzo": (DEMO_DESTINATION, DEST_NAME)}
 HERE = {"here", "me", "my position", "where i am", "start"}
+# a kind of place instead of a name ("the construction site") means the nearest one of that kind
+KIND_WORDS = {"construction site": ("construction site",), "construction": ("construction site",),
+              "building site": ("construction site",), "railway": ("railway",), "railway line": ("railway",),
+              "train tracks": ("railway",), "tracks": ("railway",), "park": ("park", "garden"), "garden": ("park", "garden"),
+              "supermarket": ("supermarket",)}
 RAIL_GLOSS = {"Cintura sud di Milano": "the southern belt railway"}
 WATER = {"canal": "canal", "river": "river", "stream": "stream"}  # anything else is a "water channel"
 GENERIC = {"a footpath", "a pavement", "a crossing", "steps"}
@@ -66,7 +71,10 @@ def _street_of(label):
 
 def _norm(text):
     q = " ".join(str(text).lower().split())
-    return q[4:] if q.startswith("the ") else q
+    for art in ("the ", "a ", "an "):
+        if q.startswith(art):
+            return q[len(art):]
+    return q
 
 
 def _radius(zone):
@@ -147,6 +155,12 @@ def _find(zone, text, kinds=None, what="a place"):
     pool = _places(zone)
     hits = [p for p in pool if q in (p["name"].lower(), p["label"].lower())] or \
            [p for p in pool if q in p["name"].lower() or set(q.split()) <= set(p["name"].lower().split())]
+    if not hits and q in KIND_WORDS:  # the nearest place of that kind to the reference point
+        c = zone.xy(*zone.center)
+        near = sorted((p for p in pool if p["kind"] in KIND_WORDS[q] and p["geom"].distance(c) <= zone.answer_radius),
+                      key=lambda p: p["geom"].distance(c))
+        if near:
+            return [near[0]]
     asked = [{"type": "place_query", "value": str(text), "unit": None, "source": "unknown", "evidence": [],
               "inputs": {"query": str(text)}, "data_date": SNAPSHOT, "completeness": "complete"}]
     if not hits:
