@@ -5,12 +5,13 @@
   "description": "POST /session/{id}/plan and its follow-ups (select, stop, constraints): alternatives under the user's constraints; the user picks one.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["origin", "destination", "depart_at", "lang", "constraints", "detour_tolerance", "text", "routes", "compliant_route_available", "selected_route_id", "stop", "differences", "facts", "unknown", "meta"],
+  "required": ["origin", "destination", "depart_at", "lang", "plan_version", "constraints", "detour_tolerance", "text", "routes", "compliant_route_available", "selected_route_id", "stop", "stop_candidates", "differences", "facts", "unknown", "meta"],
   "properties": {
     "origin": {"$ref": "fact.schema.json#/definitions/point"},
     "destination": {"$ref": "fact.schema.json#/definitions/point"},
     "depart_at": {"$ref": "fact.schema.json#/definitions/datetime"},
     "lang": {"$ref": "fact.schema.json#/definitions/lang"},
+    "plan_version": {"type": "integer", "minimum": 1, "description": "Incremented by every change the server applies; requests may send if_version to refuse stale edits (409)."},
     "constraints": {
       "type": "array",
       "items": {
@@ -42,6 +43,13 @@
            "duration_min": {"type": "number", "minimum": 0, "description": "Time spent at the stop, as said by the user."}
          }}
       ]
+    },
+    "stop_candidates": {
+      "type": "array", "description": "Filled by POST .../plan/stop/candidates, best first; empty otherwise.",
+      "items": {"type": "object", "additionalProperties": false, "required": ["place", "osm_id", "lat", "lon", "detour_min"],
+                "properties": {"place": {"type": "string"}, "osm_id": {"$ref": "fact.schema.json#/definitions/osm_id"},
+                               "lat": {"type": "number"}, "lon": {"type": "number"},
+                               "detour_min": {"type": "number", "minimum": 0, "description": "Walking it adds to the selected route."}}}
     },
     "differences": {"type": "array", "items": {"$ref": "fact.schema.json#/definitions/user_text"}, "description": "What changed since the previous plan, read out after a change."},
     "facts": {"$ref": "fact.schema.json#/definitions/facts"},

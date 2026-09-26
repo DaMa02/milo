@@ -11,7 +11,7 @@
   },
   "depart_at": "2026-09-26T16:00:00Z",
   "lang": "en",
-  "plan_version": 3,
+  "plan_version": 4,
   "constraints": [
     {
       "kind": "unsignalled_crossings",
@@ -22,16 +22,16 @@
     "min": 5,
     "pct": 25
   },
-  "text": "In the mapped area, every way to viale Isonzo has at least one crossing without a signal. With a stop at the supermarket Lidl for 15 minutes: Route A, on foot, 30 minutes with the shopping, the same time as the shortest: 1 crossing without a signal, the fewest of any route in the mapped area. Route B, on foot, the shortest, 30 minutes with the shopping: 3 crossings without a signal. Route C, on foot to Lidl, then bus 90 from Viale Umbria (Lodi M3): 38 minutes with the shopping and 2 minutes of waiting after it, 19 of them on foot, with 4 crossings without a signal. You chose route A.",
+  "text": "In the mapped area, every way to viale Isonzo has at least one crossing without a signal. With a stop at the supermarket Lidl for 5 minutes: Route A, on foot, 20 minutes with the shopping, the same time as the shortest: 1 crossing without a signal, the fewest of any route in the mapped area. Route B, on foot, the shortest, 20 minutes with the shopping: 3 crossings without a signal. Route C, on foot to Lidl, then bus 92 from Viale Umbria (Lodi M3): 29 minutes with the shopping and 5 minutes of waiting after it, 16 of them on foot, with 5 crossings without a signal. You chose route A.",
   "routes": [
     {
       "id": "A",
       "mode": "foot",
-      "duration_min": 30,
+      "duration_min": 20,
       "walk_min": 15,
       "transfers": 0,
       "leave_at": "2026-09-26T16:00:00Z",
-      "arrive_at": "2026-09-26T16:30:00Z",
+      "arrive_at": "2026-09-26T16:20:00Z",
       "legs": [
         {
           "mode": "foot",
@@ -64,7 +64,7 @@
             "lon": 9.209365
           },
           "distance_m": null,
-          "duration_min": 15,
+          "duration_min": 5,
           "line": null,
           "departure": null,
           "arrival": null
@@ -152,7 +152,7 @@
       "facts": [
         {
           "type": "route_duration",
-          "value": 30,
+          "value": 20,
           "unit": "min",
           "source": "computed",
           "evidence": [
@@ -204,7 +204,7 @@
             "destination_snap_m": 10,
             "filter": "fewest crossings known to have no signal, then shortest",
             "stop": "node/10571089360",
-            "stop_duration_min": 15
+            "stop_duration_min": 5
           },
           "data_date": "2026-09-26",
           "completeness": "complete"
@@ -263,7 +263,7 @@
             "destination_snap_m": 10,
             "filter": "fewest crossings known to have no signal, then shortest",
             "stop": "node/10571089360",
-            "stop_duration_min": 15
+            "stop_duration_min": 5
           },
           "data_date": "2026-09-26",
           "completeness": "complete"
@@ -309,7 +309,7 @@
             "destination_snap_m": 10,
             "filter": "fewest crossings known to have no signal, then shortest",
             "stop": "node/10571089360",
-            "stop_duration_min": 15
+            "stop_duration_min": 5
           },
           "data_date": "2026-09-26",
           "completeness": "complete"
@@ -348,7 +348,7 @@
             "destination_snap_m": 10,
             "filter": "fewest crossings known to have no signal, then shortest",
             "stop": "node/10571089360",
-            "stop_duration_min": 15
+            "stop_duration_min": 5
           },
           "data_date": "2026-09-26",
           "completeness": "complete"
@@ -407,7 +407,7 @@
             "destination_snap_m": 10,
             "filter": "fewest crossings known to have no signal, then shortest",
             "stop": "node/10571089360",
-            "stop_duration_min": 15
+            "stop_duration_min": 5
           },
           "data_date": "2026-09-26",
           "completeness": "complete"
@@ -466,7 +466,7 @@
             "destination_snap_m": 10,
             "filter": "fewest crossings known to have no signal, then shortest",
             "stop": "node/10571089360",
-            "stop_duration_min": 15
+            "stop_duration_min": 5
           },
           "data_date": "2026-09-26",
           "completeness": "complete"
@@ -525,13 +525,13 @@
             "destination_snap_m": 10,
             "filter": "fewest crossings known to have no signal, then shortest",
             "stop": "node/10571089360",
-            "stop_duration_min": 15
+            "stop_duration_min": 5
           },
           "data_date": "2026-09-26",
           "completeness": "complete"
         }
       ],
-      "summary": "Route A, on foot, 30 minutes with the shopping, the same time as the shortest: 1 crossing without a signal, the fewest of any route in the mapped area.",
+      "summary": "Route A, on foot, 20 minutes with the shopping, the same time as the shortest: 1 crossing without a signal, the fewest of any route in the mapped area.",
       "warnings": [
         "1 crossing without a signal."
       ]
@@ -539,11 +539,11 @@
     {
       "id": "B",
       "mode": "foot",
-      "duration_min": 30,
+      "duration_min": 20,
       "walk_min": 15,
       "transfers": 0,
       "leave_at": "2026-09-26T16:00:00Z",
-      "arrive_at": "2026-09-26T16:30:00Z",
+      "arrive_at": "2026-09-26T16:20:00Z",
       "legs": [
         {
           "mode": "foot",
@@ -576,7 +576,7 @@
             "lon": 9.209365
           },
           "distance_m": null,
-          "duration_min": 15,
+          "duration_min": 5,
           "line": null,
           "departure": null,
           "arrival": null
@@ -676,7 +676,7 @@
       "facts": [
         {
           "type": "route_duration",
-          "value": 30,
+          "value": 20,
           "unit": "min",
           "source": "computed",
           "evidence": [
@@ -733,7 +733,7 @@
             "destination_snap_m": 10,
             "filter": "none",
             "stop": "node/10571089360",
-            "stop_duration_min": 15
+            "stop_duration_min": 5
           },
           "data_date": "2026-09-26",
           "completeness": "complete"
@@ -797,7 +797,7 @@
             "destination_snap_m": 10,
             "filter": "none",
             "stop": "node/10571089360",
-            "stop_duration_min": 15
+            "stop_duration_min": 5
           },
           "data_date": "2026-09-26",
           "completeness": "complete"
@@ -845,7 +845,7 @@
             "destination_snap_m": 10,
             "filter": "none",
             "stop": "node/10571089360",
-            "stop_duration_min": 15
+            "stop_duration_min": 5
           },
           "data_date": "2026-09-26",
           "completeness": "complete"
@@ -886,7 +886,7 @@
             "destination_snap_m": 10,
             "filter": "none",
             "stop": "node/10571089360",
-            "stop_duration_min": 15
+            "stop_duration_min": 5
           },
           "data_date": "2026-09-26",
           "completeness": "complete"
@@ -950,7 +950,7 @@
             "destination_snap_m": 10,
             "filter": "none",
             "stop": "node/10571089360",
-            "stop_duration_min": 15
+            "stop_duration_min": 5
           },
           "data_date": "2026-09-26",
           "completeness": "complete"
@@ -1014,7 +1014,7 @@
             "destination_snap_m": 10,
             "filter": "none",
             "stop": "node/10571089360",
-            "stop_duration_min": 15
+            "stop_duration_min": 5
           },
           "data_date": "2026-09-26",
           "completeness": "complete"
@@ -1078,13 +1078,13 @@
             "destination_snap_m": 10,
             "filter": "none",
             "stop": "node/10571089360",
-            "stop_duration_min": 15
+            "stop_duration_min": 5
           },
           "data_date": "2026-09-26",
           "completeness": "complete"
         }
       ],
-      "summary": "Route B, on foot, the shortest, 30 minutes with the shopping: 3 crossings without a signal.",
+      "summary": "Route B, on foot, the shortest, 20 minutes with the shopping: 3 crossings without a signal.",
       "warnings": [
         "3 crossings without a signal."
       ]
@@ -1092,11 +1092,11 @@
     {
       "id": "C",
       "mode": "transit",
-      "duration_min": 38,
-      "walk_min": 19,
+      "duration_min": 29,
+      "walk_min": 16,
       "transfers": 0,
       "leave_at": "2026-09-26T16:00:00Z",
-      "arrive_at": "2026-09-26T16:38:00Z",
+      "arrive_at": "2026-09-26T16:29:00Z",
       "legs": [
         {
           "mode": "foot",
@@ -1129,7 +1129,7 @@
             "lon": 9.209365
           },
           "distance_m": null,
-          "duration_min": 15,
+          "duration_min": 5,
           "line": null,
           "departure": null,
           "arrival": null
@@ -1149,8 +1149,8 @@
           "distance_m": 120,
           "duration_min": 2,
           "line": null,
-          "departure": "2026-09-26T16:27:00Z",
-          "arrival": "2026-09-26T16:29:00Z"
+          "departure": "2026-09-26T16:20:00Z",
+          "arrival": "2026-09-26T16:22:00Z"
         },
         {
           "mode": "bus",
@@ -1160,33 +1160,33 @@
             "lon": 9.210483
           },
           "to": {
-            "name": "Lodi M3",
-            "lat": 45.447018,
-            "lon": 9.208488
+            "name": "Piazza Trento",
+            "lat": 45.447166,
+            "lon": 9.203406
           },
           "distance_m": null,
-          "duration_min": 2,
-          "line": "90",
-          "departure": "2026-09-26T16:29:00Z",
-          "arrival": "2026-09-26T16:31:00Z"
+          "duration_min": 3,
+          "line": "92",
+          "departure": "2026-09-26T16:22:00Z",
+          "arrival": "2026-09-26T16:25:00Z"
         },
         {
           "mode": "foot",
           "from": {
-            "name": "Lodi M3",
-            "lat": 45.447018,
-            "lon": 9.208488
+            "name": "Piazza Trento",
+            "lat": 45.447166,
+            "lon": 9.203406
           },
           "to": {
             "name": "viale Isonzo",
             "lat": 45.44658,
             "lon": 9.20584
           },
-          "distance_m": 250,
-          "duration_min": 7,
+          "distance_m": 270,
+          "duration_min": 4,
           "line": null,
-          "departure": "2026-09-26T16:31:00Z",
-          "arrival": "2026-09-26T16:38:00Z"
+          "departure": "2026-09-26T16:25:00Z",
+          "arrival": "2026-09-26T16:29:00Z"
         }
       ],
       "crossings": [
@@ -1263,28 +1263,34 @@
           "tactile_paving": "unknown"
         },
         {
-          "osm_id": "node/2073347940",
-          "signals": "yes",
-          "sound": "no",
-          "tactile_paving": "no"
-        },
-        {
-          "osm_id": "node/2073347935",
-          "signals": "yes",
+          "osm_id": "node/241469355",
+          "signals": "no",
           "sound": "no",
           "tactile_paving": "unknown"
         },
         {
-          "osm_id": "node/2073347933",
+          "osm_id": "node/3497486709",
           "signals": "yes",
           "sound": "unknown",
           "tactile_paving": "unknown"
         },
         {
-          "osm_id": "node/2073347931",
+          "osm_id": "node/3497485582",
           "signals": "yes",
           "sound": "no",
           "tactile_paving": "no"
+        },
+        {
+          "osm_id": "node/3497485578",
+          "signals": "yes",
+          "sound": "no",
+          "tactile_paving": "unknown"
+        },
+        {
+          "osm_id": "node/4063282025",
+          "signals": "yes",
+          "sound": "no",
+          "tactile_paving": "unknown"
         }
       ],
       "constraint_status": [
@@ -1294,19 +1300,19 @@
         }
       ],
       "trade_off": {
-        "extra_min": 8,
-        "violating_crossings": 4,
+        "extra_min": 9,
+        "violating_crossings": 5,
         "unknown_crossings": 0
       },
       "facts": [
         {
           "type": "route_duration",
-          "value": 38,
+          "value": 29,
           "unit": "min",
           "source": "computed",
           "evidence": [
             "node/10571089360",
-            "https://api.transitous.org/api/v6/plan?fromPlace=45.44738%2C9.209365&toPlace=45.44658%2C9.20584&time=2026-09-26T16%3A25%3A00Z&maxTransfers=2&maxTravelTime=60&directModes=",
+            "https://api.transitous.org/api/v6/plan?fromPlace=45.44738%2C9.209365&toPlace=45.44658%2C9.20584&time=2026-09-26T16%3A15%3A00Z&maxTransfers=2&maxTravelTime=60&directModes=",
             "way/1012491788",
             "way/1012491791",
             "way/1012491789",
@@ -1345,8 +1351,8 @@
               "source": "OpenStreetMap via Overpass, osmnx 2.1.1"
             },
             "stop": "node/10571089360",
-            "stop_duration_min": 15,
-            "request_after_stop": "https://api.transitous.org/api/v6/plan?fromPlace=45.44738%2C9.209365&toPlace=45.44658%2C9.20584&time=2026-09-26T16%3A25%3A00Z&maxTransfers=2&maxTravelTime=60&directModes=",
+            "stop_duration_min": 5,
+            "request_after_stop": "https://api.transitous.org/api/v6/plan?fromPlace=45.44738%2C9.209365&toPlace=45.44658%2C9.20584&time=2026-09-26T16%3A15%3A00Z&maxTransfers=2&maxTravelTime=60&directModes=",
             "crossings_method": "walk to the stop on the OSM graph; after it, OSM crossing nodes within 10 m of the Transitous walking legs"
           },
           "data_date": "2026-09-26",
@@ -1354,12 +1360,12 @@
         },
         {
           "type": "route_walk_time",
-          "value": 19,
+          "value": 16,
           "unit": "min",
           "source": "computed",
           "evidence": [
             "node/10571089360",
-            "https://api.transitous.org/api/v6/plan?fromPlace=45.44738%2C9.209365&toPlace=45.44658%2C9.20584&time=2026-09-26T16%3A25%3A00Z&maxTransfers=2&maxTravelTime=60&directModes=",
+            "https://api.transitous.org/api/v6/plan?fromPlace=45.44738%2C9.209365&toPlace=45.44658%2C9.20584&time=2026-09-26T16%3A15%3A00Z&maxTransfers=2&maxTravelTime=60&directModes=",
             "way/1012491788",
             "way/1012491791",
             "way/1012491789",
@@ -1398,8 +1404,8 @@
               "source": "OpenStreetMap via Overpass, osmnx 2.1.1"
             },
             "stop": "node/10571089360",
-            "stop_duration_min": 15,
-            "request_after_stop": "https://api.transitous.org/api/v6/plan?fromPlace=45.44738%2C9.209365&toPlace=45.44658%2C9.20584&time=2026-09-26T16%3A25%3A00Z&maxTransfers=2&maxTravelTime=60&directModes=",
+            "stop_duration_min": 5,
+            "request_after_stop": "https://api.transitous.org/api/v6/plan?fromPlace=45.44738%2C9.209365&toPlace=45.44658%2C9.20584&time=2026-09-26T16%3A15%3A00Z&maxTransfers=2&maxTravelTime=60&directModes=",
             "crossings_method": "walk to the stop on the OSM graph; after it, OSM crossing nodes within 10 m of the Transitous walking legs"
           },
           "data_date": "2026-09-26",
@@ -1407,7 +1413,7 @@
         },
         {
           "type": "route_crossings",
-          "value": 16,
+          "value": 17,
           "unit": "count",
           "source": "computed",
           "evidence": [
@@ -1423,10 +1429,11 @@
             "node/5143844899",
             "node/3100174603",
             "node/25543719",
-            "node/2073347940",
-            "node/2073347935",
-            "node/2073347933",
-            "node/2073347931"
+            "node/241469355",
+            "node/3497486709",
+            "node/3497485582",
+            "node/3497485578",
+            "node/4063282025"
           ],
           "inputs": {
             "graph": {
@@ -1442,8 +1449,8 @@
               "source": "OpenStreetMap via Overpass, osmnx 2.1.1"
             },
             "stop": "node/10571089360",
-            "stop_duration_min": 15,
-            "request_after_stop": "https://api.transitous.org/api/v6/plan?fromPlace=45.44738%2C9.209365&toPlace=45.44658%2C9.20584&time=2026-09-26T16%3A25%3A00Z&maxTransfers=2&maxTravelTime=60&directModes=",
+            "stop_duration_min": 5,
+            "request_after_stop": "https://api.transitous.org/api/v6/plan?fromPlace=45.44738%2C9.209365&toPlace=45.44658%2C9.20584&time=2026-09-26T16%3A15%3A00Z&maxTransfers=2&maxTravelTime=60&directModes=",
             "crossings_method": "walk to the stop on the OSM graph; after it, OSM crossing nodes within 10 m of the Transitous walking legs"
           },
           "data_date": "2026-09-26",
@@ -1451,14 +1458,15 @@
         },
         {
           "type": "route_violating_crossings",
-          "value": 4,
+          "value": 5,
           "unit": "count",
           "source": "computed",
           "evidence": [
             "node/2942696592",
             "node/4063477428",
             "node/1460519085",
-            "node/5143844899"
+            "node/5143844899",
+            "node/241469355"
           ],
           "inputs": {
             "graph": {
@@ -1474,8 +1482,8 @@
               "source": "OpenStreetMap via Overpass, osmnx 2.1.1"
             },
             "stop": "node/10571089360",
-            "stop_duration_min": 15,
-            "request_after_stop": "https://api.transitous.org/api/v6/plan?fromPlace=45.44738%2C9.209365&toPlace=45.44658%2C9.20584&time=2026-09-26T16%3A25%3A00Z&maxTransfers=2&maxTravelTime=60&directModes=",
+            "stop_duration_min": 5,
+            "request_after_stop": "https://api.transitous.org/api/v6/plan?fromPlace=45.44738%2C9.209365&toPlace=45.44658%2C9.20584&time=2026-09-26T16%3A15%3A00Z&maxTransfers=2&maxTravelTime=60&directModes=",
             "crossings_method": "walk to the stop on the OSM graph; after it, OSM crossing nodes within 10 m of the Transitous walking legs"
           },
           "data_date": "2026-09-26",
@@ -1488,7 +1496,7 @@
           "source": "computed",
           "evidence": [
             "node/10571089360",
-            "https://api.transitous.org/api/v6/plan?fromPlace=45.44738%2C9.209365&toPlace=45.44658%2C9.20584&time=2026-09-26T16%3A25%3A00Z&maxTransfers=2&maxTravelTime=60&directModes=",
+            "https://api.transitous.org/api/v6/plan?fromPlace=45.44738%2C9.209365&toPlace=45.44658%2C9.20584&time=2026-09-26T16%3A15%3A00Z&maxTransfers=2&maxTravelTime=60&directModes=",
             "way/1012491788",
             "way/1012491791",
             "way/1012491789",
@@ -1527,8 +1535,8 @@
               "source": "OpenStreetMap via Overpass, osmnx 2.1.1"
             },
             "stop": "node/10571089360",
-            "stop_duration_min": 15,
-            "request_after_stop": "https://api.transitous.org/api/v6/plan?fromPlace=45.44738%2C9.209365&toPlace=45.44658%2C9.20584&time=2026-09-26T16%3A25%3A00Z&maxTransfers=2&maxTravelTime=60&directModes=",
+            "stop_duration_min": 5,
+            "request_after_stop": "https://api.transitous.org/api/v6/plan?fromPlace=45.44738%2C9.209365&toPlace=45.44658%2C9.20584&time=2026-09-26T16%3A15%3A00Z&maxTransfers=2&maxTravelTime=60&directModes=",
             "crossings_method": "walk to the stop on the OSM graph; after it, OSM crossing nodes within 10 m of the Transitous walking legs"
           },
           "data_date": "2026-09-26",
@@ -1536,12 +1544,12 @@
         },
         {
           "type": "route_extra_time",
-          "value": 8,
+          "value": 9,
           "unit": "min",
           "source": "computed",
           "evidence": [
             "node/10571089360",
-            "https://api.transitous.org/api/v6/plan?fromPlace=45.44738%2C9.209365&toPlace=45.44658%2C9.20584&time=2026-09-26T16%3A25%3A00Z&maxTransfers=2&maxTravelTime=60&directModes=",
+            "https://api.transitous.org/api/v6/plan?fromPlace=45.44738%2C9.209365&toPlace=45.44658%2C9.20584&time=2026-09-26T16%3A15%3A00Z&maxTransfers=2&maxTravelTime=60&directModes=",
             "way/1012491788",
             "way/1012491791",
             "way/1012491789",
@@ -1580,8 +1588,8 @@
               "source": "OpenStreetMap via Overpass, osmnx 2.1.1"
             },
             "stop": "node/10571089360",
-            "stop_duration_min": 15,
-            "request_after_stop": "https://api.transitous.org/api/v6/plan?fromPlace=45.44738%2C9.209365&toPlace=45.44658%2C9.20584&time=2026-09-26T16%3A25%3A00Z&maxTransfers=2&maxTravelTime=60&directModes=",
+            "stop_duration_min": 5,
+            "request_after_stop": "https://api.transitous.org/api/v6/plan?fromPlace=45.44738%2C9.209365&toPlace=45.44658%2C9.20584&time=2026-09-26T16%3A15%3A00Z&maxTransfers=2&maxTravelTime=60&directModes=",
             "crossings_method": "walk to the stop on the OSM graph; after it, OSM crossing nodes within 10 m of the Transitous walking legs"
           },
           "data_date": "2026-09-26",
@@ -1589,37 +1597,37 @@
         },
         {
           "type": "transit_line",
-          "value": "90",
+          "value": "92",
           "unit": null,
           "source": "transit_api",
           "evidence": [
-            "https://api.transitous.org/api/v6/plan?fromPlace=45.44738%2C9.209365&toPlace=45.44658%2C9.20584&time=2026-09-26T16%3A25%3A00Z&maxTransfers=2&maxTravelTime=60&directModes="
+            "https://api.transitous.org/api/v6/plan?fromPlace=45.44738%2C9.209365&toPlace=45.44658%2C9.20584&time=2026-09-26T16%3A15%3A00Z&maxTransfers=2&maxTravelTime=60&directModes="
           ],
           "inputs": {
-            "request": "https://api.transitous.org/api/v6/plan?fromPlace=45.44738%2C9.209365&toPlace=45.44658%2C9.20584&time=2026-09-26T16%3A25%3A00Z&maxTransfers=2&maxTravelTime=60&directModes="
+            "request": "https://api.transitous.org/api/v6/plan?fromPlace=45.44738%2C9.209365&toPlace=45.44658%2C9.20584&time=2026-09-26T16%3A15%3A00Z&maxTransfers=2&maxTravelTime=60&directModes="
           },
           "data_date": "2026-09-26",
           "completeness": "complete"
         },
         {
           "type": "wait_after_stop",
-          "value": 2,
+          "value": 5,
           "unit": "min",
           "source": "transit_api",
           "evidence": [
-            "https://api.transitous.org/api/v6/plan?fromPlace=45.44738%2C9.209365&toPlace=45.44658%2C9.20584&time=2026-09-26T16%3A25%3A00Z&maxTransfers=2&maxTravelTime=60&directModes="
+            "https://api.transitous.org/api/v6/plan?fromPlace=45.44738%2C9.209365&toPlace=45.44658%2C9.20584&time=2026-09-26T16%3A15%3A00Z&maxTransfers=2&maxTravelTime=60&directModes="
           ],
           "inputs": {
-            "request": "https://api.transitous.org/api/v6/plan?fromPlace=45.44738%2C9.209365&toPlace=45.44658%2C9.20584&time=2026-09-26T16%3A25%3A00Z&maxTransfers=2&maxTravelTime=60&directModes=",
-            "stop_ends_at": "2026-09-26T16:25:00Z"
+            "request": "https://api.transitous.org/api/v6/plan?fromPlace=45.44738%2C9.209365&toPlace=45.44658%2C9.20584&time=2026-09-26T16%3A15%3A00Z&maxTransfers=2&maxTravelTime=60&directModes=",
+            "stop_ends_at": "2026-09-26T16:15:00Z"
           },
           "data_date": "2026-09-26",
           "completeness": "complete"
         }
       ],
-      "summary": "Route C, on foot to Lidl, then bus 90 from Viale Umbria (Lodi M3): 38 minutes with the shopping and 2 minutes of waiting after it, 19 of them on foot, with 4 crossings without a signal.",
+      "summary": "Route C, on foot to Lidl, then bus 92 from Viale Umbria (Lodi M3): 29 minutes with the shopping and 5 minutes of waiting after it, 16 of them on foot, with 5 crossings without a signal.",
       "warnings": [
-        "4 crossings without a signal."
+        "5 crossings without a signal."
       ]
     }
   ],
@@ -1629,12 +1637,12 @@
     "place": "Lidl",
     "osm_id": "node/10571089360",
     "detour_min": 1,
-    "duration_min": 15
+    "duration_min": 5
   },
   "stop_candidates": [],
   "differences": [
-    "Stop added at Lidl: route A now takes 30 minutes instead of 14, 1 minute more on foot and 15 minutes of shopping.",
-    "Route C was recomputed: its bus part now starts after the shopping."
+    "The stop at Lidl now lasts 5 minutes instead of 15: route A now takes 20 minutes instead of 30.",
+    "Route C now takes 29 minutes instead of 38."
   ],
   "facts": [
     {
@@ -1761,7 +1769,7 @@
     },
     {
       "type": "stop_duration",
-      "value": 15,
+      "value": 5,
       "unit": "min",
       "source": "unknown",
       "evidence": [],
@@ -1814,8 +1822,20 @@
       "completeness": "complete"
     },
     {
+      "type": "previous_stop_duration",
+      "value": 15,
+      "unit": "min",
+      "source": "unknown",
+      "evidence": [],
+      "inputs": {
+        "said_by_user": true
+      },
+      "data_date": "2026-09-26",
+      "completeness": "complete"
+    },
+    {
       "type": "route_duration_before",
-      "value": 14,
+      "value": 30,
       "unit": "min",
       "source": "computed",
       "evidence": [
@@ -1846,7 +1866,45 @@
         "origin_snap_m": 41,
         "destination_snap_m": 10,
         "route": "A",
-        "version": 2
+        "version": 3
+      },
+      "data_date": "2026-09-26",
+      "completeness": "complete"
+    },
+    {
+      "type": "route_duration_before",
+      "value": 38,
+      "unit": "min",
+      "source": "computed",
+      "evidence": [
+        "node/10571089360"
+      ],
+      "inputs": {
+        "graph": {
+          "center": [
+            45.44386,
+            9.20808
+          ],
+          "dist_m": 800,
+          "network_type": "walk",
+          "simplify": false,
+          "snap": "nearest_edge",
+          "snapshot": "2026-09-26",
+          "source": "OpenStreetMap via Overpass, osmnx 2.1.1"
+        },
+        "origin": [
+          45.44386,
+          9.20808
+        ],
+        "destination": [
+          45.44658,
+          9.20584
+        ],
+        "speed_m_per_min": 80,
+        "origin_snap_m": 41,
+        "destination_snap_m": 10,
+        "route": "C",
+        "version": 3
       },
       "data_date": "2026-09-26",
       "completeness": "complete"

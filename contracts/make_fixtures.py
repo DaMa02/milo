@@ -643,29 +643,29 @@ t_route = {"id": "C", "mode": "transit", "_src": "transit_api", "duration_min": 
                    "crossings_method": f"OSM crossing nodes within {XING_M} m of the Transitous walking leg geometry"}}
 direct_min = round(d_json["direct"][0]["duration"] / 60)
 
-# supermarket stop near corso Lodi, computed on the selected route's graph
+# ---------- level 2 plan story ----------
+# v1 initial comparison -> v2 route A chosen + stop candidates -> v3 stop 15 min -> v4 stop 5 min;
+# separately, v2 of the same trip with the constraint required (no compliant route).
+BASE = {r["id"]: {k: r[k] for k in ("id", "_m", "walk_min", "crossings", "_in")} for r in (avoid, shortest)}
 SEL_G = penalised(NO_SIG)
 to_ll = Transformer.from_crs(CRS, 4326, always_xy=True).transform
+TG_PT = {"name": "Talent Garden", "lat": ORIGIN[0], "lon": ORIGIN[1]}
+DEST_PT = {"name": "viale Isonzo", "lat": DEST[0], "lon": DEST[1]}
+
+# supermarkets in the mapped area, ranked by the walking they add to route A
 shops = ox.features_from_point(ORIGIN, {"shop": "supermarket"}, dist=R).to_crs(CRS)
-lodi = E[E["name"].astype(str).str.contains("Corso Lodi")].union_all()
-shops = shops[shops.geometry.centroid.distance(lodi) < 200]
-best = None
+cands = []
 for idx, row in shops.iterrows():
     lon, lat = to_ll(row.geometry.centroid.x, row.geometry.centroid.y)
     s_ = snap(lat, lon)
     (m1, p1), (m2, p2) = route(SEL_G, A, s_), route(SEL_G, s_, B)
     if m1 is None or m2 is None:
         continue
-    det = m1 + m2 - avoid["_m"]
-    if best is None or det < best["det"]:
-        best = {"det": det, "name": row["name"] if isinstance(row.get("name"), str) else "a supermarket",
-                "id": f"{idx[0]}/{idx[1]}", "path": p1 + p2, "lat": lat, "lon": lon}
-STOP_MIN = 15
-S_ = snap(best["lat"], best["lon"])
-stop_pt = {"name": best["name"], "lat": round(best["lat"], 6), "lon": round(best["lon"], 6)}
-stop_leg = {"mode": "stop", "from": stop_pt, "to": stop_pt, "distance_m": None, "duration_min": STOP_MIN,
-            "line": None, "departure": None, "arrival": None}
-stop_in = {**ROUTE_IN, "stop": best["id"], "stop_point": [stop_pt["lat"], stop_pt["lon"]], "method": "A->S->B minus A->B"}
+    cands.append({"det_m": m1 + m2 - avoid["_m"], "name": row["name"] if isinstance(row.get("name"), str) else "an unnamed supermarket",
+                  "id": f"{idx[0]}/{idx[1]}", "lat": round(lat, 6), "lon": round(lon, 6), "path": p1 + p2})
+cands = sorted(cands, key=lambda c: c["det_m"])[:3]
+best = cands[0]
+cand_in = {**ROUTE_IN, "route": "A", "filter": "fewest crossings known to have no signal, then shortest", "method": "A->S->B minus A->B"}
 
 
 def foot_leg(frm, to, m):
@@ -673,44 +673,58 @@ def foot_leg(frm, to, m):
             "line": None, "departure": None, "arrival": None}
 
 
-TG_PT = {"name": "Talent Garden", "lat": ORIGIN[0], "lon": ORIGIN[1]}
-DEST_PT = {"name": "viale Isonzo", "lat": DEST[0], "lon": DEST[1]}
+def build_stop(stop, stop_min):
+    """Routes A, B and C recomputed through `stop` for `stop_min` minutes of shopping."""
+    s_ = snap(stop["lat"], stop["lon"])
+    pt = {"name": stop["name"], "lat": stop["lat"], "lon": stop["lon"]}
+    leg = {"mode": "stop", "from": pt, "to": pt, "distance_m": None, "duration_min": stop_min, "line": None, "departure": None, "arrival": None}
+    out = {}
+    for rid, H in (("A", SEL_G), ("B", G)):
+        base = BASE[rid]
+        (m1, p1), (m2, p2) = route(H, A, s_), route(H, s_, B)
+        det = mins(max(0.0, m1 + m2 - base["_m"]))
+        walk = base["walk_min"] + det
+        xs = path_crossings(p1) + path_crossings(p2)
+        out[rid] = {"id": rid, "mode": "foot", "_m": m1 + m2, "_det": det, "duration_min": walk + stop_min, "walk_min": walk,
+                    "transfers": 0, "leave_at": DEPART, "arrive_at": at(walk + stop_min),
+                    "legs": [foot_leg(TG_PT, pt, m1), leg, foot_leg(pt, DEST_PT, m2) | {"duration_min": walk - mins(m1)}],
+                    "crossings": xs, "constraint_status": statuses(C1, xs), "_new": [x for x in xs if x not in base["crossings"]],
+                    "_ev": [stop["id"]] + path_ways(p1) + path_ways(p2), "_in": {**base["_in"], "stop": stop["id"], "stop_duration_min": stop_min}}
+    # bus: walk to the shop, shop, then the bus part is queried from the time the shopping ends
+    m1, p1 = route(G, A, s_)
+    t2 = at(mins(m1) + stop_min)
+    url2, js2 = transit((stop["lat"], stop["lon"]), DEST, t2, {"directModes": ""})
+    if js2.get("itineraries"):
+        it2 = min(js2["itineraries"], key=lambda i: i["endTime"])
+        legs2, walk2_s, xs2 = transit_legs(it2, start=stop["name"])
+        xs_c = path_crossings(p1) + xs2
+        out["C"] = {"id": "C", "mode": "transit", "duration_min": minutes_between(DEPART, it2["endTime"]),
+                    "walk_min": mins(m1) + round(walk2_s / 60), "transfers": it2["transfers"], "leave_at": DEPART, "arrive_at": it2["endTime"],
+                    "legs": [foot_leg(TG_PT, pt, m1), leg] + legs2, "crossings": xs_c, "constraint_status": statuses(C1, xs_c),
+                    "_bus": next(l for l in legs2 if l["mode"] != "foot"), "_from": legs2[0]["to"]["name"],
+                    "_wait": minutes_between(t2, it2["startTime"]), "_url": url2,
+                    "_ev": [stop["id"], url2] + path_ways(p1),
+                    "_in": {"graph": GRAPH, "stop": stop["id"], "stop_duration_min": stop_min, "request_after_stop": url2,
+                            "crossings_method": f"walk to the stop on the OSM graph; after it, OSM crossing nodes within {XING_M} m of the Transitous walking legs"}}
+    keep = {"_det": out["A"]["_det"], "_new": out["A"]["_new"]}
+    b = finish(out["B"], out["B"])
+    a = finish(out["A"], b) | keep
+    a["summary"] = (f"Route A, on foot, {plural(a['duration_min'], 'minute')} with the shopping{same_or_more(a)}: "
+                    f"{xing_phrase(a)}, the fewest of any route in the mapped area.")
+    b["summary"] = f"Route B, on foot, the shortest, {plural(b['duration_min'], 'minute')} with the shopping: {xing_phrase(b)}."
+    routes = [a, b]
+    if "C" in out:
+        bus_, from_, wait_, url_ = (out["C"].pop(k) for k in ("_bus", "_from", "_wait", "_url"))
+        c = finish(out["C"], b, [fact("transit_line", bus_["line"], None, "transit_api", [url_], {"request": url_}),
+                                 fact("wait_after_stop", wait_, "min", "transit_api", [url_], {"request": url_, "stop_ends_at": t2})])
+        c["summary"] = (f"Route C, on foot to {stop['name']}, then bus {bus_['line']} from {from_}: "
+                        f"{plural(c['duration_min'], 'minute')} with the shopping" + (f" and {wait_} minutes of waiting after it" if wait_ else "")
+                        + f", {c['walk_min']} of them on foot, with {xing_phrase(c)}.")
+        routes.append(c)
+    for r in routes:
+        add_warnings(r)
+    return routes
 
-
-def via_stop(base, H, constraints):
-    """The same kind of foot route, through the stop: walk there, shop, walk on."""
-    (m1, p1), (m2, p2) = route(H, A, S_), route(H, S_, B)
-    det = mins(max(0.0, m1 + m2 - base["_m"]))
-    walk = base["walk_min"] + det
-    xs = path_crossings(p1) + path_crossings(p2)
-    return {"id": base["id"], "mode": "foot", "_m": m1 + m2, "_det": det, "duration_min": walk + STOP_MIN, "walk_min": walk,
-            "transfers": 0, "leave_at": DEPART, "arrive_at": at(walk + STOP_MIN),
-            "legs": [foot_leg(TG_PT, stop_pt, m1), stop_leg, foot_leg(stop_pt, DEST_PT, m2) | {"duration_min": walk - mins(m1)}],
-            "crossings": xs, "constraint_status": statuses(constraints, xs), "_new": [x for x in xs if x not in base["crossings"]],
-            "_ev": [best["id"]] + path_ways(p1) + path_ways(p2), "_in": {**base["_in"], "stop": best["id"], "stop_duration_min": STOP_MIN}}
-
-
-sa_s, sh_s = via_stop(avoid, SEL_G, C1), via_stop(shortest, G, C1)
-det_min = sa_s["_det"]
-new_unknown = [x for x in sa_s["_new"] if x["signals"] == "unknown"]
-# transit through the stop: walk to the shop, shop, then the bus part is recomputed from the time the shopping ends
-m1, p1 = route(G, A, S_)
-t2_time = at(mins(m1) + STOP_MIN)
-t2_url, t2_json = transit((stop_pt["lat"], stop_pt["lon"]), DEST, t2_time, {"directModes": ""})
-tr_s = None
-if t2_json.get("itineraries"):
-    it2 = min(t2_json["itineraries"], key=lambda i: i["endTime"])
-    legs2, walk2_s, xs2 = transit_legs(it2, start=best["name"])
-    bus2 = next(l for l in legs2 if l["mode"] != "foot")
-    xs_c = path_crossings(p1) + xs2
-    tr_s = {"id": "C", "mode": "transit", "duration_min": minutes_between(DEPART, it2["endTime"]),
-            "walk_min": mins(m1) + round(walk2_s / 60), "transfers": it2["transfers"],
-            "leave_at": DEPART, "arrive_at": it2["endTime"],
-            "legs": [foot_leg(TG_PT, stop_pt, m1), stop_leg] + legs2, "crossings": xs_c,
-            "constraint_status": statuses(C1, xs_c), "_ev": [best["id"], t2_url] + path_ways(p1),
-            "_in": {"graph": GRAPH, "stop": best["id"], "stop_duration_min": STOP_MIN, "request_after_stop": t2_url,
-                    "crossings_method": f"walk to the stop on the OSM graph; after it, OSM crossing nodes within {XING_M} m of the Transitous walking legs"}}
-    wait2 = minutes_between(t2_time, it2["startTime"])
 
 sh = finish(shortest, shortest)
 sa = finish(avoid, sh)
@@ -749,81 +763,100 @@ sa["facts"].append(fact("route_crossings_total", n_a, "count", "computed", [x["o
 for r in (sa, sh, tr):
     add_warnings(r)
 
-# plan 1: the user picked route A and added the supermarket stop, so every route passes through it
-shs = finish(sh_s, sh_s)
-sas = finish(sa_s, shs)
-stop_routes = [sas, shs]
-sas["summary"] = (f"Route A, on foot, {plural(sas['duration_min'], 'minute')} with the shopping{same_or_more(sas)}: "
-                  f"{xing_phrase(sas)}, the fewest of any route in the mapped area.")
-shs["summary"] = f"Route B, on foot, the shortest, {plural(shs['duration_min'], 'minute')} with the shopping: {xing_phrase(shs)}."
-if tr_s:
-    trs = finish(tr_s, shs, [fact("transit_line", bus2["line"], None, "transit_api", [t2_url], {"request": t2_url}),
-                             fact("wait_after_stop", wait2, "min", "transit_api", [t2_url], {"request": t2_url, "stop_ends_at": t2_time})])
-    trs["summary"] = (f"Route C, on foot to {best['name']}, then bus {bus2['line']} from {legs2[0]['to']['name']}: "
-                      f"{plural(trs['duration_min'], 'minute')} with the shopping"
-                      + (f" and {wait2} minutes of waiting after it" if wait2 else "")
-                      + f", {trs['walk_min']} of them on foot, with {xing_phrase(trs)}.")
-    stop_routes.append(trs)
-for r in stop_routes:
-    add_warnings(r)
-plan_facts = [fact("stop_detour", det_min, "min", "computed", [best["id"]] + path_ways(best["path"])[:20], stop_in),
-              fact("stop_duration", STOP_MIN, "min", "unknown", [], {"said_by_user": True}),
-              fact("route_duration_without_stop", sa["duration_min"], "min", "computed", [best["id"]], {**ROUTE_IN, "route": "A"}),
-              fact("stop_new_unknown_crossings", len(new_unknown), "count", "computed",
-                   [x["osm_id"] for x in new_unknown] or [best["id"]], stop_in),
-              fact("radius", R, "m", "unknown", [], {"graph": GRAPH}),
-              fact("compliant_routes", 0 if verified_m is None else 1, "count", "computed", [f"node/{A['node']}"],
-                   {**ROUTE_IN, "filter": "only crossings mapped as signalled"}, "unknown")]
-OUTSIDE = f"Routes that leave the mapped area, {fmt(R)} around Talent Garden, were not considered."
-NO_VERIFIED = "In the mapped area, every way to viale Isonzo has at least one crossing without a signal."
-plan1 = {
-    "origin": TG_PT, "destination": DEST_PT,
-    "depart_at": DEPART, "lang": "en", "constraints": C1, "detour_tolerance": TOLERANCE,
-    "text": (f"{NO_VERIFIED} With a stop at the supermarket {best['name']} for {STOP_MIN} minutes: "
-             + " ".join(r["summary"] for r in stop_routes) + " You chose route A."),
-    "routes": stop_routes,
-    "compliant_route_available": compliant,
-    "selected_route_id": "A",
-    "stop": {"place": best["name"], "osm_id": best["id"], "detour_min": det_min, "duration_min": STOP_MIN},
-    "differences": [f"Stop added at {best['name']}: route A now takes {sas['duration_min']} minutes instead of {sa['duration_min']}, "
-                    f"{plural(det_min, 'minute')} more on foot and {STOP_MIN} minutes of shopping."]
-                   + (["Route C was recomputed: its bus part now starts after the shopping."] if tr_s else [])
-                   + ([f"The way to and from the supermarket adds {len(new_unknown)} crossings where the map does not say whether there is a signal."]
-                      if new_unknown else []),
-    "facts": plan_facts,
-    "unknown": [OUTSIDE, "Crossings at points where the map has no crossing are not counted.",
-                "The map does not say whether the supermarket is open at that time."]
-               + ([] if tr_s else ["Transitous returned no bus connection from the supermarket, so route C is not offered."]),
-    "meta": META,
-}
-write("plan.two-foot-routes-and-transit", plan1)
 
-# same trip, requirement made hard: routes known to violate are dropped, nothing is verified compliant
+def copy(r):
+    return json.loads(json.dumps(r, default=lambda o: o.item()))
+
+
+OUTSIDE = f"Routes that leave the mapped area, {fmt(R)} around Talent Garden, were not considered."
+UNMAPPED = "Crossings at points where the map has no crossing are not counted."
+NO_VERIFIED = "In the mapped area, every way to viale Isonzo has at least one crossing without a signal."
+COMMON_FACTS = [fact("radius", R, "m", "unknown", [], {"graph": GRAPH}),
+                fact("compliant_routes", 0 if verified_m is None else 1, "count", "computed", [f"node/{A['node']}"],
+                     {**ROUTE_IN, "filter": "only crossings mapped as signalled"}, "unknown")]
+
+
+def plan_doc(version, constraints, text, routes, selected, stop, candidates, differences, facts, unknown):
+    return {"origin": TG_PT, "destination": DEST_PT, "depart_at": DEPART, "lang": "en", "plan_version": version,
+            "constraints": constraints, "detour_tolerance": TOLERANCE, "text": text, "routes": routes,
+            "compliant_route_available": compliant, "selected_route_id": selected, "stop": stop, "stop_candidates": candidates,
+            "differences": differences, "facts": COMMON_FACTS + facts, "unknown": [OUTSIDE, UNMAPPED] + unknown, "meta": META}
+
+
+# v1: the comparison the user hears first
+write("plan.initial-comparison", plan_doc(
+    1, C1, f"{NO_VERIFIED} {sa['summary']} {sh['summary']} {tr['summary']} Which one?",
+    [copy(sa), copy(sh), copy(tr)], None, None, [], [], [], []))
+
+# v2: route A chosen, supermarkets offered along it
+cand_list = [{"place": c["name"], "osm_id": c["id"], "lat": c["lat"], "lon": c["lon"], "detour_min": mins(c["det_m"])} for c in cands]
+cand_facts = [fact("stop_candidate_detour", c["detour_min"], "min", "computed", [c["osm_id"]] + path_ways(k["path"])[:20],
+                   {**cand_in, "stop": c["osm_id"]}) for c, k in zip(cand_list, cands)]
+write("plan.stop-candidates", plan_doc(
+    2, C1, "Supermarkets near route A: " + "; ".join(f"{c['place']}, {plural(c['detour_min'], 'minute')} more on foot" for c in cand_list)
+    + ". Which one, and for how long?",
+    [copy(sa), copy(sh), copy(tr)], "A", None, cand_list, ["You chose route A."], cand_facts,
+    ["The map does not say whether these supermarkets are open at that time."]))
+
+
+def stop_fixture(version, stop_min, prev):
+    routes = build_stop(best, stop_min)
+    a = routes[0]
+    new_unknown = [x for x in a.pop("_new") if x["signals"] == "unknown"]
+    det = a.pop("_det")
+    stop_in = {**ROUTE_IN, "stop": best["id"], "stop_point": [best["lat"], best["lon"]], "method": "A->S->B minus A->B"}
+    facts = [fact("stop_detour", det, "min", "computed", [best["id"]] + path_ways(best["path"])[:20], stop_in),
+             fact("stop_duration", stop_min, "min", "unknown", [], {"said_by_user": True}),
+             fact("stop_new_unknown_crossings", len(new_unknown), "count", "computed", [x["osm_id"] for x in new_unknown] or [best["id"]], stop_in)]
+    if prev is None:  # the stop was just added
+        facts.append(fact("route_duration_before", sa["duration_min"], "min", "computed", [best["id"]], {**ROUTE_IN, "route": "A", "version": version - 1}))
+        diffs = [f"Stop added at {best['name']}: route A now takes {a['duration_min']} minutes instead of {sa['duration_min']}, "
+                 f"{plural(det, 'minute')} more on foot and {stop_min} minutes of shopping."]
+        if len(routes) > 2:
+            diffs.append("Route C was recomputed: its bus part now starts after the shopping.")
+    else:  # the stop's duration changed
+        pa = prev["routes"][0]
+        facts += [fact("previous_stop_duration", prev["stop"]["duration_min"], "min", "unknown", [], {"said_by_user": True}),
+                  fact("route_duration_before", pa["duration_min"], "min", "computed", [best["id"]], {**ROUTE_IN, "route": "A", "version": version - 1})]
+        diffs = [f"The stop at {best['name']} now lasts {stop_min} minutes instead of {prev['stop']['duration_min']}: "
+                 f"route A now takes {a['duration_min']} minutes instead of {pa['duration_min']}."]
+        pc = next((r for r in prev["routes"] if r["id"] == "C"), None)
+        c = next((r for r in routes if r["id"] == "C"), None)
+        if pc and c:
+            facts.append(fact("route_duration_before", pc["duration_min"], "min", "computed", [best["id"]], {**ROUTE_IN, "route": "C", "version": version - 1}))
+            diffs.append(f"Route C now takes {c['duration_min']} minutes instead of {pc['duration_min']}.")
+    if new_unknown:
+        diffs.append(f"The way to and from the supermarket adds {len(new_unknown)} crossings where the map does not say whether there is a signal.")
+    doc = plan_doc(version, C1, f"{NO_VERIFIED} With a stop at the supermarket {best['name']} for {stop_min} minutes: "
+                   + " ".join(r["summary"] for r in routes) + " You chose route A.",
+                   routes, "A", {"place": best["name"], "osm_id": best["id"], "detour_min": det, "duration_min": stop_min}, [], diffs, facts,
+                   ["The map does not say whether the supermarket is open at that time."]
+                   + ([] if len(routes) > 2 else ["Transitous returned no bus connection from the supermarket, so route C is not offered."]))
+    return doc
+
+
+plan15 = stop_fixture(3, 15, None)
+write("plan.two-foot-routes-and-transit", plan15)
+write("plan.stop-5-min", stop_fixture(4, 5, plan15))
+
+# v2 of the same trip with the constraint required: routes known to violate are dropped, nothing is verified compliant
 C2 = [{"kind": "unsignalled_crossings", "strength": "require"}]
 offered, dropped = [], []
 for r in (sa, sh, tr):
-    r2 = json.loads(json.dumps(r, default=lambda o: o.item()))
+    r2 = copy(r)
     for c in r2["constraint_status"]:
         c["kind"] = C2[0]["kind"]
     (dropped if r2["trade_off"]["violating_crossings"] else offered).append(r2)
-plan2 = {
-    "origin": plan1["origin"], "destination": plan1["destination"], "depart_at": DEPART, "lang": "en",
-    "constraints": C2, "detour_tolerance": TOLERANCE,
-    "text": (f"{NO_VERIFIED} So no route there meets the requirement of signals at every crossing. "
-             f"The route with the fewest is route A, {plural(sa['duration_min'], 'minute')}, with {xing_phrase(sa)}. "
-             "Do you want me to relax the requirement to avoid when possible?"),
-    "routes": offered,
-    "compliant_route_available": compliant,
-    "selected_route_id": None, "stop": None,
-    "differences": ["Signals at every crossing are now required: "
-                    + ", ".join(f"route {r['id']}" for r in dropped[:-1]) + (" and " if len(dropped) > 1 else "") + f"route {dropped[-1]['id']}"
-                    + (" is" if len(dropped) == 1 else " are") + " no longer offered, because of crossings known to have no signal."]
-                   if dropped else [],
-    "facts": plan_facts[-2:] + [f for f in sa["facts"] if f["type"] in ("route_duration", "route_violating_crossings", "route_unknown_crossings")],
-    "unknown": [OUTSIDE, "Crossings at points where the map has no crossing are not counted.",
-                "For most crossings the map does not say whether the signal has sound."],
-    "meta": META,
-}
-write("plan.no-compliant-route", plan2)
+write("plan.no-compliant-route", plan_doc(
+    2, C2, (f"{NO_VERIFIED} So no route there meets the requirement of signals at every crossing. "
+            f"The route with the fewest is route A, {plural(sa['duration_min'], 'minute')}, with {xing_phrase(sa)}. "
+            "Do you want me to relax the requirement to avoid when possible?"),
+    offered, None, None, [],
+    ["Signals at every crossing are now required: "
+     + ", ".join(f"route {r['id']}" for r in dropped[:-1]) + (" and " if len(dropped) > 1 else "") + f"route {dropped[-1]['id']}"
+     + (" is" if len(dropped) == 1 else " are") + " no longer offered, because of crossings known to have no signal."] if dropped else [],
+    [f for f in sa["facts"] if f["type"] in ("route_duration", "route_violating_crossings", "route_unknown_crossings")],
+    ["For most crossings the map does not say whether the signal has sound."]))
 print("tol", tol, "A", sa["duration_min"], sa["trade_off"], "B", sh["duration_min"], sh["trade_off"],
-      "C", tr["duration_min"], tr["walk_min"], tr["trade_off"], "stop", best["name"], det_min, "dropped", [r["id"] for r in dropped])
+      "C", tr["duration_min"], tr["walk_min"], tr["trade_off"], "candidates", [(c["place"], c["detour_min"]) for c in cand_list],
+      "dropped", [r["id"] for r in dropped])
