@@ -57,6 +57,8 @@ def client():
 
 def interpret(question, llm=None):
     """Return (tool, params); ("none", {}) when no tool fits (the caller answers with CLARIFY)."""
+    if llm is None and not os.environ.get("ANTHROPIC_API_KEY"):
+        raise Unavailable("no ANTHROPIC_API_KEY on the server")
     try:
         llm = llm or client()
         r = llm.beta.messages.create(

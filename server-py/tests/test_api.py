@@ -123,6 +123,15 @@ def main():
             check(a["tool"] == "none" and a["unknown"], "model unreachable: fixed text and the reason in unknown")
         finally:
             L.interpret = real
+        # the real module without a key: fixed text, no network, no crash
+        import os
+        saved = os.environ.pop("ANTHROPIC_API_KEY", None)
+        try:
+            a = call(c, "POST", f"/session/{sid}/ask", json={"question": "Is it far?"}, schema="answer")
+            check(a["tool"] == "none" and a["unknown"], "no API key: fixed text, not a 500")
+        finally:
+            if saved is not None:
+                os.environ["ANTHROPIC_API_KEY"] = saved
 
         # place given in the contract's {name} shape for extent / street_continuity
         a = call(c, "POST", f"/session/{sid}/ask", json={"question": "How big?", "tool": "extent", "params": {"place": {"name": "the construction site"}}}, schema="answer")
