@@ -127,3 +127,6 @@ app.include_router(make_router(lambda: ZONE, get))
 from voice_api import make_router as make_voice_router  # noqa: E402
 
 app.include_router(make_voice_router())
+
+from places_api import make_router as places_router  # noqa: E402
+app.include_router(places_router(lambda: ZONE))
