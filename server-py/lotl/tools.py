@@ -645,8 +645,12 @@ def ask(zone, session, tool, params, question):
     """Run one tool and return an Answer. A place that cannot be used is answered with a question back."""
     if tool not in _RUN:
         raise ValueError(f"unknown tool {tool!r}; expected one of {', '.join(TOOLS)}")
+    params = dict(params or {})
+    for k in ("place", "street"):  # the contract's place shape {name} is accepted wherever a bare name is
+        if isinstance(params.get(k), dict) and isinstance(params[k].get("name"), str):
+            params[k] = params[k]["name"]
     try:
-        text, facts, unknown = _RUN[tool](zone, session, params or {})
+        text, facts, unknown = _RUN[tool](zone, session, params)
     except PlaceError as e:
         text, facts, unknown = str(e), e.facts, [e.unknown]
     return {"question": question or tool.replace("_", " "), "lang": "en", "tool": tool, "text": text,

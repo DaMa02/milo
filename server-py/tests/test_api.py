@@ -124,6 +124,12 @@ def main():
         finally:
             L.interpret = real
 
+        # place given in the contract's {name} shape for extent / street_continuity
+        a = call(c, "POST", f"/session/{sid}/ask", json={"question": "How big?", "tool": "extent", "params": {"place": {"name": "the construction site"}}}, schema="answer")
+        check("Villaggio Olimpico" in a["text"], "extent accepts place {name}")
+        a = call(c, "POST", f"/session/{sid}/ask", json={"question": "Through?", "tool": "street_continuity", "params": {"street": {"name": "via Brembo"}}}, schema="answer")
+        check("via Brembo" in a["text"] and "Which place" not in a["text"], "street_continuity accepts street {name}")
+
         # the five tools
         check(set(ASKS) == set(TOOLS), f"test covers every tool {TOOLS}")
         for tool, (q, params) in ASKS.items():
