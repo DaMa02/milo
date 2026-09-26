@@ -38,7 +38,7 @@
         {"type": "object", "additionalProperties": false, "required": ["place", "osm_id", "detour_min", "duration_min"],
          "properties": {
            "place": {"type": "string"}, "osm_id": {"$ref": "fact.schema.json#/definitions/osm_id"},
-           "detour_min": {"type": "number", "minimum": 0, "description": "Walking A->S->B minus A->B."},
+           "detour_min": {"type": "number", "minimum": 0, "description": "Walking added to the selected route by the stop: A->S->B minus A->B."},
            "duration_min": {"type": "number", "minimum": 0, "description": "Time spent at the stop, as said by the user."}
          }}
       ]
@@ -52,12 +52,15 @@
     "kind": {"enum": ["unsignalled_crossings", "signals_without_sound", "steps", "construction", "main_roads", "transfers", "walking_over_min"]},
     "route": {
       "type": "object", "additionalProperties": false,
-      "required": ["id", "mode", "summary", "duration_min", "walk_min", "transfers", "legs", "crossings", "constraint_status", "trade_off", "warnings", "facts"],
+      "required": ["id", "mode", "summary", "duration_min", "walk_min", "transfers", "leave_at", "arrive_at", "legs", "crossings", "constraint_status", "trade_off", "warnings", "facts"],
+      "description": "When the plan has a stop, every route passes through it: legs to the stop, one leg with mode 'stop' lasting the stop's duration, legs after it; crossings and constraint_status cover every leg.",
       "properties": {
         "id": {"type": "string", "minLength": 1},
         "mode": {"enum": ["foot", "transit"]},
         "summary": {"$ref": "fact.schema.json#/definitions/user_text"},
-        "duration_min": {"type": "number", "minimum": 0},
+        "duration_min": {"type": "number", "minimum": 0, "description": "From the plan's depart_at to arrival: waits, the stop and its detour included."},
+        "leave_at": {"$ref": "fact.schema.json#/definitions/datetime", "description": "When the user has to leave; later than depart_at when a bus is caught later."},
+        "arrive_at": {"$ref": "fact.schema.json#/definitions/datetime"},
         "walk_min": {"type": "number", "minimum": 0, "description": "Total walking over all legs, transfers included."},
         "transfers": {"type": "integer", "minimum": 0},
         "legs": {
@@ -66,7 +69,7 @@
             "type": "object", "additionalProperties": false,
             "required": ["mode", "from", "to", "distance_m", "duration_min", "line", "departure", "arrival"],
             "properties": {
-              "mode": {"enum": ["foot", "bus", "tram", "subway", "rail", "other"]},
+              "mode": {"enum": ["foot", "bus", "tram", "subway", "rail", "stop", "other"], "description": "stop: time spent at the plan's stop; from and to are the stop."},
               "from": {"$ref": "fact.schema.json#/definitions/point"},
               "to": {"$ref": "fact.schema.json#/definitions/point"},
               "distance_m": {"type": ["number", "null"], "minimum": 0},
