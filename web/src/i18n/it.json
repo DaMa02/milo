@@ -335,5 +335,16 @@
   "voiceError:permission": "Microphone permission was not granted. Allow it in your browser, or type instead.",
   "voiceError:recording": "The recording did not work. Try again, or type instead.",
   "voiceError:noSpeech": "No speech was detected. Try again, or type instead.",
-  "voiceError:transcription": "I could not transcribe that recording. Try again, or type instead."
+  "voiceError:transcription": "I could not transcribe that recording. Try again, or type instead.",
+  "navigationKeepScreenOn": "Keep the screen on while guidance is active. Automatic screen wake is unavailable.",
+  "navigationDemoFinished": "The demonstration path has ended. Guidance has stopped.",
+  "navigationDemoNoLine": "The route geometry is unavailable. Choose a walking route and start the demonstration again.",
+  "navigationNoRoute": "Choose a walking route before starting guidance.",
+  "navigationSessionExpired": "This session is no longer available. Open your area again before starting guidance.",
+  "navigationUnavailable": "Guidance could not be updated and has stopped. Check your connection and start guidance again.",
+  "navigationLocationUnavailable": "Your location is unavailable or took too long. Guidance has stopped; check location access and try again.",
+  "navigationLocationDenied": "Location permission was denied. Allow location access to start walking guidance.",
+  "navigationNeedSession": "Choose your starting point and a walking route before starting guidance.",
+  "navigationDemoNeedsOrigin": "The demonstration needs the journey starting point. Choose your starting point and try again.",
+  "navigationDemoStart": "Demonstration walk. These positions are simulated."
 }
