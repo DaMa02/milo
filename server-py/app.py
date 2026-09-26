@@ -3,6 +3,7 @@
     uvicorn app:app --port 8000
 """
 import os
+from concurrent.futures import ThreadPoolExecutor
 from contextlib import asynccontextmanager
 from typing import Literal, Optional, Union
 
@@ -15,7 +16,7 @@ from lotl.explore import explore
 from lotl.overview import _static, overview, ref_heading
 from lotl.session import Session
 from lotl import llm
-from lotl.tools import TOOLS, ask
+from lotl.tools import TOOLS, _blocks, _junctions, _nodes, _places, _rail_places, _rail_union, ask
 from lotl.zone import TALENT_GARDEN, Zone, centre_name, fmt, meta
 
 CITY = dict(center=(45.4642, 9.19), dist=4000, answer_radius=4000, name="central Milan")  # same call: osmnx cache key
@@ -28,7 +29,9 @@ SESSIONS = {}  # ponytail: in memory, lost on restart; one process only
 async def lifespan(_app):
     global ZONE
     ZONE = Zone() if os.environ.get("LOTL_ZONE") == "porta-romana" else Zone(**CITY)
-    _static(ZONE)  # railway places, roads: once here, not on the first session
+    # railway places, roads and the /ask caches: once here, not on the first question; threads overlap shapely's work
+    with ThreadPoolExecutor() as ex:
+        list(ex.map(lambda warm: warm(ZONE), (_static, _rail_places, _junctions, _places, _rail_union, _nodes, _blocks)))
     yield
 
 

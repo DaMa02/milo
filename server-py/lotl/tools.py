@@ -35,6 +35,7 @@ RAIL_GLOSS = {"Cintura sud di Milano": "the southern belt railway"}
 WATER = {"canal": "canal", "river": "river", "stream": "stream"}  # anything else is a "water channel"
 GENERIC = {"a footpath", "a pavement", "a crossing", "steps"}
 AREAS = ("park", "garden", "construction site", "railway land")
+CONN_CROP_M = 500  # independent_connections: counted in the box around both ends plus this margin
 AREA_M, AREA_CAP = 40, 200  # a place for independent_connections: 40 m around both ends of its snapped edge
 BOUND_M, BOUND_MIN = 30, 40  # a bounding street runs at least 40 m within 30 m of the edge of the area
 BLOCK_SHARE = 0.6  # "takes the block" when the area covers at least 60% of the block around it
@@ -543,6 +544,16 @@ def _junction_label(zone, nodes):
     return "a footpath" if not names else names[0] if len(names) == 1 else f"the corner of {names[0]} and {names[1]}"
 
 
+def _cut(Q, SA, TB):
+    """Minimum node cut between the areas SA and TB of Q, and what S and T still reach without it."""
+    H = Q.copy()
+    H.add_edges_from(("S", n) for n in SA)
+    H.add_edges_from(("T", n) for n in TB)
+    cut = nx.minimum_node_cut(H, "S", "T") if nx.has_path(H, "S", "T") else set()
+    H.remove_nodes_from(cut)
+    return cut, nx.node_connected_component(H, "S"), nx.node_connected_component(H, "T")
+
+
 def _connections(zone, session, params):
     a, b = _pair(zone, session, params)
     A, B = zone.snap(a[0], a[1]), zone.snap(b[0], b[1])
@@ -552,15 +563,19 @@ def _connections(zone, session, params):
     if SA & TB:
         return (f"{_cap(a[2])} and {b[2]} are practically the same place on the map, so there are no separate ways "
                 "between them to count."), facts, []
-    H = Q.copy()
-    H.add_edges_from(("S", n) for n in SA)
-    H.add_edges_from(("T", n) for n in TB)
-    cut = nx.minimum_node_cut(H, "S", "T") if nx.has_path(H, "S", "T") else set()
-    k = len(cut)  # Menger: the size of a minimum cut is the node connectivity
-    H.remove_nodes_from(cut)
     bset = {rep[n] for n in zone.BOUNDARY}
-    comp = "complete" if not nx.node_connected_component(H, "S") & bset or not nx.node_connected_component(H, "T") & bset \
-        else "unknown"
+    ns, xy, idx = _nodes(zone)
+    (x0, y0), (x1, y1) = xy[idx[A["u"]]], xy[idx[B["u"]]]
+    inbox = (np.abs(xy[:, 0] - (x0 + x1) / 2) <= abs(x1 - x0) / 2 + CONN_CROP_M) & \
+            (np.abs(xy[:, 1] - (y0 + y1) / 2) <= abs(y1 - y0) / 2 + CONN_CROP_M)
+    keep = {n for n, k in zip(ns, inbox) if k and n in Q} | SA | TB
+    rim = {n for n in keep if n in Q and any(m not in keep for m in Q[n])}  # the crop edge: a way may go on outside
+    cut, cs, ct = _cut(Q.subgraph(keep), SA, TB)
+    # a side closed inside the crop (no rim, no zone edge) makes the crop's cut exact for the zone; else the whole zone
+    if cs & (bset | rim) and ct & (bset | rim):
+        cut, cs, ct = _cut(Q, SA, TB)
+    k = len(cut)  # Menger: the size of a minimum cut is the node connectivity
+    comp = "complete" if not cs & bset or not ct & bset else "unknown"
     members = {}
     for n, r in rep.items():
         if r in cut:
