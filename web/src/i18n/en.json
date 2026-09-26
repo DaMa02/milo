@@ -346,5 +346,9 @@
   "navigationLocationDenied": "Location permission was denied. Allow location access to start walking guidance.",
   "navigationNeedSession": "Choose your starting point and a walking route before starting guidance.",
   "navigationDemoNeedsOrigin": "The demonstration needs the journey starting point. Choose your starting point and try again.",
-  "navigationDemoStart": "Demonstration walk. These positions are simulated."
+  "navigationDemoStart": "Demonstration walk. These positions are simulated.",
+  "routeDestinationRequired": "Where do you want to go? Say a place or address.",
+  "routeChooseOffered": "Say the route you want, or ask to avoid a crossing or road type.",
+  "routeFirst": "Ask for a route first, then tell me what you want to avoid.",
+  "routePreviousDestination": "The previous plan is for {place}. The new destination has no confirmed plan yet. Ask for a route again."
 }

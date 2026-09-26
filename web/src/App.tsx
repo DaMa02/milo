@@ -46,6 +46,7 @@ export function App() {
   const [expandedAnswer, setExpandedAnswer] = useState(false);
   const [readingUnknowns, setReadingUnknowns] = useState<string[]>([]);
   const [voiceFailures, setVoiceFailures] = useState(0);
+  const [replanDestination, setReplanDestination] = useState<Place | null>(null);
   const allControls = useRef<HTMLDetailsElement>(null);
   const talkDock = useRef<HTMLDivElement>(null);
   const session = useRef<AreaSession | null>(null);
@@ -70,16 +71,18 @@ export function App() {
   }, [view, areaOpen]);
 
   const journey = usePlan(session.current, source === 'saved', run, planResult, t);
+  const planMatchesDestination = !destination || !journey.plan || sameDestination(journey.plan, destination);
   const places = usePlaces({ session: session.current, t, onSessionReady: acceptSession,
     onDestinationChanged: (place) => {
       setDestination(place);
-      if (session.current) session.current = { ...session.current, destination: place };
+      if (session.current) session.current.destination = place;
+      if (journey.plan) setReplanDestination(place);
       setView('overview'); setAnswer(null);
     }, onMessage: present });
   const commands = useVoiceCommands({ sessionId: session.current?.id, busy: busy || places.busy,
     context: { view, pending: places.pending ?? (!session.current ? 'origin' : null),
       candidates: places.candidates.map((candidate) => candidate.name), has_destination: destination !== null,
-      routes: journey.plan?.routes.map((route) => ({ id: route.id, label: route.summary })) ?? [] },
+      routes: planMatchesDestination ? journey.plan?.routes.map((route) => ({ id: route.id, label: route.summary })) ?? [] : [] },
     onAction: dispatchCommand, onError: (cause) => {
       const message = cause instanceof ApiError && typeof cause.detail === 'string' ? cause.detail : t.commandUnavailable;
       setError(message); present(message);
@@ -88,6 +91,12 @@ export function App() {
     onError: (kind) => { mutePendingSpeech.current = false; setVoiceFailures((count) => count + 1); const message = t[`voiceError:${kind}`]; setError(message); present(message); } });
   useEffect(() => { if (speech.error) { setError(t.speechFailed); announce(t.speechFailed); } }, [speech.error, announce, t.speechFailed]);
   useEffect(() => {
+    if (replanDestination && !places.busy && !busy) {
+      setReplanDestination(null);
+      createVoicePlan(replanDestination);
+    }
+  }, [replanDestination, places.busy, busy]);
+  useEffect(() => {
     const escape = (event: KeyboardEvent) => {
       if (event.key === 'Escape') { event.preventDefault(); voice.cancel(); commands.cancel(); stopReading(); }
     };
@@ -95,29 +104,35 @@ export function App() {
   });
   useEffect(() => {
     if (journey.error) {
-      announce(journey.error);
-      if (journey.uncertain || !journey.plan) setLastReading(journey.error);
+      present(planMatchesDestination ? journey.error : t.routePreviousDestination.replace('{place}', journey.plan!.destination.name));
     }
   }, [journey.error, journey.uncertain, journey.plan, announce]);
   function planResult(plan: Plan, changed = true, kind: 'plan' | 'candidates' = 'plan') {
+    if (destination && !sameDestination(plan, destination)) {
+      present(t.routePreviousDestination.replace('{place}', plan.destination.name));
+      return;
+    }
     if (kind === 'candidates') {
       present([plan.text, ...plan.unknown].join(' '), plan.unknown);
       return;
     }
     const selected = findSelectedRoute(plan);
     const summary = changed && plan.differences.length ? plan.differences.join(' ')
-      : selected?.summary ?? plan.text.split(/(?<=[.!?])\s+(?=[A-Z])/).slice(0, 2).join(' ');
+      : selected?.summary ?? [plan.routes.map((route) => route.summary).join(' '),
+        plan.routes.length ? t.routeChooseOffered : plan.text].join(' ');
     const stop = plan.stop ? `${t.confirmedStop}: ${plan.stop.place}, ${plan.stop.duration_min} ${t.minutes}. ${t.stopHoursUnknown}` : '';
     present([!changed ? t.confirmedPlan : '', summary, stop, ...plan.unknown].filter(Boolean).join(' '), plan.unknown);
   }
   function stopReading() { mutePendingSpeech.current = true; speech.stop(); }
   function acceptSession(next: AreaSession) {
+    setReplanDestination(null);
     voice?.cancel(); commands?.cancel(); session.current = next;
     setOverview(next.overview); setStep(null); setAnswer(null); setDestination(next.destination ?? null);
     setPositionUncertain(false); setView('overview'); setError(null);
     present([next.overview.text, ...next.overview.unknown].join(' '), next.overview.unknown);
   }
   function startOver() {
+    setReplanDestination(null);
     voice.cancel(); commands.cancel(); places.cancel(); stopReading();
     session.current = null; setOverview(null); setStep(null); setAnswer(null); setDestination(null);
     setLastReading(''); setError(null); setPositionUncertain(false); setView('overview');
@@ -157,11 +172,43 @@ export function App() {
         const facts = answer?.facts ?? (view === 'plan' ? journey.plan?.facts : view === 'explore' ? step?.facts : overview?.facts);
         present(facts?.length ? [...new Set(facts.flatMap((fact) => [fact.source, ...fact.evidence]))].join('. ') : t.commandNoSources); return;
       }
-      case 'route': case 'route_select': case 'route_avoid':
-        if (!overview) present(t.placesIntro);
-        else { if (allControls.current) allControls.current.open = true; showPlan(); present(t.commandPlanControls); }
+      case 'route':
+        if (!overview) { present(t.placesIntro); return; }
+        if (!destination) { void places.setDestinationByQuery(''); present(t.routeDestinationRequired); return; }
+        createVoicePlan(destination);
+        return;
+      case 'route_select':
+        if (!planMatchesDestination) { present(t.routePreviousDestination.replace('{place}', journey.plan!.destination.name)); return; }
+        if (!journey.plan?.routes.some((route) => route.id === command.params.route_id)) { present(t.commandNoFit); return; }
+        setView('plan'); setAnswer(null);
+        if (journey.uncertain) { journey.refresh(); return; }
+        journey.mutate('select', { route_id: command.params.route_id });
+        return;
+      case 'route_avoid':
+        if (!journey.plan) { present(t.routeFirst); return; }
+        if (!planMatchesDestination) { present(t.routePreviousDestination.replace('{place}', journey.plan.destination.name)); return; }
+        if (journey.uncertain) { journey.refresh(); return; }
+        if (command.params.kind === 'walking_over_min') { present(t.commandNoFit); return; }
+        setView('plan'); setAnswer(null);
+        journey.mutate('constraints', { constraints: [
+          ...journey.plan.constraints.filter((item) => item.kind !== command.params.kind),
+          { kind: command.params.kind, strength: command.params.strength ?? 'avoid_when_possible' },
+        ], detour_tolerance: journey.plan.detour_tolerance });
         return;
     }
+  }
+
+  function createVoicePlan(place: Place) {
+    if (!session.current) { present(t.placesIntro); return; }
+    setView('plan'); setAnswer(null);
+    if (journey.uncertain) { journey.refresh(); return; }
+    journey.create({ destination: place, ...(session.current.origin ? { origin: session.current.origin } : {}),
+      depart_at: new Date().toISOString(), constraints: journey.plan?.constraints ?? [],
+      detour_tolerance: journey.plan?.detour_tolerance ?? { min: 5, pct: 25 } });
+  }
+
+  function sameDestination(plan: Plan, place: Place) {
+    return Math.abs(plan.destination.lat - place.lat) < 0.00001 && Math.abs(plan.destination.lon - place.lon) < 0.00001;
   }
 
   function present(text: string, unknowns: string[] = []) {
