@@ -2,11 +2,20 @@
 
 Team: Daniele Maglionico, Leonardo Gallo.
 
-Project: to be defined on 26 September 2026, see [docs/one-pager.md](docs/one-pager.md).
+Project: **Lay of the Land** — understand a place before travelling, see [docs/one-pager.md](docs/one-pager.md).
 
 ## Run
 
-Instructions will be added once the project scaffold exists.
+Node 20.19+ or 22.12+ and npm are required.
+
+```text
+npm install
+npm run dev
+npm run check
+npm run build
+```
+
+The web scaffold is in `web/`; [web/README.md](web/README.md) describes the development proxy and browser accessibility checks. The backend and shared contracts are being integrated in separate PRs.
 
 ## How we work
 

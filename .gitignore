@@ -9,5 +9,7 @@ __pycache__/
 *.log
 models/
 video/out/
+test-results/
+playwright-report/
 *.mp4
 *.mov

@@ -1,0 +1,11 @@
+{
+  "appName": "Lay of the Land",
+  "skipToMain": "Vai al contenuto principale",
+  "language": "Lingua",
+  "title": "Comprendi un luogo prima di partire",
+  "intro": "Esplora come si collegano le strade, confronta i modi per arrivare e prepara un viaggio secondo le tue esigenze.",
+  "scaffoldStatus": "La struttura dell’app è pronta. Esplorazione della zona e pianificazione del viaggio sono in fase di collegamento.",
+  "languageChanged": "Lingua cambiata in italiano.",
+  "preparationNote": "Per preparare il viaggio prima di partire. Non fornisce indicazioni durante il cammino.",
+  "overview": "Panoramica", "explore": "Esplora", "plan": "Prepara il viaggio", "ask": "Fai una domanda"
+}

@@ -1,0 +1,11 @@
+{
+  "appName": "Lay of the Land",
+  "skipToMain": "Skip to main content",
+  "language": "Language",
+  "title": "Understand a place before you go",
+  "intro": "Explore how streets connect, compare ways to get there and prepare a trip around your needs.",
+  "scaffoldStatus": "The app foundation is ready. Area exploration and journey planning are being connected.",
+  "languageChanged": "Language changed to English.",
+  "preparationNote": "For planning before you leave. This is not live walking guidance.",
+  "overview": "Overview", "explore": "Explore", "plan": "Plan your trip", "ask": "Ask a question"
+}
