@@ -122,3 +122,8 @@ def no_tool(question, missing=None):
 from plan_api import make_router  # noqa: E402
 
 app.include_router(make_router(lambda: ZONE, get))
+
+# voice: speech to text (Parakeet) and voice health
+from voice_api import make_router as make_voice_router  # noqa: E402
+
+app.include_router(make_voice_router())
