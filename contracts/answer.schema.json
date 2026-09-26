@@ -9,7 +9,7 @@
   "properties": {
     "question": {"type": "string", "minLength": 1},
     "lang": {"$ref": "fact.schema.json#/definitions/lang"},
-    "tool": {"enum": ["barrier_between", "extent", "street_continuity", "independent_connections", "walking_vs_straight_line", "place_info"]},
+    "tool": {"enum": ["barrier_between", "extent", "street_continuity", "independent_connections", "walking_vs_straight_line", "place_info", "none"], "description": "none: no tool fits the question; text lists the questions the engine can answer."},
     "text": {"$ref": "fact.schema.json#/definitions/user_text"},
     "facts": {"$ref": "fact.schema.json#/definitions/facts"},
     "unknown": {"$ref": "fact.schema.json#/definitions/unknown"},

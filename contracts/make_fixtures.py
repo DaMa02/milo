@@ -494,6 +494,13 @@ write("answer.street-through", {
     "unknown": ([] if comp == "complete" else ["One end of the street is at the edge of the downloaded area."])
                + ["The map does not say whether the street has pavements on both sides."]})
 
+# no tool fits: the engine says what it can answer (fixed text, never written by the model)
+write("answer.no-tool", {
+    "question": "What colour is the sky?", **ans_meta, "tool": "none",
+    "text": ("I can answer five kinds of question about this area: how far a place is on foot, what lies between two places, "
+             "how many independent ways connect them, whether a street goes through or ends, and how big a place is. Which one would you like?"),
+    "facts": [], "unknown": []})
+
 # ---------- plans ----------
 def transit(frm, to, time, extra):
     q = {"fromPlace": f"{frm[0]},{frm[1]}", "toPlace": f"{to[0]},{to[1]}", "time": time,

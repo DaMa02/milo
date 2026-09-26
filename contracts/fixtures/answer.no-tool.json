@@ -1,0 +1,13 @@
+{
+  "question": "What colour is the sky?",
+  "lang": "en",
+  "meta": {
+    "mode": "offline",
+    "cache": "hit",
+    "computed_at": "2026-09-26T10:13:04Z"
+  },
+  "tool": "none",
+  "text": "I can answer five kinds of question about this area: how far a place is on foot, what lies between two places, how many independent ways connect them, whether a street goes through or ends, and how big a place is. Which one would you like?",
+  "facts": [],
+  "unknown": []
+}
