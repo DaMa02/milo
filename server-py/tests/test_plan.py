@@ -42,6 +42,7 @@ CREATE = {"destination": {"lat": 45.44658, "lon": 9.20584, "name": "viale Isonzo
 LATER = "2026-09-26T17:00:00Z"  # not in the transit cache
 LIDL = "node/10571089360"
 CLOCK = re.compile(r"\b\d{1,2}:\d{2}\b")
+HOURS = re.compile(r"(open until|opens [a-z]+ at|opens on [A-Za-z]+ at) \d{2}:\d{2}")
 passed, failed = 0, []
 
 
@@ -62,7 +63,7 @@ def valid(doc, what):
         if key in SPOKEN and isinstance(val, str):
             probs += [f"number {t!r} in {key!r} has no fact: {val[:70]}" for t in NUM.findall(val) if norm(t) not in backed]
     probs += [f"clock time in {key!r}: {val[:70]}" for key, val in walk(doc) if key in SPOKEN and isinstance(val, str)
-              and CLOCK.search(val)]
+              and CLOCK.search(HOURS.sub("", val))]  # opening hours are said in local time
     check(not probs, f"{what} is a valid plan: {probs[:3]}")
     if probs:
         return
@@ -202,7 +203,7 @@ def main():
 
         # supermarkets along A: the plan itself is unchanged (same version)
         refused(c, sid, 409, "POST", P + "/stop/candidates", json={"kind": "supermarket", "if_version": 1})
-        refused(c, sid, 422, "POST", P + "/stop/candidates", json={"kind": "pharmacy"})
+        refused(c, sid, 422, "POST", P + "/stop/candidates", json={"kind": "museum"})
         k = call(c, "POST", P + "/stop/candidates", json={"kind": "supermarket", "if_version": 2})
         check(k["plan_version"] == 2, f"candidates keep version 2: {k['plan_version']}")
         check(call(c, "GET", P)["plan_version"] == 2, "GET after candidates still version 2")

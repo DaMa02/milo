@@ -3,7 +3,8 @@
     uvicorn app:app --port 8000
 """
 import os
-from concurrent.futures import ThreadPoolExecutor
+import threading
+from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeout
 from contextlib import asynccontextmanager
 from typing import Literal, Optional, Union
 
@@ -23,6 +24,8 @@ CITY = dict(center=(45.4642, 9.19), dist=4000, answer_radius=4000, name="central
 ZONE = None
 ZONES = {}     # rounded centre -> zone built for an origin outside the city
 SESSIONS = {}  # ponytail: in memory, lost on restart; one process only
+BUILDS, BUILDS_LOCK, BUILD_POOL = {}, threading.Lock(), ThreadPoolExecutor(2)  # rounded centre -> zone being built
+BUILD_ZONE, BUILD_WAIT_S = Zone, 45  # tests swap in a slow fake builder
 
 
 @asynccontextmanager
@@ -91,9 +94,16 @@ def zone_for(lat, lon, name):
     key = (round(lat, 3), round(lon, 3))
     if key in ZONES:
         return ZONES[key], "cache"
-    try:
-        ZONES[key] = Zone(center=(lat, lon), dist=1500, answer_radius=800, name=name)
+    with BUILDS_LOCK:  # one build per zone: a second request waits for the first build
+        if key not in BUILDS:
+            BUILDS[key] = BUILD_POOL.submit(BUILD_ZONE, center=(lat, lon), dist=1500, answer_radius=800, name=name)
+    fut = BUILDS[key]
+    try:  # the tunnel cuts a request at 100 s: answer before, keep building
+        ZONES[key] = fut.result(timeout=BUILD_WAIT_S)
+    except FutureTimeout:
+        raise HTTPException(503, f"I am still loading the map around {name}: ask me again in a minute.") from None
     except Exception:
+        BUILDS.pop(key, None)
         raise HTTPException(503, "The map for that area could not be loaded just now.") from None
     return ZONES[key], "download"
 

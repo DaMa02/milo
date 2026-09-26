@@ -19,7 +19,7 @@ import networkx as nx
 import numpy as np
 from shapely.geometry import LineString
 
-from .tools import PlaceError, resolve_place
+from .tools import NOUN, PlaceError, _kind, place_hours, resolve_place
 from .zone import SPEED, TALENT_GARDEN, TOOLS, fmt, ids, join_and, lc, meta, mins, plural, r10
 
 KINDS = ("unsignalled_crossings", "signals_without_sound", "steps", "construction", "main_roads", "transfers", "walking_over_min")
@@ -37,7 +37,10 @@ XING_M = 10  # an OSM crossing node this close to a Transitous walking trace is 
 PAVEMENT_M = 30  # a pavement (footway=sidewalk) this close to a main road runs along it (Milan viali are wide)
 SIDE_STREET_FACTOR = 1.3  # route A: a metre off main roads costs 1.3 metres, so it keeps to main streets
 CROP_M = 1200  # routes are searched in the box around their ends plus this margin
-CAND_N = 12  # supermarkets routed for stop candidates: the nearest to the straight line origin -> destination
+CAND_N = 8  # places routed for stop candidates: the least straight-line detour among those near the route
+CORRIDOR_M = 300  # stop candidates lie this close to the selected route (when at least CAND_N do)
+NOUNS = {"supermarket": "supermarkets", "pharmacy": "pharmacies", "cafe": "cafés", "bakery": "bakeries",
+         "atm": "cash machines", "shop": "shops"}
 MAIN_LABEL = "along main streets"
 UA = "bainsa-hackathon-2026/0.1 (maglionicodaniele@gmail.com)"
 TRANSIT = "https://api.transitous.org/api/v6/plan?"
@@ -993,41 +996,49 @@ def select(zone, session, route_id, if_version=None):
     return _apply(zone, session, {**_state(doc), "selected": route_id}, "select")
 
 
+@lru_cache(maxsize=2)
+def _kinds(zone):
+    return np.array([_kind(r) for _i, r in zone.features.iterrows()])
+
+
 def candidates(zone, session, kind="supermarket", if_version=None):
-    """Supermarkets ranked by the walking they add to the selected route, best 3; the plan itself is unchanged."""
+    """Places of a kind ranked by the walking they add to the selected route, best 3; the plan itself is unchanged."""
     doc = _current(session, if_version)
-    if kind != "supermarket":
-        raise PlanError(422, "I can look for supermarkets only.")
-    sel = doc["selected_route_id"]
+    if kind not in NOUNS:
+        raise PlanError(422, "I can look for " + join_and(NOUNS.values()) + ".")
+    sel, many = doc["selected_route_id"], NOUNS[kind]
     if not sel:
-        raise PlanError(422, "Choose a route first: then I can look for supermarkets along it.")
+        raise PlanError(422, f"Choose a route first: then I can look for {many} along it.")
     o, d = doc["origin"], doc["destination"]
     a, b = zone.snap(o["lat"], o["lon"]), zone.snap(d["lat"], d["lon"])
     H = _graph(zone, _key(doc["constraints"]), _box(zone, a, b), True) if sel == "A" else zone.G
-    m0, _p = _route(zone, H, a, b)
+    m0, p0 = _route(zone, H, a, b)
     if m0 is None:  # require: route A's own graph has no way
         H = zone.G
-        m0, _p = _route(zone, H, a, b)
+        m0, p0 = _route(zone, H, a, b)
     f = zone.features
-    shops = f[f["shop"] == "supermarket"] if "shop" in f else f.iloc[:0]
     pa, pb, near = zone.xy(o["lat"], o["lon"]), zone.xy(d["lat"], d["lon"]), []
-    for (el, i), row in shops.iterrows():
+    line = LineString([zone.nxy(n) for n in p0]) if p0 and len(p0) > 1 else LineString([pa, pb])
+    for (el, i), row in f[_kinds(zone) == kind].iterrows():
+        if kind != "atm" and not isinstance(row.get("name"), str):
+            continue
         p = row.geometry if row.geometry.geom_type == "Point" else row.geometry.centroid
         lat, lon = zone.ll(p)
         if zone.in_answer_area(lat, lon):
-            near.append((p.distance(pa) + p.distance(pb), el, i, row, lat, lon))
+            near.append((p.distance(pa) + p.distance(pb), el, i, row, lat, lon, p.distance(line) <= CORRIDOR_M))
+    near = [x for x in near if x[6]] if sum(x[6] for x in near) >= CAND_N else near
     found = []
-    # ponytail: only the CAND_N shops with the least straight-line detour are routed (city: hundreds); raise if one is missed
-    for _dd, el, i, row, lat, lon in sorted(near, key=lambda x: x[0])[:CAND_N]:
+    # ponytail: only the CAND_N places with the least straight-line detour are routed (city: hundreds); raise if one is missed
+    for _dd, el, i, row, lat, lon, _c in sorted(near, key=lambda x: x[0])[:CAND_N]:
         g = row.geometry
         s = zone.snap(lat, lon)
         (m1, p1), (m2, p2) = _route(zone, H, a, s), _route(zone, H, s, b)
         if m1 is None or m2 is None:
             continue
-        name = row["name"] if isinstance(row.get("name"), str) else "an unnamed supermarket"
+        name = row["name"] if isinstance(row.get("name"), str) else "a " + NOUN[kind]
         street = row.get("addr:street") if isinstance(row.get("addr:street"), str) else zone.road_name(g, 60)
         found.append({"det_m": m1 + m2 - m0, "name": name, "street": street, "id": f"{el}/{i}", "lat": lat, "lon": lon,
-                      "path": p1 + p2})
+                      "path": p1 + p2, "hours": place_hours(row)})
     found = sorted(found, key=lambda c: c["det_m"])[:3]
     for c in found:  # two shops with one name are told apart by their street
         if [k["name"] for k in found].count(c["name"]) > 1 and c["street"]:
@@ -1040,15 +1051,18 @@ def candidates(zone, session, kind="supermarket", if_version=None):
     cfacts = [zone.fact("stop_candidate_detour", c["detour_min"], "min", "computed", [c["osm_id"]] + zone.path_ways(k["path"])[:20],
                         {**rin, "stop": c["osm_id"]}) for c, k in zip(cand, found)]
     cfacts += _name_facts(zone, [(c["place"], "map_tag", [c["osm_id"]]) for c in cand])
-    OPEN = "The map does not say whether these supermarkets are open at that time."
+    cfacts += [zone.fact("opening_hours", k["hours"][0], None, "map_tag", [c["osm_id"]], {"stop": c["osm_id"], "tz": "Europe/Rome"})
+               for c, k in zip(cand, found) if k["hours"][0]]
+    OPEN = f"The map does not say whether these {many} are open at that time."
     out = copy.deepcopy(doc)
     out["stop_candidates"] = cand
     near = "the shortest walk" if sel == "C" else f"route {sel}"  # route C walks to the stop on the shortest walk
-    out["text"] = (f"Supermarkets near {near}: "
-                   + "; ".join(f"{c['place']}, {plural(c['detour_min'], 'minute')} more on foot" for c in cand)
+    out["text"] = (f"{_cap(many)} near {near}: "
+                   + "; ".join(f"{c['place']}, {plural(c['detour_min'], 'minute')} more on foot, {k['hours'][2]}"
+                               for c, k in zip(cand, found))
                    + (". Route C would take the bus from the one you choose" if sel == "C" else "")
                    + ". Which one, and for how long?") if cand else \
-        f"I found no supermarket near {near} in the mapped area."
+        f"I found no {NOUN[kind]} near {near} in the mapped area."
     out["facts"] = [f for f in out["facts"] if f["type"] != "stop_candidate_detour"] + cfacts
     out["unknown"] = [u for u in out["unknown"] if u != OPEN] + ([OPEN] if cand else [])
     session.plan = out

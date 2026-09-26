@@ -68,7 +68,7 @@ class SelectIn(Body):
 
 
 class CandidatesIn(Body):
-    kind: Literal["supermarket"] = "supermarket"
+    kind: Literal["supermarket", "pharmacy", "cafe", "bakery", "atm", "shop"] = "supermarket"
     if_version: Version = None
 
 

@@ -32,7 +32,9 @@ CENTRE_NAMES = {TALENT_GARDEN: "Talent Garden", (45.4642, 9.19): "the Duomo"}
 FOOT = ("footway", "path", "pedestrian", "steps", "cycleway")
 # same tag set as the cached Overpass query: changing it triggers a new download
 FEATURE_TAGS = {"railway": ["rail", "light_rail"], "waterway": True, "landuse": ["railway", "construction"],
-                "leisure": ["park", "garden"], "shop": "supermarket"}
+                "leisure": ["park", "garden"], "shop": True, "amenity": ["pharmacy", "cafe", "atm", "bank"]}
+OLD_FEATURE_TAGS = {**FEATURE_TAGS, "shop": "supermarket"}
+del OLD_FEATURE_TAGS["amenity"]
 
 
 # ---------- speaking helpers ----------
@@ -122,11 +124,16 @@ class Zone:
         # osmnx counts streets per node before truncating: fewer neighbours now = the node sits on the cut
         self.BOUNDARY = {n for n, d in self.G.nodes(data=True) if len(set(self.G[n])) < d.get("street_count", 0)}
         self.CROSSINGS = {n: self._classify(n) for n in self.G.nodes if self._is_crossing(n)}
-        self.features = ox.features_from_point(center, FEATURE_TAGS, dist=dist).to_crs(self.crs)
+        tags = FEATURE_TAGS
+        try:
+            self.features = ox.features_from_point(center, tags, dist=dist).to_crs(self.crs)
+        except Exception:  # Overpass unreachable: the tag set cached before the place kinds (supermarkets only)
+            tags = OLD_FEATURE_TAGS
+            self.features = ox.features_from_point(center, tags, dist=dist).to_crs(self.crs)
         self.graph_inputs = {"center": list(center), "dist_m": dist, "network_type": "walk", "simplify": False,
                              "snap": "nearest_edge", "snapshot": SNAPSHOT,
                              "source": "OpenStreetMap via Overpass, osmnx " + ox.__version__}
-        self.feature_inputs = {"center": list(center), "dist_m": dist, "tags": FEATURE_TAGS, "snapshot": SNAPSHOT}
+        self.feature_inputs = {"center": list(center), "dist_m": dist, "tags": tags, "snapshot": SNAPSHOT}
         self._labels = {}
 
     # ---------- geometry ----------

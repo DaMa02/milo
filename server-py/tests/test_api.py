@@ -27,6 +27,7 @@ ASKS = {  # tool -> (question, params)
     "street_continuity": ("Does via Arcivescovo Calabiana go through?", {"street": "Via Arcivescovo Calabiana"}),
     "independent_connections": ("How many ways are there?", {"from": {"name": "talent garden"}, "to": {"name": "the party"}}),
     "extent": ("How big is the construction site?", {"place": "Villaggio Olimpico 2026 - Parco Porta Romana"}),
+    "place_info": ("Is the pharmacy open?", {"place": {"name": "the pharmacy"}}),
 }
 
 

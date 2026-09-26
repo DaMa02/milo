@@ -6,9 +6,12 @@ Places are resolved inside the zone only: an unknown, ambiguous or far place bec
     python -m lotl.tools     # self-test, from server-py/
 """
 import math
+import re
 import urllib.parse
 from collections import Counter
+from datetime import datetime
 from functools import lru_cache
+from zoneinfo import ZoneInfo
 
 import networkx as nx
 import numpy as np
@@ -19,7 +22,8 @@ from shapely.ops import nearest_points, polygonize, unary_union
 
 from .zone import DEMO_DESTINATION, SNAPSHOT, SPEED, TALENT_GARDEN, centre_name, window, fmt, ids, join_and, lc, meta, mins, plural, r10
 
-TOOLS = ("walking_vs_straight_line", "barrier_between", "street_continuity", "independent_connections", "extent")
+TOOLS = ("walking_vs_straight_line", "barrier_between", "street_continuity", "independent_connections", "extent",
+         "place_info")
 DEST_NAME = "the destination on viale Isonzo"
 ALIASES = {"talent garden": (TALENT_GARDEN, "Talent Garden"), "destination": (DEMO_DESTINATION, DEST_NAME),
            "party": (DEMO_DESTINATION, DEST_NAME), "viale isonzo": (DEMO_DESTINATION, DEST_NAME),
@@ -30,7 +34,13 @@ HERE = {"here", "me", "my position", "where i am", "start"}
 KIND_WORDS = {"construction site": ("construction site",), "construction": ("construction site",),
               "building site": ("construction site",), "railway": ("railway",), "railway line": ("railway",),
               "train tracks": ("railway",), "tracks": ("railway",), "park": ("park", "garden"), "garden": ("park", "garden"),
-              "supermarket": ("supermarket",)}
+              "supermarket": ("supermarket",), "pharmacy": ("pharmacy",), "chemist": ("pharmacy",),
+              "café": ("cafe",), "cafe": ("cafe",), "coffee": ("cafe",), "bar": ("cafe",), "bakery": ("bakery",),
+              "cash machine": ("atm",), "atm": ("atm",), "bank": ("atm",), "shop": ("shop",)}
+NOUN = {"supermarket": "supermarket", "pharmacy": "pharmacy", "cafe": "café", "bakery": "bakery", "atm": "cash machine",
+        "shop": "shop"}
+DAYS = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"]
+ROME = ZoneInfo("Europe/Rome")
 RAIL_GLOSS = {"Cintura sud di Milano": "the southern belt railway"}
 WATER = {"canal": "canal", "river": "river", "stream": "stream"}  # anything else is a "water channel"
 GENERIC = {"a footpath", "a pavement", "a crossing", "steps"}
@@ -101,7 +111,89 @@ def _kind(row):
         return row["leisure"]
     if row.get("landuse") == "railway":
         return "railway land"
-    return row["shop"] if isinstance(row.get("shop"), str) else "place"
+    a = row.get("amenity")
+    if a in ("pharmacy", "cafe"):
+        return a
+    if a in ("atm", "bank"):
+        return "atm"
+    s = row.get("shop")
+    return ("shop" if s not in ("supermarket", "bakery") else s) if isinstance(s, str) else "place"
+
+
+# ---------- opening hours ----------
+def parse_hours(s):
+    """Common OSM opening_hours -> {weekday 0-6: [(open_min, close_min)]}; None when it cannot be read."""
+    if not isinstance(s, str) or not s.strip():
+        return None
+    if s.strip() == "24/7":
+        return {d: [(0, 1440)] for d in range(7)}
+    week, parts = {}, re.split(r"(;|(?<=\d),\s*(?=[A-Z]))", s)  # "08:00-20:00, Sa ..." is an additional rule
+    for sep, rule in zip([";"] + parts[1::2], (r.strip() for r in parts[0::2])):
+        rule = re.sub(r"\b[PS]H,|,[PS]H\b", "", rule)  # public/school holidays: not said
+        if not rule or rule.split()[0] in ("PH", "SH"):
+            continue
+        m = re.fullmatch(r"([A-Z][a-z](?:-[A-Z][a-z])?(?:,[A-Z][a-z](?:-[A-Z][a-z])?)*)?\s*(.*)", rule)
+        days = set()
+        for part in (m.group(1) or "Mo-Su").split(","):
+            a, _, b = part.partition("-")
+            if a not in DAYS or (b and b not in DAYS):
+                return None
+            i, j = DAYS.index(a), DAYS.index(b or a)
+            days |= {(i + k) % 7 for k in range((j - i) % 7 + 1)}
+        spans, t = [], m.group(2).strip()
+        if t not in ("off", "closed"):
+            for part in t.split(","):
+                hm = re.fullmatch(r"(\d\d?):(\d\d)\s*-\s*(\d\d?):(\d\d)", part.strip())
+                if not hm:
+                    return None
+                h1, m1, h2, m2 = map(int, hm.groups())
+                if max(h1, h2) > 24 or max(m1, m2) > 59:
+                    return None
+                a, b = h1 * 60 + m1, h2 * 60 + m2
+                spans.append((a, b if b > a else b + 1440))
+        for d in days:  # a later ';' rule replaces an earlier one for its days, a ',' rule adds to it
+            week[d] = spans if sep == ";" else week.get(d, []) + spans
+    return week or None
+
+
+def _hm(m):
+    return f"{m // 60 % 24:02d}:{m % 60:02d}"
+
+
+def hours_now(raw, now=None):
+    """(open_now True|False|None, spoken phrase or None) for an OSM opening_hours string, in Rome local time."""
+    week = parse_hours(raw)
+    if week is None:
+        return None, None
+    now = now or datetime.now(ROME)
+    d, t = now.weekday(), now.hour * 60 + now.minute
+    if all(week.get(i) == [(0, 1440)] for i in range(7)):
+        return True, "open 24 hours a day"
+    for a, b in week.get(d, []) + [(a - 1440, b - 1440) for a, b in week.get((d - 1) % 7, [])]:
+        if a <= t < b:
+            return True, f"open until {_hm(b)}"
+    for k in range(8):
+        later = sorted(a for a, _b in week.get((d + k) % 7, []) if k or a > t)
+        if later:
+            when = "today" if k == 0 else "tomorrow" if k == 1 else "on " + ("Monday", "Tuesday", "Wednesday", "Thursday",
+                                                                            "Friday", "Saturday", "Sunday")[(d + k) % 7]
+            return False, f"closed now, it opens {when} at {_hm(later[0])}"
+    return False, "closed now"
+
+
+def place_hours(row):
+    """(opening_hours raw or None, open_now, phrase): the phrase is always said."""
+    raw = row.get("opening_hours") if row is not None else None
+    raw = raw if isinstance(raw, str) else None
+    open_now, phrase = hours_now(raw)
+    if raw is None:
+        return None, None, "the map does not say when it is open"
+    return raw, open_now, phrase or "the map gives its hours, but I cannot read them"
+
+
+def wheelchair(row):
+    w = row.get("wheelchair") if row is not None else None
+    return w if w in ("yes", "limited", "no") else None
 
 
 # ---------- places ----------
@@ -114,16 +206,22 @@ def _places(zone):
         out.append({"name": name, "label": lc(name), "kind": "street", "geom": grp.union_all(),
                     "evidence": ids("way", grp["osmid"].tolist())})
     groups = {}
-    for (el, i), row in zone.features[zone.features["name"].notna()].iterrows():
+    F = zone.features
+    atm = F["amenity"].isin(["atm", "bank"]) if "amenity" in F else False
+    for (el, i), row in F[F["name"].notna() | atm].iterrows():
         kind, ev = _kind(row), f"{el}/{i}"
+        if not isinstance(row.get("name"), str):  # an unnamed cash machine: its bank's name, if the map has it
+            row = row.copy()
+            op = row.get("operator") if isinstance(row.get("operator"), str) else row.get("brand")
+            row["name"] = f"{op} cash machine" if isinstance(op, str) else "Cash machine"
         if row.geometry.geom_type == "Point":  # shops: each one is its own place, told apart by its street
             st = row.get("addr:street")
             st = st if isinstance(st, str) else zone.road_name(row.geometry, 60)
             out.append({"name": row["name"], "label": f"{row['name']} on {lc(st)}" if st else row["name"],
-                        "kind": kind, "geom": row.geometry, "evidence": [ev]})
+                        "kind": kind, "geom": row.geometry, "evidence": [ev], "row": row})
         else:
             g = groups.setdefault((row["name"], kind), {"name": row["name"], "label": row["name"], "kind": kind,
-                                                       "geoms": [], "evidence": []})
+                                                       "geoms": [], "evidence": [], "row": row})
             g["geoms"].append(row.geometry)
             g["evidence"].append(ev)
     for g in groups.values():
@@ -156,14 +254,15 @@ def _find(zone, text, kinds=None, what="a place", session=None):
     if not q:
         raise PlaceError("Which place do you mean?", "No place was given.")
     pool = _places(zone)
-    hits = [p for p in pool if q in (p["name"].lower(), p["label"].lower())] or \
-           [p for p in pool if q in p["name"].lower() or set(q.split()) <= set(p["name"].lower().split())]
-    if not hits and q in KIND_WORDS:  # the nearest place of that kind to the reference point
-        c, ref = zone.xy(*zone.center), window(zone, session)[0]
+    hits = [p for p in pool if q in (p["name"].lower(), p["label"].lower())]
+    if not hits and q in KIND_WORDS:  # the nearest place of that kind to the session origin
+        c = zone.xy(*zone.center)
+        ref = zone.xy(*session.origin[:2]) if session is not None and session.origin else c
         near = sorted((p for p in pool if p["kind"] in KIND_WORDS[q] and p["geom"].distance(c) <= zone.answer_radius),
                       key=lambda p: p["geom"].distance(ref))
         if near:
             return [near[0]]
+    hits = hits or [p for p in pool if q in p["name"].lower() or set(q.split()) <= set(p["name"].lower().split())]
     asked = [{"type": "place_query", "value": str(text), "unit": None, "source": "unknown", "evidence": [],
               "inputs": {"query": str(text)}, "data_date": SNAPSHOT, "completeness": "complete"}]
     if not hits:
@@ -659,7 +758,42 @@ def _extent(zone, session, params):
     return text, facts, unknown
 
 
-_RUN = dict(zip(TOOLS, (_walking, _barrier, _continuity, _connections, _extent)))
+def _place_info(zone, session, params):
+    spec = params.get("place")
+    spec = {"name": spec} if isinstance(spec, str) else spec
+    if not _given(spec):
+        raise PlaceError("Which place do you mean?", "No place was given.")
+    p = None
+    if spec.get("lat") is not None and spec.get("lon") is not None:  # the map feature at that point, else its name
+        try:
+            pt = zone.xy(float(spec["lat"]), float(spec["lon"]))
+        except (TypeError, ValueError):
+            raise _unusable() from None
+        near = [q for q in _places(zone) if q["kind"] != "street" and q["geom"].distance(pt) <= 40]
+        p = min(near, key=lambda q: q["geom"].distance(pt), default=None)
+    p = p or _find(zone, spec.get("name"), session=session)[0]
+    row = p.get("row")
+    o = session.origin if session is not None and session.origin else (*TALENT_GARDEN, "Talent Garden")
+    d = r10(_point(zone, p["geom"]).distance(zone.xy(o[0], o[1])))
+    st, no = (row.get("addr:street"), row.get("addr:housenumber")) if row is not None else (None, None)
+    addr = f"{lc(st)} {no}" if isinstance(st, str) and isinstance(no, str) else lc(st) if isinstance(st, str) else None
+    noun = "a street" if p["kind"] == "street" else "a " + NOUN.get(p["kind"], p["kind"])
+    raw, open_now, phrase = place_hours(row)
+    w = wheelchair(row)
+    text = " ".join([f"{p['name']}{', ' + addr if addr else ''}: {noun} {fmt(d)} from here in a straight line."]
+                    + ([_cap(phrase) + "."] if raw else []) + ([f"Wheelchair access: {w}, according to the map."] if w else []))
+    inputs = {"origin": [o[0], o[1]], **zone.feature_inputs}
+    facts = [_place_fact(zone, p), zone.fact("straight_line_distance", d, "m", "computed", p["evidence"][:20], inputs)]
+    if addr:
+        facts.append(zone.fact("address", addr, None, "map_tag", p["evidence"][:1], inputs))
+    if raw:
+        facts.append(zone.fact("opening_hours", raw, None, "map_tag", p["evidence"][:1], {**inputs, "tz": "Europe/Rome"}))
+    unknown = [] if raw else ["The map does not say when it is open."]
+    unknown += [] if w else ["The map does not say whether it has wheelchair access."]
+    return text, facts, unknown
+
+
+_RUN = dict(zip(TOOLS, (_walking, _barrier, _continuity, _connections, _extent, _place_info)))
 
 
 def ask(zone, session, tool, params, question):
@@ -668,7 +802,7 @@ def ask(zone, session, tool, params, question):
         raise ValueError(f"unknown tool {tool!r}; expected one of {', '.join(TOOLS)}")
     params = dict(params or {})
     for k in ("place", "street"):  # the contract's place shape {name} is accepted wherever a bare name is
-        if isinstance(params.get(k), dict) and isinstance(params[k].get("name"), str):
+        if tool != "place_info" and isinstance(params.get(k), dict) and isinstance(params[k].get("name"), str):
             params[k] = params[k]["name"]
     try:
         text, facts, unknown = _RUN[tool](zone, session, params)
