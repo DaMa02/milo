@@ -1,10 +1,10 @@
 """Regenerate contracts/fixtures/*.json from real data: the cached OSM walk graph of the demo zone,
 Overpass features and Transitous v6. Mac only (needs the osmnx cache in $TOOLS).
 
-    source "$HOME/Desktop/hackaton BAINSA/tools/env.sh"
+    source .venv/bin/activate    # from the repo root
     python contracts/make_fixtures.py && python contracts/validate.py
 
-Text is built from the facts with fixed English templates, under the speaking rules in docs/one-pager.md.
+Text is built from the facts with fixed English templates, under the speaking rules in docs/speaking-rules.md.
 """
 import json, math, os, pathlib, urllib.parse, urllib.request
 from collections import Counter
@@ -28,7 +28,7 @@ DEST = (45.44658, 9.20584)    # demo destination on viale Isonzo
 R = 800                       # graph radius around the origin, metres
 DATE = "2026-09-26"
 DEPART = "2026-09-26T16:00:00Z"  # 18:00 in Milan
-SPEED = 80                       # metres per walking minute (one-pager, speaking rule 1)
+SPEED = 80                       # metres per walking minute (docs/speaking-rules.md, rule 1)
 UA = "bainsa-hackathon-2026/0.1 (maglionicodaniele@gmail.com)"
 GRAPH = {"center": list(ORIGIN), "dist_m": R, "network_type": "walk", "simplify": False,
          "snap": "nearest_edge", "snapshot": DATE, "source": "OpenStreetMap via Overpass, osmnx " + ox.__version__}

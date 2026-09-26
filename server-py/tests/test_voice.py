@@ -1,7 +1,7 @@
 """POST /stt and GET /voice/health with FastAPI's TestClient on the local Parakeet model (no network, no paid API).
 Skips cleanly when parakeet-mlx, the cached model, `say` or ffmpeg are missing.
 
-    python tests/test_voice.py      (from server-py, with HF_HOME pointing at the model cache: tools/env.sh)
+    python tests/test_voice.py      (from server-py, with HF_HOME pointing at the model cache)
 """
 import importlib.util
 import pathlib

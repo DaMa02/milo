@@ -39,7 +39,7 @@ class Place(Body):
 
 class Constraint(Body):
     kind: Kind
-    strength: Literal["avoid_when_possible", "require"] = "avoid_when_possible"  # the default strength (one-pager)
+    strength: Literal["avoid_when_possible", "require"] = "avoid_when_possible"  # the default strength
     value: Optional[float] = Field(None, ge=0, allow_inf_nan=False)
 
     @model_validator(mode="after")

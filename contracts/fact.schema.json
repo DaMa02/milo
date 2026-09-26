@@ -27,7 +27,7 @@
     "osm_id": {"type": "string", "pattern": "^(node|way|relation)/[0-9]+$"},
     "lang": {"type": "string", "enum": ["en", "it"]},
     "tri": {"type": "string", "enum": ["yes", "no", "unknown"]},
-    "user_text": {"type": "string", "minLength": 1, "description": "Said to the user: obeys the speaking rules in docs/one-pager.md; every number in it is also in facts[]."},
+    "user_text": {"type": "string", "minLength": 1, "description": "Said to the user: obeys the speaking rules in docs/speaking-rules.md; every number in it is also in facts[]."},
     "relative_direction": {"type": "string", "pattern": "^(ahead|behind|left|right|at ([1-9]|1[0-2]) o'clock)$", "description": "Relative to the user's facing; only valid once a heading is established."},
     "point": {
       "type": "object", "additionalProperties": false, "required": ["name", "lat", "lon"],
