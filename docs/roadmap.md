@@ -4,10 +4,10 @@ These features can be built on the current engine and app. Each comes with the r
 
 ## Data
 
-- **Accessible signals, entrances and pavement widths from municipal open data.** Today sound at traffic lights is mapped on only 7 of 70 crossings near Talent Garden, and the engine does not know where a building's entrances are.
+- **Accessible signals, entrances and pavement widths from municipal open data.** OpenStreetMap rarely records whether a signal has sound, and the engine does not know where a building's entrances are.
 - **Tactile paving at crossings in answers and cues.** The engine already reads the `tactile_paving` tag of each crossing but does not say it yet, and tactile paving is a landmark a cane user can find.
 - **Opening hours from the web when OpenStreetMap has none, with the source.** Hours are said only when OSM has them, so for other places Milo can only say "the map does not say when it is open".
-- **Walking distance in place answers.** "About a place" gives a straight-line distance, which can mislead: near Talent Garden, a point 350 m away is 1,080 m on foot because a railway lies in between.
+- **Walking distance in place answers.** "About a place" gives a straight-line distance, which can mislead when a railway or a river lies in between.
 
 ## Guidance
 

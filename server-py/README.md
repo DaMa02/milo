@@ -1,4 +1,4 @@
-# server-py: the Lay of the Land engine
+# server-py: the Milo engine
 
 Deterministic engine for level 1: overview of the zone, virtual walk junction to junction, and six questions answered from the OpenStreetMap walk graph of central Milan (`LOTL_ZONE=porta-romana` loads the small Porta Romana test zone instead). Every response follows `contracts/*.schema.json` and every spoken number is a fact.
 
