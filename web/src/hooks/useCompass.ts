@@ -5,8 +5,9 @@ type OrientationApi = typeof DeviceOrientationEvent & { requestPermission?: () =
 interface Reading { degrees: number; time: number }
 
 /** Phone-facing direction, requested only from a real Talk release/click. */
-export function useCompass({ onDenied }: { onDenied: () => void }) {
+export function useCompass({ onDenied, onHeadingChange }: { onDenied: () => void; onHeadingChange?: () => void }) {
   const callback = useRef(onDenied); callback.current = onDenied;
+  const changed = useRef(onHeadingChange); changed.current = onHeadingChange;
   const samples = useRef<Reading[]>([]);
   const mounted = useRef(false);
   const requested = useRef(false);
@@ -24,6 +25,7 @@ export function useCompass({ onDenied }: { onDenied: () => void }) {
     if (!Number.isFinite(heading) || heading < 0 || heading > 360) { samples.current = []; return; }
     const time = Date.now();
     samples.current = [...samples.current.filter((sample) => time - sample.time <= 3000), { degrees: heading % 360, time }].slice(-5);
+    changed.current?.();
   }, []);
   const getHeading = useCallback((): number | undefined => {
     const readings = samples.current;

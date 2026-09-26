@@ -9,10 +9,12 @@ interface Props {
   onCancel?: () => void;
   onGesture?: () => void;
   onBeforeStart?: () => void;
+  firstGesturePending?: boolean;
+  onFirstGesture?: () => boolean;
   labels: { idle: string; listening: string; transcribing: string; hint?: string };
 }
 
-export function TalkButton({ state, disabled = false, onStart, onStop, onCancel, onGesture, onBeforeStart, labels }: Props) {
+export function TalkButton({ state, disabled = false, onStart, onStop, onCancel, onGesture, onBeforeStart, firstGesturePending = false, onFirstGesture, labels }: Props) {
   const pointer = useRef<{ id: number; held: boolean } | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const consumeClick = useRef(false);
@@ -24,7 +26,7 @@ export function TalkButton({ state, disabled = false, onStart, onStop, onCancel,
       if (consumeClick.current) { consumeClick.current = false; return; }
       if (blocked) return;
       if (state === 'listening') { onStop(); onGesture?.(); }
-      else { onBeforeStart?.(); onGesture?.(); void onStart(); }
+      else { onBeforeStart?.(); onGesture?.(); if (!onFirstGesture?.()) void onStart(); }
     }}
     onPointerDown={(event) => {
       if (blocked || state !== 'idle' || event.button !== 0 || pointer.current) return;
@@ -32,14 +34,14 @@ export function TalkButton({ state, disabled = false, onStart, onStop, onCancel,
       pointer.current = { id: event.pointerId, held: false };
       event.currentTarget.setPointerCapture(event.pointerId);
       onBeforeStart?.();
-      timer.current = setTimeout(() => { if (pointer.current) { pointer.current.held = true; void onStart(); } }, 400);
+      if (!firstGesturePending) timer.current = setTimeout(() => { if (pointer.current) { pointer.current.held = true; void onStart(); } }, 400);
     }}
     onPointerUp={(event) => {
       if (pointer.current?.id !== event.pointerId) return;
       const held = pointer.current.held; pointer.current = null; clear(); consumeClick.current = true;
       if (held) onStop();
       onGesture?.();
-      if (!held) void onStart();
+      if (!held && !onFirstGesture?.()) void onStart();
     }}
     onPointerCancel={() => {
       if (!pointer.current) return;

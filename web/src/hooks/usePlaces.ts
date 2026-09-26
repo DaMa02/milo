@@ -9,7 +9,7 @@ interface Options {
   getHeading?: () => number | undefined;
   onSessionReady: (session: AreaSession) => void;
   onDestinationChanged: (place: Place) => void;
-  onMessage: (text: string) => void;
+  onMessage: (text: string, details?: { pending?: boolean; kind?: 'places' | 'error'; result?: unknown }) => void;
 }
 type Pending = 'origin' | 'destination' | null;
 interface State { pending: Pending; phase: 'idle' | 'searching' | 'confirming' | 'loading'; candidates: PlaceCandidate[]; selectedIndex: number; message: string }
@@ -27,7 +27,7 @@ export function usePlaces(options: Options) {
     generation.current += 1; controller.current?.abort(); controller.current = null;
     if (loadingTimer.current) clearTimeout(loadingTimer.current); loadingTimer.current = null;
   }
-  function say(message: string) { update({ message }); callbacks.current.onMessage(message); }
+  function say(message: string, details?: Parameters<Options['onMessage']>[1]) { update({ message }); callbacks.current.onMessage(message, details); }
   function cancel() { invalidate(); update({ ...initial }); }
   useEffect(() => {
     if (session.current !== options.session) { session.current = options.session; cancel(); }
@@ -42,18 +42,19 @@ export function usePlaces(options: Options) {
   function failure(cause: unknown, token: number) {
     if (!valid(token)) return;
     update({ phase: current.current.candidates.length ? 'confirming' : 'idle' });
-    say(cause instanceof ApiError && (cause.status === 422 || cause.status === 503) && cause.detail ? cause.detail : callbacks.current.t.placesFailed);
+    say(cause instanceof ApiError && (cause.status === 422 || cause.status === 503) && cause.detail ? cause.detail : callbacks.current.t.placesFailed, { kind: 'error' });
   }
   function propose(candidates: PlaceCandidate[], token: number, message?: string) {
     if (!valid(token)) return;
     update({ candidates, selectedIndex: 0, phase: candidates.length ? 'confirming' : 'idle' });
-    say(message ?? (candidates.length ? callbacks.current.t.placesConfirmPrompt.replace('{place}', placeLabel(candidates[0])) : callbacks.current.t.placesNoResults));
+    const text = message ?? (candidates.length ? callbacks.current.t.placesConfirmPrompt.replace('{place}', placeLabel(candidates[0])) : callbacks.current.t.placesNoResults);
+    say(text, { result: { text, candidates } });
   }
   async function query(query: string, target: 'origin' | 'destination') {
     const { token, signal } = begin(target);
     if (!query.trim()) { update({ phase: 'idle' }); say(callbacks.current.t.placesQueryRequired); return; }
     if (target === 'destination' && !session.current?.setDestination) { update({ phase: 'idle' }); say(callbacks.current.t.placesNeedOrigin); return; }
-    say(callbacks.current.t.placesSearching);
+    say(callbacks.current.t.placesSearching, { pending: true });
     const reference = session.current?.overview.reference;
     try { propose(await searchPlaces(query.trim(), signal, reference ? { lat: reference.lat, lon: reference.lon } : undefined), token); }
     catch (cause) { failure(cause, token); }
@@ -63,7 +64,7 @@ export function usePlaces(options: Options) {
   async function setOriginHere({ autoConfirm = false }: { autoConfirm?: boolean } = {}) {
     const { token, signal } = begin('origin');
     if (!navigator.geolocation) { update({ phase: 'idle' }); say(autoConfirm ? callbacks.current.t.placesNeedStartingPoint : callbacks.current.t.placesLocationUnavailable); return; }
-    say(callbacks.current.t.placesLocating);
+    say(callbacks.current.t.placesLocating, { pending: true });
     try {
       const position = await new Promise<GeolocationPosition>((resolve, reject) => navigator.geolocation.getCurrentPosition(resolve, reject,
         { enableHighAccuracy: true, timeout: 10_000, maximumAge: 60_000 }));
@@ -111,8 +112,8 @@ export function usePlaces(options: Options) {
     update({ phase: 'loading', selectedIndex });
     try {
       if (flow.pending === 'origin') {
-        if (!keepOriginMessage) say(callbacks.current.t.placesLoading.replace('{place}', place.name));
-        loadingTimer.current = setTimeout(() => { if (valid(token)) say(callbacks.current.t.placesFirstLoad); }, 10_000);
+        if (!keepOriginMessage) say(callbacks.current.t.placesLoading.replace('{place}', place.name), { pending: true });
+        loadingTimer.current = setTimeout(() => { if (valid(token)) say(callbacks.current.t.placesFirstLoad, { pending: true }); }, 10_000);
         const next = await createConnectedSession(place, { signal, timeoutMs: 120_000, getHeading: () => callbacks.current.getHeading?.() });
         if (!valid(token)) return;
         session.current = next;
@@ -121,12 +122,13 @@ export function usePlaces(options: Options) {
       } else {
         const active = session.current;
         if (!active?.setDestination) throw new Error('No connected session');
-        say(callbacks.current.t.placesSavingDestination);
+        say(callbacks.current.t.placesSavingDestination, { pending: true });
         const destination = await active.setDestination(place, signal);
         if (!valid(token) || active !== session.current) return;
         update({ pending: null, candidates: [], phase: 'idle' });
         callbacks.current.onDestinationChanged(destination);
-        say(callbacks.current.t.placesDestinationReady.replace('{place}', destination.name));
+        const text = callbacks.current.t.placesDestinationReady.replace('{place}', destination.name);
+        say(text, { result: { text, destination } });
       }
     } catch (cause) { failure(cause, token); }
     finally { if (valid(token) && loadingTimer.current) { clearTimeout(loadingTimer.current); loadingTimer.current = null; } }

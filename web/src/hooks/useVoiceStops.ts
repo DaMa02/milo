@@ -10,7 +10,7 @@ interface Options {
   error: string | null;
   t: Dictionary;
   onMutate: <K extends keyof PlanMutation>(endpoint: K, body: PlanMutation[K]) => void;
-  onMessage: (text: string) => void;
+  onMessage: (text: string, result?: Plan) => void;
 }
 type Phase = 'idle' | 'searching' | 'choosing' | 'duration' | 'saving';
 interface State {
@@ -50,7 +50,7 @@ export function useVoiceStops(options: Options) {
     current.current = { ...current.current, ...value };
     if (mounted.current) setState(current.current);
   }
-  const say = (text: string) => latest.current.onMessage(text);
+  const say = (text: string, result?: Plan) => latest.current.onMessage(text, result);
   function clearLastAction() { update({ lastAction: undefined }); }
   function cancel() {
     generation.current += 1;
@@ -132,12 +132,12 @@ export function useVoiceStops(options: Options) {
       if (sent.key !== planKey(plan) || sent.key !== planKey(latest.current.plan)) { cancel(); return true; }
       const candidates = plan.stop_candidates.slice(0, 3).map((candidate) => ({ ...candidate }));
       if (!candidates.length) {
-        cancel(); say([plan.text, ...plan.unknown, latest.current.t.voiceStopNoCandidates].filter(Boolean).join(' ')); return true;
+        cancel(); say([plan.text, ...plan.unknown, latest.current.t.voiceStopNoCandidates].filter(Boolean).join(' '), plan); return true;
       }
       update({ phase: 'choosing', pending: 'stop', candidates, selectedIndex: 0, key: planKey(plan) });
       // Opening hours and evidence remain the server's text and facts. No extra
       // candidate fields or local opening-hour claims are inferred here.
-      say([plan.text, ...plan.unknown, prompt(candidates[0])].filter(Boolean).join(' '));
+      say([plan.text, ...plan.unknown, prompt(candidates[0])].filter(Boolean).join(' '), plan);
       return true;
     }
     const applied = sent.kind === 'stop' && plan.stop !== null && plan.stop.osm_id === sent.osmId && plan.stop.duration_min === sent.duration;

@@ -7,8 +7,8 @@ import start from '../../contracts/fixtures/explore-step.start.json' with { type
 import junction from '../../contracts/fixtures/explore-step.first-junction.json' with { type: 'json' };
 import distance from '../../contracts/fixtures/answer.detour-ratio.json' with { type: 'json' };
 
-const help = 'Say where you are starting, then where you want to go. Try “how do I get there”, “choose route A”, “start navigation”, “stop at a pharmacy”, or “search online for my destination”.';
-const noFit = "I did not catch that. You can say: what's around me, where am I, I'm going to..., how do I get there, or help.";
+const help = "Hi, I'm Milo. Tell me where you want to go, for example: take me to Bocconi University. You can also ask: what's around me? Say help at any time.";
+const noFit = help;
 const latest = (page: Page) => page.getByRole('region', { name: 'Latest answer', exact: true });
 const input = (page: Page) => page.getByRole('textbox', { name: 'Type a question or command', exact: true });
 interface Request { path: string; body: Record<string, unknown> }
@@ -49,6 +49,7 @@ async function installEngine(page: Page, delayed?: (route: Route) => Promise<voi
   await page.route(/^https?:\/\/[^/]+\/api\//, async (route) => {
     const path = new URL(route.request().url()).pathname;
     if (path === '/api/tts') return route.fulfill({ status: 503, json: { detail: 'Simulated TTS unavailable: exercise browser fallback' } });
+    if (path === '/api/speak') return route.fulfill({ status: 503, json: { detail: 'Simulated wording unavailable: exercise the first-sentence fallback without a model call' } });
     const body = route.request().postDataJSON() as Record<string, unknown>;
     requests.push({ path, body });
     if (path === '/api/interpret') {
@@ -100,11 +101,15 @@ test('the default screen has only Talk and reveals an Enter-based text fallback 
   await expect(input(page)).toHaveCount(0);
   await expect(page.getByText('Show all controls', { exact: true })).toHaveCount(0);
   await talk.press('Enter');
+  await expect(latest(page)).toContainText(help);
+  await expect(input(page)).toHaveCount(0);
+  await talk.press('Enter');
   await expect(latest(page)).toContainText('Microphone permission was not granted.');
   await expect(input(page)).toHaveCount(0);
   await talk.press('Enter');
   await expect(input(page)).toBeVisible();
-  await expect(page.getByRole('button')).toHaveCount(1);
+  await expect(page.getByRole('button', { name: /^Talk/ })).toHaveCount(1);
+  await expect(page.getByRole('button', { name: 'Send', exact: true })).toHaveCount(0);
   await send(page, 'help');
   await expect(latest(page)).toContainText(help);
   await expect(input(page)).toBeFocused();
@@ -146,8 +151,9 @@ test('one input explores a numbered connection and asks without changing the est
   await expect(latest(page)).toContainText('You walked 140 m');
   await send(page, distance.question);
   await expect(latest(page)).toContainText('350 m in a straight line');
-  for (const unknown of distance.unknown) await expect(latest(page)).toContainText(unknown);
   await expect(input(page)).toBeFocused();
+  await latest(page).getByRole('button', { name: 'More detail', exact: true }).click();
+  for (const unknown of distance.unknown) await expect(latest(page)).toContainText(unknown);
   expect(engine.requests.filter(({ path }) => path.endsWith('/explore')).map(({ body }) => body)).toEqual([
     { command: 'start' }, { command: 'take', branch: 1 },
   ]);

@@ -1,26 +1,34 @@
 :root {
   font-family: 'Segoe UI', system-ui, sans-serif;
-  color: #172e2a;
-  background: #f7f8f4;
+  color: #172c3c;
+  background: #f8f4eb;
   font-synthesis: none;
   line-height: 1.6;
   font-size: 112.5%;
-  --ink: #172e2a;
-  --accent: #173e38;
-  --muted: #4c605a;
-  --line: #788a82;
-  --surface: #ffffff;
+  --ink: #172c3c;
+  --accent: #172c3c;
+  --accent-hover: #29495d;
+  --muted: #485c69;
+  --line: #73818a;
+  --surface: #fffdf8;
+  --canvas: #f8f4eb;
+  --highlight: #f0bb58;
+  --focus: #913f1c;
+  --hover: #e9e6dc;
 }
 * { box-sizing: border-box; }
 body { margin: 0; }
-::selection { background: #c2ded0; color: var(--ink); }
-:focus-visible { outline: 3px solid #9a3d0a; outline-offset: 4px; }
+html { scroll-padding-block: 1.5rem; }
+::selection { background: var(--highlight); color: var(--ink); }
+:focus-visible { outline: 3px solid var(--focus); outline-offset: 5px; }
 a { color: var(--accent); text-underline-offset: .2em; }
 button, input, select, textarea { font: inherit; color: inherit; }
-button, select, input, textarea { min-height: 48px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); padding: .55rem .8rem; }
+button, select, input, textarea { min-height: 52px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); padding: .65rem .9rem; }
+input, textarea { caret-color: var(--ink); }
+input::placeholder, textarea::placeholder { color: var(--muted); opacity: 1; }
 button { cursor: pointer; }
-button:hover { background: #e7eee7; }
-button:disabled { cursor: not-allowed; }
+button:hover { background: var(--hover); }
+button:disabled { cursor: not-allowed; color: var(--muted); background: var(--hover); }
 button[aria-disabled="true"] { cursor: default; color: var(--muted); }
 .button-row { display: flex; flex-wrap: wrap; gap: .7rem; }
 .check-label { display: flex; align-items: flex-start; gap: .65rem; margin-top: 1.25rem; }
@@ -29,7 +37,7 @@ button[aria-disabled="true"] { cursor: default; color: var(--muted); }
 .speech-controls { margin-top: 2.5rem; padding-top: .5rem; border-top: 1px solid var(--line); }
 .speech-controls h2 { font-size: 1.2rem; margin-top: 1rem; }
 .primary { background: var(--accent); color: #fff; border-color: var(--accent); font-weight: 650; }
-.primary:hover { background: #285d50; }
+.primary:hover { background: var(--accent-hover); }
 .primary[aria-disabled="true"] { color: #fff; }
 .start-panel { padding-block: 1rem; max-width: 72ch; }
 .session-strip { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem; margin-block: 1.5rem; }
@@ -82,37 +90,41 @@ pre { white-space: pre-wrap; overflow-wrap: anywhere; font-size: .85rem; }
 .branch-list p { margin-block: .25rem; }
 select { margin-inline-start: .75rem; }
 label { font-weight: 600; }
-.app-header { display: flex; align-items: center; justify-content: space-between; gap: 1.5rem; flex-wrap: wrap; border-bottom: 1px solid var(--line); padding: 1.25rem max(1.25rem, calc((100vw - 1120px) / 2)); }
-.wordmark { font-weight: 750; font-size: 1.2rem; }
+.app-header { display: flex; align-items: center; justify-content: space-between; gap: 1.5rem; flex-wrap: wrap; max-width: 760px; margin-inline: auto; padding: 1.25rem max(1rem, env(safe-area-inset-left)); }
+.wordmark { display: inline-flex; align-items: center; gap: .6rem; font-weight: 750; font-size: 1.8rem; line-height: 1.15; letter-spacing: -.025em; }
+.brand-mark { display: block; width: 44px; height: 44px; flex: 0 0 auto; }
 main { max-width: 1120px; margin-inline: auto; padding: clamp(1.25rem, 4vw, 3rem) 1.25rem; min-height: 60vh; }
 h1 { font-size: clamp(1.8rem, 4vw, 2.7rem); line-height: 1.2; letter-spacing: -.02em; text-wrap: balance; margin: 0 0 1.25rem; max-width: 24ch; }
 h2 { line-height: 1.3; margin: 2rem 0 1rem; }
 p { max-width: 70ch; }
 .intro { font-size: 1.2rem; max-width: 55ch; }
 .notice { margin-top: 2rem; padding-block: 1.25rem; border-block: 1px solid var(--line); }
-footer { max-width: 1120px; margin-inline: auto; padding: 1.25rem; color: var(--muted); }
+footer { max-width: 760px; margin-inline: auto; padding: 1.5rem max(1rem, env(safe-area-inset-left)) max(1.5rem, env(safe-area-inset-bottom)); color: var(--muted); font-size: .95rem; }
 .skip-link { position: absolute; top: .5rem; left: 1rem; transform: translateY(-200%); background: white; padding: .5rem 1rem; z-index: 10; }
 .skip-link:focus { transform: translateY(0); }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
-@media (prefers-contrast: more) { :root { --line: #172e2a; --muted: #172e2a; } }
+@media (prefers-contrast: more) { :root { --line: #172c3c; --muted: #172c3c; } }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; animation: none !important; transition: none !important; } }
 @media (max-width: 420px) { .app-header { align-items: flex-start; flex-direction: column; } }
 
 /* The mobile conversation is primary; every detailed control remains available. */
-.single-screen { max-width: 760px; padding: 1.1rem max(1rem, env(safe-area-inset-left)) max(1.25rem, env(safe-area-inset-bottom)); }
-.single-screen h1 { font-size: clamp(1.55rem, 4vw, 2rem); margin-bottom: 1rem; }
-.voice-console { display: flex; flex-direction: column; gap: 1.15rem; }
-.talk-dock { order: 3; position: sticky; bottom: 0; z-index: 2; background: #f7f8f4; padding: .8rem 0 max(.4rem, env(safe-area-inset-bottom)); }
-.talk-dock button { width: 100%; min-height: 82px; font-size: 1.45rem; font-weight: 700; background: var(--accent); color: white; border-color: var(--accent); touch-action: manipulation; }
-.talk-dock button[aria-pressed="true"] { background: #703419; border-color: #703419; }
-.voice-state { margin: .35rem 0 0; text-align: center; }
-.talk-dock .talk-hint { display: block; font-size: .85rem; font-weight: 400; margin-block: .35rem; }
+.single-screen { max-width: 760px; padding: 1.25rem max(1rem, env(safe-area-inset-left)) max(1.25rem, env(safe-area-inset-bottom)); }
+.single-screen h1 { font-size: 2rem; margin-bottom: 1.75rem; max-width: 20ch; }
+.voice-console { display: flex; flex-direction: column; gap: 1.25rem; }
+.talk-dock { order: 3; position: sticky; bottom: 0; z-index: 2; background: var(--canvas); padding: .8rem 0 max(.5rem, env(safe-area-inset-bottom)); }
+.talk-dock button { width: 100%; min-height: 152px; padding: 1.15rem 1rem; border-radius: 14px; font-size: 2rem; line-height: 1.2; font-weight: 700; background: var(--accent); color: var(--surface); border: 2px solid var(--accent); touch-action: manipulation; }
+.talk-dock button:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
+.talk-dock button[aria-pressed="true"] { background: var(--highlight); color: var(--ink); border-color: var(--ink); }
+.talk-dock button[aria-disabled="true"] { background: var(--hover); color: var(--muted); border-color: var(--line); }
+.voice-state { margin: .6rem 0 0; text-align: center; font-weight: 600; }
+.talk-dock .talk-hint { display: block; font-size: .95rem; line-height: 1.5; font-weight: 400; max-width: 42ch; margin: .7rem auto 0; }
+.compass-hint { color: var(--muted); font-size: .9rem; text-align: center; margin: .9rem auto 0; max-width: 46ch; }
 .unified-command { order: 2; }
 .unified-command label { display: block; margin-bottom: .45rem; }
 .single-screen input, .single-screen select { font-size: max(16px, 1rem); }
 .latest-answer { order: 1; }
-.latest-answer h2 { font-size: 1rem; margin: .4rem 0; color: var(--muted); }
-.latest-answer-text { font-size: 1.15rem; margin-top: .5rem; }
+.latest-answer h2 { font-size: 1rem; margin: .4rem 0; color: var(--muted); font-weight: 600; }
+.latest-answer-text { font-size: 1.2rem; line-height: 1.6; margin-block: .5rem 1rem; overflow-wrap: anywhere; }
 .journey-endpoints { font-size: .9rem; overflow-wrap: anywhere; }
 .compact-speech { margin-block: .75rem; }
 .all-controls { margin-top: 1.5rem; border-top: 1px solid var(--line); }
@@ -122,3 +134,13 @@ footer { max-width: 1120px; margin-inline: auto; padding: 1.25rem; color: var(--
 .single-screen fieldset { min-width: 0; }
 .single-screen .start-panel > h2 { font-size: 1.1rem; }
 .single-screen .start-panel > p:first-of-type { display: none; }
+@media (min-width: 640px) {
+  .app-header { padding-top: 2rem; }
+  .single-screen { padding-top: 1.75rem; }
+  .single-screen h1 { font-size: 2.5rem; }
+}
+@media (max-height: 650px) { .talk-dock { position: static; } }
+@media (forced-colors: active) {
+  .talk-dock button[aria-pressed="true"] { border: 4px double ButtonText; }
+  :focus-visible { outline-color: Highlight; }
+}

@@ -1,13 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
 import { ApiError } from '../api/http';
-import { demoFixes, navigate, stopNavigation, type NavigationFix, type RouteCoordinate } from '../api/navigation';
+import { demoFixes, navigate, stopNavigation, type NavigationFix, type NavigationResult, type RouteCoordinate } from '../api/navigation';
 import { dictionaries, type Dictionary } from '../i18n';
 
 interface Options {
   sessionId: string | null;
   origin?: { lat: number; lon: number };
   getHeading?: () => number | undefined;
-  onMessage: (text: string) => void;
+  onMessage: (text: string, options?: { interrupt: boolean }) => void;
   onError: (text: string) => void;
   t?: Dictionary;
   demo?: boolean;
@@ -30,6 +30,11 @@ export function useLiveGuidance(options: Options) {
   const waking = useRef(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const queued = useRef<NavigationFix | null>(null);
+  const latestFix = useRef<NavigationFix | null>(null);
+  const urgent = useRef(false);
+  const lastHeading = useRef<number | undefined>(undefined);
+  const hiddenWarning = useRef(false);
+  const latestResult = useRef<NavigationResult | null>(null);
   const inFlight = useRef(false);
   const request = useRef<AbortController | null>(null);
   const lastSent = useRef(-Infinity);
@@ -66,7 +71,7 @@ export function useLiveGuidance(options: Options) {
     if (watcher.current !== null) navigator.geolocation?.clearWatch(watcher.current);
     watcher.current = null;
     if (timer.current) clearTimeout(timer.current);
-    timer.current = null; queued.current = null; replay.current = null;
+    timer.current = null; queued.current = null; latestFix.current = null; replay.current = null; urgent.current = false;
     request.current?.abort(); request.current = null; inFlight.current = false;
     releaseWake(); update({ active: false, status });
     if (wasActive && previousSession) {
@@ -79,29 +84,36 @@ export function useLiveGuidance(options: Options) {
     halt('error'); latest.current.onError(text);
   }
   function schedule(token: number) {
-    if (!valid(token) || inFlight.current || timer.current) return;
+    if (!valid(token) || inFlight.current) return;
+    if (timer.current) {
+      if (!urgent.current) return;
+      clearTimeout(timer.current); timer.current = null;
+    }
     if (!queued.current && demo.current && replay.current) {
       queued.current = replay.current[cursor.current++] ?? null;
       if (!queued.current) { fail(words().navigationDemoFinished, token); return; }
     }
+    if (!queued.current && !demo.current) queued.current = latestFix.current;
     if (!queued.current) return;
-    const delay = Math.max(0, 1000 - (Date.now() - lastSent.current));
+    const delay = urgent.current ? 0 : Math.max(0, 1000 - (Date.now() - lastSent.current));
     timer.current = setTimeout(() => { timer.current = null; void send(token); }, delay);
   }
   async function send(token: number) {
     if (!valid(token) || inFlight.current || !queued.current || !session.current) return;
-    const fix = queued.current; queued.current = null;
+    const fix = queued.current; queued.current = null; urgent.current = false;
     inFlight.current = true; lastSent.current = Date.now();
     const controller = new AbortController(); request.current = controller;
     try {
       const heading = latest.current.getHeading?.() ?? fix.heading_deg;
+      lastHeading.current = heading;
       const result = await navigate(session.current, { ...fix, ...(heading === undefined ? {} : { heading_deg: heading }) }, controller.signal);
       if (!valid(token)) return;
+      latestResult.current = result;
       if (result.route_line) {
         update({ routeLine: result.route_line });
         if (demo.current) { replay.current = demoFixes(result.route_line); cursor.current = 0; }
       }
-      if (result.text) latest.current.onMessage(result.text);
+      if (result.text !== null) latest.current.onMessage(result.text, { interrupt: result.status === 'off_route' || /\bnow\b/i.test(result.text) });
       if (!valid(token)) return;
       if (result.status === 'arrived') { halt('arrived'); return; }
       if (result.status === 'no_route') {
@@ -121,16 +133,25 @@ export function useLiveGuidance(options: Options) {
     if (!Number.isFinite(fix.lat) || Math.abs(fix.lat) > 90 || !Number.isFinite(fix.lon) || Math.abs(fix.lon) > 180) {
       fail(words().navigationLocationUnavailable, token); return;
     }
-    queued.current = fix; schedule(token);
+    latestFix.current = fix; queued.current = fix; urgent.current = true; schedule(token);
+  }
+  function refreshHeading() {
+    if (!active.current || !latestFix.current) return;
+    const heading = latest.current.getHeading?.();
+    if (heading === undefined) return;
+    const difference = lastHeading.current === undefined ? Infinity : Math.abs((heading - lastHeading.current + 540) % 360 - 180);
+    if (difference <= 25) return;
+    queued.current = latestFix.current; urgent.current = true; schedule(generation.current);
   }
   async function start() {
     if (active.current || !mounted.current) return;
     if (!latest.current.sessionId) { latest.current.onError(words().navigationNeedSession); return; }
     const pendingStop = stopping.current;
     active.current = true; session.current = latest.current.sessionId;
+    latestResult.current = null;
     generation.current += 1; const token = generation.current;
     demo.current = latest.current.demo ?? new URLSearchParams(window.location.search).get('demo_walk') === '1';
-    replay.current = null; cursor.current = 0; lastSent.current = -Infinity;
+    replay.current = null; cursor.current = 0; lastSent.current = -Infinity; lastHeading.current = undefined; hiddenWarning.current = false;
     update({ active: true, status: 'locating', routeLine: null });
     // Request synchronously from the Start gesture; acquiring the lock is optional.
     void acquireWake(token);
@@ -159,7 +180,16 @@ export function useLiveGuidance(options: Options) {
   function stop() { halt(); }
   useEffect(() => {
     mounted.current = true;
-    const visibility = () => { if (active.current) void acquireWake(generation.current); };
+    const visibility = () => {
+      if (!active.current) return;
+      if (document.visibilityState === 'hidden') {
+        releaseWake();
+        if (!hiddenWarning.current) {
+          hiddenWarning.current = true;
+          latest.current.onMessage(words().navigationBackground, { interrupt: true });
+        }
+      } else void acquireWake(generation.current);
+    };
     const escape = (event: KeyboardEvent) => { if (event.key === 'Escape' && active.current) halt(); };
     document.addEventListener('visibilitychange', visibility);
     window.addEventListener('keydown', escape);
@@ -169,6 +199,6 @@ export function useLiveGuidance(options: Options) {
       window.removeEventListener('keydown', escape);
     };
   }, []);
-  useEffect(() => { if (session.current && session.current !== options.sessionId) halt(); }, [options.sessionId]);
-  return { ...state, start, stop };
+  useEffect(() => { if (session.current && session.current !== options.sessionId) { latestResult.current = null; halt(); } }, [options.sessionId]);
+  return { ...state, start, stop, refreshHeading, getLatestResult: () => latestResult.current };
 }

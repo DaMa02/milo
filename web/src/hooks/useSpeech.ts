@@ -8,6 +8,7 @@ export interface SpeechControls {
   error: SpeechError | null;
   canRepeat: boolean;
   speak: (text: string, language: string) => void;
+  enqueue: (text: string, language: string, options?: { interrupt?: boolean }) => void;
   stop: () => void;
   repeat: () => void;
   rate: number;
@@ -46,11 +47,23 @@ export function useSpeech(): SpeechControls {
   const generation = useRef(0);
   const lastRequest = useRef<SpeechRequest | null>(null);
   const currentUtterance = useRef<SpeechSynthesisUtterance | null>(null);
+  const active = useRef(false);
+  const queued = useRef<SpeechRequest | null>(null);
+  const playRequest = useRef<(text: string, language: string) => void>(() => {});
+
+  const finish = useCallback((token: number, failure?: SpeechError) => {
+    if (!mounted.current || token !== generation.current) return;
+    active.current = false; setSpeaking(false);
+    if (failure) setError(failure);
+    const next = queued.current; queued.current = null;
+    if (next) playRequest.current(next.text, next.language);
+  }, []);
 
   // Invalidate handlers before cancel(): browsers can dispatch cancellation
   // synchronously, or deliver a delayed event after the next utterance starts.
   const cancelCurrent = useCallback(() => {
     generation.current += 1;
+    queued.current = null; active.current = false;
     if (gapTimer.current !== null) clearTimeout(gapTimer.current);
     gapTimer.current = null;
     const utterance = currentUtterance.current;
@@ -77,8 +90,7 @@ export function useSpeech(): SpeechControls {
   const speakFallback = useCallback((text: string, language: string, token: number) => {
     if (!mounted.current || !text.trim()) return;
     if (!browserSpeech) {
-      setSpeaking(false);
-      setError('unavailable');
+      finish(token, 'unavailable');
       return;
     }
 
@@ -99,37 +111,35 @@ export function useSpeech(): SpeechControls {
             ?? safe.find((item) => /Google UK English (Female|Male)/i.test(item.name))
             ?? safe.find((item) => item.lang.toLowerCase() === utterance.lang.toLowerCase()) ?? safe[0];
           if (voice) utterance.voice = voice;
-          else if (voices.length) { setSpeaking(false); setError('unavailable'); return; }
+          else if (voices.length) { finish(token, 'unavailable'); return; }
           const isCurrent = () => mounted.current && token === generation.current && currentUtterance.current === utterance;
           utterance.onstart = () => { if (isCurrent()) setSpeaking(true); };
           utterance.onend = () => {
             if (!isCurrent()) return;
             currentUtterance.current = null;
             if (index + 1 < sentences.length) gapTimer.current = setTimeout(() => { gapTimer.current = null; readSentence(index + 1); }, 300);
-            else setSpeaking(false);
+            else finish(token);
           };
           utterance.onerror = (event) => {
             if (!isCurrent()) return;
-            currentUtterance.current = null; setSpeaking(false); setError(event.error);
+            currentUtterance.current = null; finish(token, event.error);
           };
           currentUtterance.current = utterance;
           window.speechSynthesis.speak(utterance);
-        } catch { if (token === generation.current) { currentUtterance.current = null; setSpeaking(false); setError('failed'); } }
+        } catch { if (token === generation.current) { currentUtterance.current = null; finish(token, 'failed'); } }
       };
       setSpeaking(true);
       readSentence(0);
     } catch {
       // Also invalidate any events queued before speak() threw.
-      generation.current += 1;
       currentUtterance.current = null;
-      setSpeaking(false);
-      setError('failed');
+      finish(token, 'failed');
     }
-  }, [browserSpeech]);
+  }, [browserSpeech, finish]);
 
   const speak = useCallback((text: string, language: string) => {
     if (!mounted.current || !text.trim()) return;
-    cancelCurrent(); setError(null); setSpeaking(true); setCanRepeat(true);
+    cancelCurrent(); active.current = true; setError(null); setSpeaking(true); setCanRepeat(true);
     lastRequest.current = { text, language };
     const token = generation.current;
     const current = () => mounted.current && token === generation.current;
@@ -160,13 +170,20 @@ export function useSpeech(): SpeechControls {
         }
         if (!current()) return;
         player.src = url; player.playbackRate = rateRef.current;
-        player.onended = () => { if (current()) setSpeaking(false); };
+        player.onended = () => finish(token);
         player.onerror = () => { if (current()) { player.onended = null; player.onerror = null; fallback(); } };
         await player.play();
       } catch { fallback(); }
       finally { clearTimeout(timeout); if (current()) download.current = null; }
     })();
-  }, [cancelCurrent, player, speakFallback]);
+  }, [cancelCurrent, player, speakFallback, finish]);
+  playRequest.current = speak;
+
+  const enqueue = useCallback((text: string, language: string, options: { interrupt?: boolean } = {}) => {
+    if (!mounted.current || !text.trim()) return;
+    if (options.interrupt || !active.current) speak(text, language);
+    else queued.current = { text, language };
+  }, [speak]);
 
   const repeat = useCallback(() => {
     const request = lastRequest.current;
@@ -202,5 +219,5 @@ export function useSpeech(): SpeechControls {
     };
   }, [cancelCurrent, player]);
 
-  return { supported, speaking, error, canRepeat, speak, stop, repeat, rate, setRate, prime };
+  return { supported, speaking, error, canRepeat, speak, enqueue, stop, repeat, rate, setRate, prime };
 }

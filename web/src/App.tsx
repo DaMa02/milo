@@ -25,6 +25,9 @@ import type { VoiceCommand } from './api/interpret';
 import { useLiveGuidance } from './hooks/useLiveGuidance';
 import { useCompass } from './hooks/useCompass';
 import { useVoiceStops } from './hooks/useVoiceStops';
+import { useSpokenResult } from './hooks/useSpokenResult';
+import type { SpeakKind } from './api/speak';
+import miloMark from './assets/milo-mark.svg';
 
 const language = 'en';
 const localize = (text: string) => text;
@@ -43,11 +46,18 @@ export function App() {
   const [source, setSource] = useState<'saved' | 'connected'>(savedDevelopment ? 'saved' : 'connected');
   const [answer, setAnswer] = useState<Answer | null>(null);
   const [lastReading, setLastReading] = useState('');
+  const [spokenAnswer, setSpokenAnswer] = useState('');
+  const lastSpoken = useRef('');
+  const lastUtterance = useRef('');
+  const introduced = useRef(false);
+  const audioOwner = useRef<'answer' | 'navigation' | null>(null);
+  const lastGuidance = useRef('');
+  const pendingGuidance = useRef<{ text: string; options?: { interrupt?: boolean } } | null>(null);
   const [positionUncertain, setPositionUncertain] = useState(false);
   const [commandText, setCommandText] = useState('');
   const [destination, setDestination] = useState<Place | null>(null);
   const [expandedAnswer, setExpandedAnswer] = useState(false);
-  const [readingUnknowns, setReadingUnknowns] = useState<string[]>([]);
+  const [, setReadingUnknowns] = useState<string[]>([]);
   const [voiceFailures, setVoiceFailures] = useState(0);
   const [replanDestination, setReplanDestination] = useState<Place | null>(null);
   const deferredOriginCommand = useRef<VoiceCommand | null>(null);
@@ -64,7 +74,14 @@ export function App() {
   const mutePendingSpeech = useRef(false);
   const compassNotice = useRef<string | null>(null);
   const t = dictionaries.en;
-  const compass = useCompass({ onDenied: () => {
+  const spoken = useSpokenResult({ onText: (response) => {
+    const notice = !mutePendingSpeech.current ? compassNotice.current : null;
+    const text = notice ? `${notice} ${response}` : response;
+    if (notice) compassNotice.current = null;
+    setSpokenAnswer(text); lastSpoken.current = text; announce(text);
+    if (automaticRef.current && !mutePendingSpeech.current && speech.supported) { audioOwner.current = 'answer'; speech.speak(text, language); }
+  }, onWaiting: () => announce(t.commandStillWorking) });
+  const compass = useCompass({ onHeadingChange: () => guidance.refreshHeading(), onDenied: () => {
     compassNotice.current = t.compassDenied;
     setError(t.compassDenied); announce(t.compassDenied);
   } });
@@ -84,7 +101,8 @@ export function App() {
 
   const journey = usePlan(session.current, source === 'saved', run, planResult, t);
   const stops = useVoiceStops({ sessionId: session.current?.id ?? null, plan: journey.plan,
-    busy, uncertain: journey.uncertain, error: journey.error, t, onMutate: journey.mutate, onMessage: present });
+    busy, uncertain: journey.uncertain, error: journey.error, t, onMutate: journey.mutate,
+    onMessage: (text, plan) => present(text, plan?.unknown ?? [], plan ? { kind: 'plan', result: plan } : undefined) });
   const planMatchesDestination = !destination || !journey.plan || sameDestination(journey.plan, destination);
   const places = usePlaces({ session: session.current, t, getHeading: compass.getHeading, onSessionReady: acceptSession,
     onDestinationChanged: (place) => {
@@ -95,26 +113,38 @@ export function App() {
       if (session.current) session.current.destination = place;
       setReplanDestination(place);
       setView('overview'); setAnswer(null);
-    }, onMessage: present });
+    }, onMessage: (text, details) => {
+      if (details?.pending) { announce(text); return; }
+      present(text, [], { kind: details?.kind ?? 'places', result: details?.result ?? { text } });
+    } });
   const commands = useVoiceCommands({ sessionId: session.current?.id, busy: busy || places.busy,
     context: { view, pending: places.pending ?? stops.pending ?? (!session.current ? 'origin' : null),
       stop_candidates: stops.candidates.map((candidate) => candidate.place), last_action: stops.lastAction,
       candidates: places.candidates.map((candidate) => candidate.name), has_destination: destination !== null,
       routes: planMatchesDestination ? journey.plan?.routes.map((route) => ({ id: route.id, label: route.summary })) ?? [] : [] },
-    onAction: dispatchCommand, onStatus: present, t, onError: (cause) => {
+    onAction: dispatchCommand, onStatus: presentDirect, t, onError: (cause) => {
       const message = cause instanceof ApiError && typeof cause.detail === 'string' ? cause.detail : t.commandUnavailable;
       setError(message); present(message);
     }, onBusy: () => announce(t.commandStillWorking) });
-  const voice = useVoiceInput({ onTranscript: (text) => { mutePendingSpeech.current = false; setVoiceFailures(0); setCommandText(text); void commands.send(text); },
+  const voice = useVoiceInput({ onTranscript: (text) => { mutePendingSpeech.current = false; setVoiceFailures(0); setCommandText(text); sendCommand(text); },
     onError: (kind) => { mutePendingSpeech.current = false; setVoiceFailures((count) => count + 1); const message = t[`voiceError:${kind}`]; setError(message); present(message); } });
   const guidance = useLiveGuidance({ sessionId: session.current?.id ?? null, origin: session.current?.origin, getHeading: compass.getHeading,
-    t, onMessage: (text) => {
-      // Guidance warnings take precedence over a current reading or its mute flag.
-      // Close the recorder before speaking so guidance cannot become an input.
-      voice.cancel();
-      speech.stop(); setLastReading(text); setReadingUnknowns([]); announce(text);
-      speech.speak(text, language);
-    }, onError: (text) => { setError(text); present(text); } });
+    t, onMessage: receiveGuidance, onError: (text) => { setError(text); present(text); } });
+  function receiveGuidance(text: string, options?: { interrupt?: boolean }) {
+    lastGuidance.current = text;
+    if (voice.state === 'listening' && !options?.interrupt) { pendingGuidance.current = { text, options }; return; }
+    pendingGuidance.current = null;
+    voice.cancel(); spoken.cancel(); setLastReading(text); setSpokenAnswer(text); lastSpoken.current = text;
+    setReadingUnknowns([]); setExpandedAnswer(false); announce(text);
+    const interrupt = options?.interrupt || audioOwner.current !== 'navigation';
+    audioOwner.current = 'navigation'; speech.enqueue(text, language, { interrupt });
+  }
+  useEffect(() => {
+    if (voice.state !== 'listening' && pendingGuidance.current) {
+      const pending = pendingGuidance.current; pendingGuidance.current = null;
+      receiveGuidance(pending.text, pending.options);
+    }
+  }, [voice.state]);
   useEffect(() => { if (journey.pending) guidance.stop(); }, [journey.pending]);
   useEffect(() => {
     if (readyForGuidance && !busy && !journey.pending && !journey.uncertain && journey.plan && planMatchesDestination) {
@@ -150,7 +180,8 @@ export function App() {
       else if (journey.plan && !journey.uncertain) {
         // A successful recovery must keep the confirmed stop and unknowns in
         // the repeatable answer, without replaying an older mutation's changes.
-        present(`${journey.error} ${planReading(journey.plan, false)}`, journey.plan.unknown);
+        present(`${journey.error} ${planReading(journey.plan, false)}`, journey.plan.unknown,
+          { kind: 'error', result: { text: journey.error, plan: journey.plan } });
       } else present(journey.error);
     }
   }, [journey.error, journey.uncertain, journey.plan, announce]);
@@ -165,10 +196,11 @@ export function App() {
       setReadyForGuidance(true); return;
     }
     if (kind === 'candidates') {
-      present([plan.text, ...plan.unknown].join(' '), plan.unknown);
+      present([plan.text, ...plan.unknown].join(' '), plan.unknown, { kind: 'plan', result: plan });
       return;
     }
-    present(planReading(plan, changed), plan.unknown);
+    present(savedDevelopment ? planReading(plan, changed) : [plan.text, ...plan.differences, ...plan.unknown].join(' '),
+      plan.unknown, { kind: 'plan', result: plan });
   }
   function planReading(plan: Plan, changed: boolean) {
     const selected = findSelectedRoute(plan);
@@ -178,7 +210,7 @@ export function App() {
     const stop = plan.stop ? `${t.confirmedStop}: ${plan.stop.place}, ${plan.stop.duration_min} ${t.minutes}. ${t.stopHoursUnknown}` : '';
     return [!changed ? t.confirmedPlan : '', summary, stop, ...plan.unknown].filter(Boolean).join(' ');
   }
-  function stopReading() { mutePendingSpeech.current = true; speech.stop(); }
+  function stopReading() { mutePendingSpeech.current = true; pendingGuidance.current = null; audioOwner.current = null; spoken.cancel(); speech.stop(); }
   function acceptSession(next: AreaSession) {
     stops.cancel();
     guideAfterPlan.current = false;
@@ -191,7 +223,7 @@ export function App() {
     const deferred = deferredOriginCommand.current;
     deferredOriginCommand.current = null;
     if (deferred) setReadyOriginCommand(deferred);
-    else present([next.overview.text, ...next.overview.unknown].join(' '), next.overview.unknown);
+    else present([next.overview.text, ...next.overview.unknown].join(' '), next.overview.unknown, { kind: 'overview', result: next.overview });
   }
   function startOver() {
     stops.cancel();
@@ -202,13 +234,25 @@ export function App() {
     setReplanDestination(null);
     voice.cancel(); commands.cancel(); places.cancel(); stopReading();
     session.current = null; setOverview(null); setStep(null); setAnswer(null); setDestination(null);
-    setLastReading(''); setError(null); setPositionUncertain(false); setView('overview');
+    setLastReading(''); setSpokenAnswer(''); lastSpoken.current = ''; setError(null); setPositionUncertain(false); setView('overview');
     announce(t.placesIntro);
   }
   function dispatchCommand(command: VoiceCommand, utterance = '') {
+    if (utterance) lastUtterance.current = utterance;
     // Interpretation has already consumed this one-turn hint. Keep any pending
     // candidate conversation while discarding the hint for the following turn.
     stops.clearLastAction();
+    if (guidance.active && (/^(where am i|how far is it|how far to go)[.!?]?$/i.test(utterance.trim())
+      || (command.action === 'explore' && command.params.command === 'where'))) {
+      const physical = guidance.getLatestResult();
+      if (!physical) { present(t.navigationPositionPending); return; }
+      const fallback = [physical.next ? `${physical.next.instruction} in ${physical.next.distance_m} m.` : '',
+        physical.remaining_m !== null && physical.remaining_min !== null
+          ? `${physical.remaining_m} m, about ${physical.remaining_min} minutes to ${destination?.name ?? t.destination}.` : '']
+        .filter(Boolean).join(' ') || t.navigationPositionPending;
+      present(fallback, [], { kind: 'navigate', result: physical });
+      return;
+    }
     if (destination && /^(let['’]?s go|take me there|guide me|start navigation)[.!?]?$/i.test(utterance.trim())) {
       command = { action: 'navigate', params: { state: 'start' } };
     }
@@ -232,9 +276,12 @@ export function App() {
         }
         if (journey.uncertain) { journey.refresh(); return; }
         void guidance.start(); return;
-      case 'repeat': mutePendingSpeech.current = false; speech.speak(readingText, language); return;
-      case 'help': present(t.commandHelp); return;
-      case 'chat': present(command.params.text); return;
+      case 'repeat':
+        mutePendingSpeech.current = false;
+        audioOwner.current = guidance.active && lastGuidance.current ? 'navigation' : 'answer';
+        speech.speak((guidance.active && lastGuidance.current) || lastSpoken.current || readingText.split(/(?<=[.!?])\s/)[0], language); return;
+      case 'help': presentDirect(t.voiceWelcome); return;
+      case 'chat': presentDirect(command.params.text); return;
       case 'speed': speech.setRate(speech.rate + (command.params.change === 'faster' ? 0.15 : -0.15)); present(t.commandSpeedChanged); return;
       case 'start_over': startOver(); return;
       case 'set_origin': stops.cancel(); guidance.stop(); void places.setOriginByQuery(command.params.query); return;
@@ -244,7 +291,7 @@ export function App() {
         if (stops.pending === 'stop' && !places.pending) stops.confirm(command.params.answer, command.params.index);
         else void places.confirm(command.params.answer, command.params.index);
         return;
-      case 'none': present(command.params.reason === 'model_unavailable' ? t.commandUnavailable : t.commandNoFit); return;
+      case 'none': presentDirect(t.voiceWelcome); return;
       case 'overview': if (overview) showOverview(); else present(t.placesIntro); return;
       case 'explore': {
         if (!overview) { present(t.placesIntro); return; }
@@ -259,13 +306,13 @@ export function App() {
       case 'ask': if (overview) ask(command.params); else present(t.placesIntro); return;
       case 'more': {
         setExpandedAnswer(true);
-        present(answer?.text ?? (view === 'plan' ? journey.plan?.text : view === 'explore' ? step?.text : overview?.details.join(' ')) ?? t.commandHelp);
+        presentDirect(answer?.text ?? (view === 'plan' ? journey.plan?.text : view === 'explore' ? step?.text : overview?.details.join(' ')) ?? t.voiceWelcome);
         return;
       }
-      case 'unknowns': present((answer?.unknown ?? (view === 'plan' ? journey.plan?.unknown : overview?.unknown))?.join(' ') || t.commandNoUnknowns); return;
+      case 'unknowns': presentDirect((answer?.unknown ?? (view === 'plan' ? journey.plan?.unknown : overview?.unknown))?.join(' ') || t.commandNoUnknowns); return;
       case 'sources': {
         const facts = answer?.facts ?? (view === 'plan' ? journey.plan?.facts : view === 'explore' ? step?.facts : overview?.facts);
-        present(facts?.length ? [...new Set(facts.flatMap((fact) => [fact.source, ...fact.evidence]))].join('. ') : t.commandNoSources); return;
+        presentDirect(facts?.length ? [...new Set(facts.flatMap((fact) => [fact.source, ...fact.evidence]))].join('. ') : t.commandNoSources); return;
       }
       case 'route':
         if (!overview) { present(t.placesIntro); return; }
@@ -273,7 +320,8 @@ export function App() {
         if (journey.uncertain) { journey.refresh(); return; }
         if (/^other routes[.!?]?$/i.test(utterance.trim()) && journey.plan && planMatchesDestination) {
           setView('plan'); setAnswer(null);
-          present([journey.plan.routes.map((route) => route.summary).join(' '), t.routeChooseOffered, ...journey.plan.unknown].join(' '), journey.plan.unknown);
+          present([journey.plan.routes.map((route) => route.summary).join(' '), t.routeChooseOffered, ...journey.plan.unknown].join(' '), journey.plan.unknown,
+            { kind: 'plan', result: journey.plan });
           return;
         }
         if (journey.plan && planMatchesDestination) { setView('plan'); setAnswer(null); planResult(journey.plan, false); return; }
@@ -323,22 +371,32 @@ export function App() {
     return Math.abs(plan.destination.lat - place.lat) < 0.00001 && Math.abs(plan.destination.lon - place.lon) < 0.00001;
   }
 
-  function present(text: string, unknowns: string[] = []) {
-    if (compassNotice.current && !mutePendingSpeech.current) { text = `${compassNotice.current} ${text}`; compassNotice.current = null; }
+  function presentDirect(text: string) {
+    spoken.cancel(); setExpandedAnswer(false); setLastReading(text); setSpokenAnswer(text); lastSpoken.current = text;
+    setReadingUnknowns([]); announce(text);
+    if (automaticRef.current && !mutePendingSpeech.current && speech.supported) { audioOwner.current = 'answer'; speech.speak(text, language); }
+  }
+  function sendCommand(text: string) { lastUtterance.current = text; spoken.cancel(); void commands.send(text); }
+  function present(text: string, unknowns: string[] = [], narration?: { kind: SpeakKind; result: unknown }) {
     setReadingUnknowns(unknowns);
-    setLastReading(text);
-    announce(text);
-    if (automaticRef.current && !mutePendingSpeech.current && speech.supported) speech.speak(text, language);
+    setLastReading(text); setSpokenAnswer(''); setExpandedAnswer(false);
+    if (savedDevelopment) {
+      announce(text);
+      if (automaticRef.current && !mutePendingSpeech.current && speech.supported) speech.speak(text, language);
+      return;
+    }
+    void spoken.prepare({ utterance: lastUtterance.current, lang: language, ...(session.current ? { session_id: session.current.id } : {}),
+      kind: narration?.kind ?? 'error', result: narration?.result ?? { text }, fallbackText: text });
   }
   async function run(action: () => Promise<void>, status = t.working, unavailable = t.unavailableOffline) {
     if (busyRef.current) return;
-    busyRef.current = true; mutePendingSpeech.current = false; setBusy(true); setError(null); speech.stop(); announce(status);
+    busyRef.current = true; mutePendingSpeech.current = false; setBusy(true); setError(null); spoken.cancel(); speech.stop(); announce(status);
     try { await action(); }
     catch (cause) {
       const message = cause instanceof ApiError && cause.kind === 'unavailable' ? unavailable
         : cause instanceof ApiError && cause.kind === 'expired' ? t.sessionExpired
         : cause instanceof ApiError && cause.kind === 'network' ? t.connectionFailed : t.invalidResponse;
-      setError(message); announce(message);
+      setError(message); present(message);
     } finally { busyRef.current = false; setBusy(false); }
   }
   function openArea() {
@@ -360,7 +418,7 @@ export function App() {
       }
       const focusResult = followsBranch && document.activeElement === initiator;
       setStep(result); setAnswer(null); setPositionUncertain(false); setView('explore');
-      present(exploreSummary(result, localize, t));
+      present(savedDevelopment ? exploreSummary(result, localize, t) : result.text, [], { kind: 'explore', result });
       if (focusResult) requestAnimationFrame(() => {
         if (document.activeElement === initiator || (!initiator.isConnected && document.activeElement === document.body)) {
           if (savedDevelopment) resultHeading.current?.focus();
@@ -374,19 +432,18 @@ export function App() {
       if (!session.current) throw new ApiError('expired');
       const result = await session.current.ask(request);
       setAnswer(result);
-      const short = [result.text.split(/(?<=[.!?])\s+(?=[A-Z])/).slice(0, 2).join(' '), ...result.unknown].join(' ');
-      setLastReading(short); setReadingUnknowns(result.unknown); announce(savedDevelopment ? t.answerReady : short);
-      if (automaticRef.current && !mutePendingSpeech.current && speech.supported) speech.speak(short, language);
+      present([result.text, ...result.unknown].join(' '), result.unknown, { kind: 'answer', result });
+      if (savedDevelopment) announce(t.answerReady);
     }, t.asking, source === 'saved' ? t.unavailableAnswer : t.connectionFailed);
   }
   function showOverview() {
     if (busyRef.current) return;
-    mutePendingSpeech.current = false; speech.stop(); setView('overview'); setAnswer(null); setError(null); present(overviewText, overview?.unknown);
+    mutePendingSpeech.current = false; speech.stop(); setView('overview'); setAnswer(null); setError(null); present(overviewText, overview?.unknown, { kind: 'overview', result: overview });
   }
   function showExplore() {
     if (busyRef.current) return;
     if (!step) { explore('start'); return; }
-    mutePendingSpeech.current = false; speech.stop(); setView('explore'); setError(null); present(exploreSummary(step, localize, t));
+    mutePendingSpeech.current = false; speech.stop(); setView('explore'); setError(null); present(savedDevelopment ? exploreSummary(step, localize, t) : step.text, [], { kind: 'explore', result: step });
   }
   function showPlan() {
     if (busyRef.current) return;
@@ -396,11 +453,11 @@ export function App() {
   }
   const result = view === 'overview' ? overview : step;
   const displayed = lastReading || (overview ? readingText : t.placesIntro);
-  const shortAnswer = displayed.split(/(?<=[.!?])\s+(?=[A-Z])/).slice(0, 2).join(' ');
+  const shortAnswer = spokenAnswer || displayed.split(/(?<=[.!?])\s+(?=[A-Z])/).slice(0, 2).join(' ');
   return <>
     <a className="skip-link" href="#main">{t.skipToMain}</a>
     <header className="app-header">
-      <span className="wordmark">{t.appName}</span>
+      <span className="wordmark"><img className="brand-mark" src={miloMark} width="44" height="44" alt="" aria-hidden="true" /><span>{t.appName}</span></span>
     </header>
     <main id="main" tabIndex={-1} className={savedDevelopment ? 'saved-development' : 'single-screen'}>
       <h1>{t.title}</h1>
@@ -408,15 +465,21 @@ export function App() {
         <div className="voice-console">
           <div className="talk-dock" ref={talkDock}>
             <TalkButton state={voice.state}
+              firstGesturePending={!introduced.current}
+              onFirstGesture={() => {
+                if (introduced.current) return false;
+                introduced.current = true; automaticRef.current = true; setAutomatic(true); mutePendingSpeech.current = false;
+                presentDirect(t.voiceWelcome); return true;
+              }}
               onBeforeStart={stopReading}
               onGesture={() => { stopReading(); speech.prime(); void compass.requestPermission(); }}
               onStart={() => { commands.cancel(); mutePendingSpeech.current = true; automaticRef.current = true; setAutomatic(true); return voice.start(); }}
               onStop={() => voice.stop(true)} onCancel={voice.cancel}
               labels={{ idle: t.talk, listening: t.finishTalking, transcribing: t.voiceThinking, hint: t.talkHint }} />
-            <p className="voice-state">{voice.state === 'listening' ? t.voiceListening : voice.state === 'transcribing' || commands.interpreting || busy || places.busy ? t.voiceThinking : speech.speaking ? t.voiceSpeaking : t.voiceIdle}</p>
+            <p className="voice-state">{voice.state === 'listening' ? t.voiceListening : voice.state === 'transcribing' || commands.interpreting || busy || places.busy ? t.voiceThinking : spoken.pending ? t.commandStillWorking : speech.speaking ? t.voiceSpeaking : t.voiceIdle}</p>
             <p className="compass-hint">{t.compassHint}</p>
           </div>
-          {(debugControls || voiceFailures >= 2) && <form className="unified-command" onSubmit={(event) => { event.preventDefault(); voice.cancel(); void commands.send(commandText); }}>
+          {(debugControls || voiceFailures >= 2) && <form className="unified-command" onSubmit={(event) => { event.preventDefault(); voice.cancel(); sendCommand(commandText); }}>
             <label htmlFor="unified-command">{t.commandInput}</label>
             <div className="input-row"><input id="unified-command" value={commandText} maxLength={500} autoComplete="off"
               onChange={(event) => setCommandText(event.target.value)} />{debugControls && <button type="submit">{t.commandSend}</button>}</div>
@@ -424,10 +487,9 @@ export function App() {
           <section className="latest-answer" aria-labelledby="latest-answer-heading">
             <h2 id="latest-answer-heading" tabIndex={-1}>{t.latestAnswer}</h2>
             {overview && <p className="journey-endpoints">{t.journeyOrigin}: {overview.reference.place}{destination ? ` · ${t.destination}: ${destination.name}` : ''}</p>}
-            <p className="latest-answer-text">{!debugControls || expandedAnswer ? displayed : shortAnswer}</p>
-            {debugControls && !expandedAnswer && readingUnknowns.some((item) => !shortAnswer.includes(item)) && <ul className="warnings">{readingUnknowns.filter((item) => !shortAnswer.includes(item)).map((item) => <li key={item}>{item}</li>)}</ul>}
-            {debugControls && displayed !== shortAnswer && <button type="button" aria-expanded={expandedAnswer} onClick={() => setExpandedAnswer(!expandedAnswer)}>{expandedAnswer ? t.commandLess : t.details}</button>}
-            {debugControls && <div className="button-row compact-speech"><button type="button" disabled={!speech.supported} onClick={() => { mutePendingSpeech.current = false; speech.speak(displayed, language); }}>{t.compactListen}</button>
+            <p className="latest-answer-text">{expandedAnswer ? displayed : shortAnswer}</p>
+            {displayed !== shortAnswer && <button type="button" aria-expanded={expandedAnswer} onClick={() => setExpandedAnswer(!expandedAnswer)}>{expandedAnswer ? t.commandLess : t.details}</button>}
+            {debugControls && <div className="button-row compact-speech"><button type="button" disabled={!speech.supported} onClick={() => { mutePendingSpeech.current = false; speech.speak(expandedAnswer ? displayed : lastSpoken.current || shortAnswer, language); }}>{t.compactListen}</button>
               <button type="button" onClick={() => { voice.cancel(); commands.cancel(); guidance.stop(); stopReading(); }}>{t.compactStop}</button></div>}
             {debugControls && view === 'explore' && step && <ol className="branch-actions">{step.branches.map((branch, index) => <li key={`${branch.name}-${index}`}>
               <button type="button" aria-disabled={busy} onClick={() => { if (!busy) explore('take', index); }}>{t.followBranch} {branch.relative_direction}: {branch.name}</button>
