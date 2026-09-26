@@ -17,11 +17,13 @@ interface BrowserState {
 }
 type TestWindow = Window & { __navigationVoice: BrowserState };
 
-async function mockEngine(page: Page, delayNavigation = false) {
+async function mockEngine(page: Page, delayNavigation = false, delayPlan = false) {
   const requests: Request[] = [], unexpected: string[] = [], errors: string[] = [];
   let releaseNavigation: (() => void) | undefined;
   let navigationSettled = false;
   const gate = new Promise<void>((resolve) => { releaseNavigation = resolve; });
+  let releasePlan!: () => void;
+  const planGate = new Promise<void>((resolve) => { releasePlan = resolve; });
   page.on('pageerror', (error) => errors.push(error.message));
   await page.addInitScript(({ origin }) => {
     const callbacks = new Map<number, PositionCallback>();
@@ -72,6 +74,7 @@ async function mockEngine(page: Page, delayNavigation = false) {
         yes: { action: 'confirm', params: { answer: 'yes', index: 0 } },
         'how do I get there': { action: 'route', params: {} },
         'start guidance': { action: 'navigate', params: { state: 'start' } },
+        "let's go": { action: 'explore', params: { command: 'forward' } },
         'finish guidance': { action: 'navigate', params: { state: 'stop' } },
       };
       const command = commands[String(body.utterance)];
@@ -86,7 +89,10 @@ async function mockEngine(page: Page, delayNavigation = false) {
     }
     if (path === '/api/session') return route.fulfill({ json: { session_id: 'navigation-voice', overview } });
     if (path === `${sessionPath}/destination`) return route.fulfill({ json: { destination: initial.destination, straight_line_m: 350 } });
-    if (path === `${sessionPath}/plan`) return route.fulfill({ json: initial });
+    if (path === `${sessionPath}/plan`) {
+      if (delayPlan) await planGate;
+      return route.fulfill({ json: initial });
+    }
     if (path === `${sessionPath}/navigate/stop`) return route.fulfill({ json: { status: 'stopped' } });
     if (path === `${sessionPath}/navigate`) {
       if (delayNavigation) await gate;
@@ -105,23 +111,28 @@ async function mockEngine(page: Page, delayNavigation = false) {
     unexpected.push(path);
     return route.fulfill({ status: 404, json: { detail: 'Unexpected test request' } });
   });
-  return { requests, unexpected, errors, release: () => releaseNavigation?.(), settled: () => navigationSettled };
+  return { requests, unexpected, errors, release: () => releaseNavigation?.(), releasePlan, settled: () => navigationSettled };
 }
 
 async function send(page: Page, text: string) {
   await input(page).fill(text); await input(page).press('Enter');
 }
-async function openRoute(page: Page) {
+async function openOrigin(page: Page) {
   await page.goto('/?debug=1');
+  await expect(page.getByRole('button', { name: /^Talk/ })).toBeFocused();
   await send(page, 'start at Talent Garden');
   await expect(latest(page)).toContainText(`I found ${initial.origin.name}`);
   await send(page, 'yes');
   await expect(latest(page)).toContainText('Facing north from Talent Garden.');
+}
+async function chooseDestination(page: Page) {
   await send(page, 'go to viale Isonzo');
   await expect(latest(page)).toContainText(`I found ${initial.destination.name}`);
   await send(page, 'yes');
-  await expect(latest(page)).toContainText(`Your destination is ${initial.destination.name}.`);
-  await send(page, 'how do I get there');
+}
+async function openRoute(page: Page) {
+  await openOrigin(page);
+  await chooseDestination(page);
   await expect(latest(page)).toContainText('Route A, on foot, 14 minutes');
 }
 const browserState = (page: Page) => page.evaluate(() => {
@@ -129,12 +140,12 @@ const browserState = (page: Page) => page.evaluate(() => {
   return { events, watches, cleared };
 });
 
-test('interpreted navigation starts GPS, interrupts existing speech, reads guidance and stops through the command dispatcher', async ({ page }) => {
+test('lets go starts GPS despite an older forward interpretation, interrupts speech and stops through the command dispatcher', async ({ page }) => {
   const engine = await mockEngine(page);
   await openRoute(page);
   await latest(page).getByRole('button', { name: 'Listen', exact: true }).click();
-  expect((await browserState(page)).events.some((event) => event.kind === 'speak')).toBe(true);
-  await send(page, 'start guidance');
+  await expect.poll(async () => (await browserState(page)).events.some((event) => event.kind === 'speak')).toBe(true);
+  await send(page, "let's go");
   await expect.poll(async () => (await browserState(page)).watches).toBe(1);
   const beforeFix = (await browserState(page)).events.length;
   await page.evaluate(() => (window as TestWindow).__navigationVoice.emit());
@@ -150,6 +161,8 @@ test('interpreted navigation starts GPS, interrupts existing speech, reads guida
   await send(page, 'finish guidance');
   await expect.poll(() => engine.requests.filter(({ path }) => path === `${sessionPath}/navigate/stop`).length).toBe(1);
   expect((await browserState(page)).cleared).toEqual([1]);
+  expect(engine.requests.filter(({ path }) => path.endsWith('/explore'))).toEqual([]);
+  expect(engine.requests.filter(({ path }) => path === `${sessionPath}/plan`)).toHaveLength(1);
   expect(engine.unexpected).toEqual([]); expect(engine.errors).toEqual([]);
 });
 
@@ -172,3 +185,41 @@ test('Escape stops GPS and the server while a navigation response is pending, an
   expect((await browserState(page)).events.some((event) => event.kind === 'speak' && event.text === delayedInstruction)).toBe(false);
   expect(engine.unexpected).toEqual([]); expect(engine.errors).toEqual([]);
 });
+
+for (const cancelStart of [false, true]) {
+  test(`navigation requested before a plan ${cancelStart ? 'can be cancelled with Escape while creation finishes' : 'creates it and starts guidance once after confirmation'}`, async ({ page }) => {
+    const engine = await mockEngine(page, false, true);
+    await openOrigin(page);
+    await send(page, 'start guidance');
+    await expect(latest(page)).toContainText('Where do you want to go? Say a place or address.');
+    expect(engine.requests.filter(({ path }) => path === `${sessionPath}/plan`)).toEqual([]);
+    await chooseDestination(page);
+    await expect.poll(() => engine.requests.filter(({ path }) => path === `${sessionPath}/plan`).length).toBe(1);
+    expect((await browserState(page)).watches).toBe(0);
+    if (cancelStart) await page.keyboard.press('Escape');
+    engine.releasePlan();
+    if (cancelStart) {
+      await expect(latest(page)).toContainText(initial.routes[0].summary);
+      await expect(page.locator('.voice-state')).toHaveText('Ready');
+      expect((await browserState(page)).watches).toBe(0);
+      expect(engine.requests.filter(({ path }) => path.includes('/navigate'))).toEqual([]);
+    } else {
+      await expect.poll(async () => (await browserState(page)).watches).toBe(1);
+      await page.evaluate(() => (window as TestWindow).__navigationVoice.emit());
+      try {
+        await expect.poll(() => engine.requests.filter(({ path }) => path === `${sessionPath}/navigate`).length).toBe(1);
+        await expect(latest(page)).toContainText(instruction);
+      } catch (cause) {
+        const diagnostic = JSON.stringify({ browser: await browserState(page), requests: engine.requests });
+        await test.info().attach('navigation-state', { contentType: 'application/json', body: diagnostic });
+        throw new Error(`${cause instanceof Error ? cause.message : String(cause)}\nNavigation state: ${diagnostic}`);
+      }
+      expect(engine.requests.filter(({ path }) => path === `${sessionPath}/navigate`)).toHaveLength(1);
+      await send(page, 'finish guidance');
+      await expect.poll(() => engine.requests.filter(({ path }) => path === `${sessionPath}/navigate/stop`).length).toBe(1);
+    }
+    expect(engine.requests.filter(({ path }) => path === `${sessionPath}/plan`)).toHaveLength(1);
+    expect(engine.requests.filter(({ path }) => path.endsWith('/explore'))).toEqual([]);
+    expect(engine.unexpected).toEqual([]); expect(engine.errors).toEqual([]);
+  });
+}

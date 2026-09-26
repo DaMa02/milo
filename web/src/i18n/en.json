@@ -324,7 +324,7 @@
   "showAllControls": "Show all controls",
   "commandLess": "Less",
   "commandHelp": "Say where you are starting, then where you want to go. Try where am I, tell me more, how do I get there, or start navigation.",
-  "commandNoFit": "I could not match that request. Try “where am I”, or open all controls.",
+  "commandNoFit": "I did not catch that. You can say: what's around me, where am I, I'm going to..., how do I get there, or help.",
   "commandUnavailable": "I could not understand that request right now. Try again, or open all controls.",
   "commandStillWorking": "Still working. You can stop the voice at any time.",
   "commandSpeedChanged": "Reading speed changed.",
@@ -351,5 +351,8 @@
   "routeChooseOffered": "Say the route you want, or ask to avoid a crossing or road type.",
   "routeFirst": "Ask for a route first, then tell me what you want to avoid.",
   "routePreviousDestination": "The previous plan is for {place}. The new destination has no confirmed plan yet. Ask for a route again.",
-  "navigationStopped": "Guidance stopped."
+  "navigationStopped": "Guidance stopped.",
+  "placesUsingLocation": "Using your location, {place}.",
+  "placesNeedStartingPoint": "Tell me where you are starting from.",
+  "routeStartPrompt": "Say 'let's go' to start, or 'other routes'."
 }

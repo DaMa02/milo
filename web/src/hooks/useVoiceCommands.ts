@@ -6,7 +6,7 @@ interface Options {
   context: CommandContext;
   sessionId?: string;
   busy: boolean;
-  onAction: (command: VoiceCommand) => void;
+  onAction: (command: VoiceCommand, utterance?: string) => void;
   onError: (error: unknown) => void;
   onBusy: () => void;
 }
@@ -30,6 +30,9 @@ export function useVoiceCommands(options: Options) {
       cancel(); current.current.onAction({ action: 'stop', params: {} }); return;
     }
     if (current.current.busy || inFlight.current) { current.current.onBusy(); return; }
+    if (/^other routes[.!?]?$/i.test(utterance.trim())) {
+      current.current.onAction({ action: 'route', params: {} }, utterance.trim()); return;
+    }
     const token = ++generation.current;
     const abort = new AbortController(); controller.current = abort;
     inFlight.current = true; setInterpreting(true);
@@ -37,7 +40,7 @@ export function useVoiceCommands(options: Options) {
       const command = await interpret(utterance.trim(), current.current.context, current.current.sessionId, abort.signal);
       if (token === generation.current) {
         if (current.current.busy && command.action !== 'stop') current.current.onBusy();
-        else current.current.onAction(command);
+        else current.current.onAction(command, utterance.trim());
       }
     } catch (error) {
       if (token === generation.current && !(error instanceof ApiError && error.kind === 'aborted')) current.current.onError(error);

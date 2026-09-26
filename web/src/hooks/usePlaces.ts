@@ -59,21 +59,29 @@ export function usePlaces(options: Options) {
   }
   function setOriginByQuery(queryText: string) { return query(queryText, 'origin'); }
   function setDestinationByQuery(queryText: string) { return query(queryText, 'destination'); }
-  async function setOriginHere() {
+  async function setOriginHere({ autoConfirm = false }: { autoConfirm?: boolean } = {}) {
     const { token, signal } = begin('origin');
-    if (!navigator.geolocation) { update({ phase: 'idle' }); say(callbacks.current.t.placesLocationUnavailable); return; }
+    if (!navigator.geolocation) { update({ phase: 'idle' }); say(autoConfirm ? callbacks.current.t.placesNeedStartingPoint : callbacks.current.t.placesLocationUnavailable); return; }
     say(callbacks.current.t.placesLocating);
     try {
       const position = await new Promise<GeolocationPosition>((resolve, reject) => navigator.geolocation.getCurrentPosition(resolve, reject,
         { enableHighAccuracy: true, timeout: 10_000, maximumAge: 60_000 }));
       if (!valid(token)) return;
       const { latitude, longitude, accuracy } = position.coords;
+      if (!Number.isFinite(latitude) || Math.abs(latitude) > 90 || !Number.isFinite(longitude) || Math.abs(longitude) > 180
+        || !Number.isFinite(accuracy) || accuracy < 0) throw new Error('Invalid location');
       const place = await reversePlace(latitude, longitude, signal);
+      if (!valid(token)) return;
+      const useDirectly = autoConfirm && accuracy <= 100;
       propose([{ name: place.label, lat: place.lat, lon: place.lon, kind: null, street: place.street, housenumber: place.housenumber, city: place.city, distance_m: 0 }], token,
-        callbacks.current.t.placesLocationConfirm.replace('{place}', place.label).replace('{accuracy}', String(Math.round(accuracy))));
+        useDirectly ? callbacks.current.t.placesUsingLocation.replace('{place}', place.label)
+          : callbacks.current.t.placesLocationConfirm.replace('{place}', place.label).replace('{accuracy}', String(Math.round(accuracy))));
+      if (useDirectly) await confirm('yes', undefined, true);
     } catch (cause) {
       if (!valid(token)) return;
-      if (cause && typeof cause === 'object' && 'code' in cause) {
+      if (autoConfirm) {
+        update({ phase: 'idle' }); say(callbacks.current.t.placesNeedStartingPoint);
+      } else if (cause && typeof cause === 'object' && 'code' in cause) {
         update({ phase: 'idle' });
         say(cause.code === 1 ? callbacks.current.t.placesLocationDenied : callbacks.current.t.placesLocationUnavailable);
       } else failure(cause, token);
@@ -83,7 +91,7 @@ export function usePlaces(options: Options) {
     if (current.current.phase !== 'confirming' || !Number.isInteger(index) || !current.current.candidates[index]) return;
     update({ selectedIndex: index });
   }
-  async function confirm(answer: 'yes' | 'no', index?: number) {
+  async function confirm(answer: 'yes' | 'no', index?: number, keepOriginMessage = false) {
     const flow = current.current;
     if (flow.phase !== 'confirming' || !flow.pending) return;
     const selectedIndex = index ?? flow.selectedIndex;
@@ -102,7 +110,7 @@ export function usePlaces(options: Options) {
     update({ phase: 'loading', selectedIndex });
     try {
       if (flow.pending === 'origin') {
-        say(callbacks.current.t.placesLoading.replace('{place}', place.name));
+        if (!keepOriginMessage) say(callbacks.current.t.placesLoading.replace('{place}', place.name));
         loadingTimer.current = setTimeout(() => { if (valid(token)) say(callbacks.current.t.placesFirstLoad); }, 10_000);
         const next = await createConnectedSession(place, { signal, timeoutMs: 120_000 });
         if (!valid(token)) return;

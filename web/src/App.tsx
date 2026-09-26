@@ -48,6 +48,10 @@ export function App() {
   const [readingUnknowns, setReadingUnknowns] = useState<string[]>([]);
   const [voiceFailures, setVoiceFailures] = useState(0);
   const [replanDestination, setReplanDestination] = useState<Place | null>(null);
+  const deferredOriginCommand = useRef<VoiceCommand | null>(null);
+  const [readyOriginCommand, setReadyOriginCommand] = useState<VoiceCommand | null>(null);
+  const guideAfterPlan = useRef(false);
+  const [readyForGuidance, setReadyForGuidance] = useState(false);
   const allControls = useRef<HTMLDetailsElement>(null);
   const talkDock = useRef<HTMLDivElement>(null);
   const session = useRef<AreaSession | null>(null);
@@ -75,10 +79,11 @@ export function App() {
   const planMatchesDestination = !destination || !journey.plan || sameDestination(journey.plan, destination);
   const places = usePlaces({ session: session.current, t, onSessionReady: acceptSession,
     onDestinationChanged: (place) => {
+      setReadyForGuidance(false);
       guidance.stop();
       setDestination(place);
       if (session.current) session.current.destination = place;
-      if (journey.plan) setReplanDestination(place);
+      setReplanDestination(place);
       setView('overview'); setAnswer(null);
     }, onMessage: present });
   const commands = useVoiceCommands({ sessionId: session.current?.id, busy: busy || places.busy,
@@ -100,7 +105,20 @@ export function App() {
       speech.speak(text, language);
     }, onError: (text) => { setError(text); present(text); } });
   useEffect(() => { if (journey.pending) guidance.stop(); }, [journey.pending]);
+  useEffect(() => {
+    if (readyForGuidance && !busy && !journey.pending && !journey.uncertain && journey.plan && planMatchesDestination) {
+      setReadyForGuidance(false);
+      void guidance.start();
+    }
+  }, [readyForGuidance, busy, journey.pending, journey.uncertain, journey.plan, planMatchesDestination]);
   useEffect(() => { if (speech.error) { setError(t.speechFailed); announce(t.speechFailed); } }, [speech.error, announce, t.speechFailed]);
+  useEffect(() => {
+    if (readyOriginCommand && overview && !busy && !places.busy) {
+      const command = readyOriginCommand;
+      setReadyOriginCommand(null);
+      dispatchCommand(command);
+    }
+  }, [readyOriginCommand, overview, busy, places.busy]);
   useEffect(() => {
     if (replanDestination && !places.busy && !busy) {
       setReplanDestination(null);
@@ -109,12 +127,14 @@ export function App() {
   }, [replanDestination, places.busy, busy]);
   useEffect(() => {
     const escape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') { event.preventDefault(); voice.cancel(); commands.cancel(); guidance.stop(); stopReading(); }
+      if (event.key === 'Escape') { event.preventDefault(); guideAfterPlan.current = false; setReadyForGuidance(false); voice.cancel(); commands.cancel(); guidance.stop(); stopReading(); }
     };
     window.addEventListener('keydown', escape, true); return () => window.removeEventListener('keydown', escape, true);
   });
   useEffect(() => {
     if (journey.error) {
+      guideAfterPlan.current = false;
+      setReadyForGuidance(false);
       if (!planMatchesDestination) present(t.routePreviousDestination.replace('{place}', journey.plan!.destination.name));
       else if (journey.plan && !journey.uncertain) {
         // A successful recovery must keep the confirmed stop and unknowns in
@@ -128,6 +148,10 @@ export function App() {
       present(t.routePreviousDestination.replace('{place}', plan.destination.name));
       return;
     }
+    if (guideAfterPlan.current && kind === 'plan' && plan.routes.length) {
+      guideAfterPlan.current = false;
+      setReadyForGuidance(true); return;
+    }
     if (kind === 'candidates') {
       present([plan.text, ...plan.unknown].join(' '), plan.unknown);
       return;
@@ -137,21 +161,29 @@ export function App() {
   function planReading(plan: Plan, changed: boolean) {
     const selected = findSelectedRoute(plan);
     const summary = changed && plan.differences.length ? plan.differences.join(' ')
-      : selected?.summary ?? [plan.routes.map((route) => route.summary).join(' '),
-        plan.routes.length ? t.routeChooseOffered : plan.text].join(' ');
+      : selected?.summary ?? [(plan.routes.find((route) => route.id === 'A') ?? plan.routes[0])?.summary ?? plan.text,
+        plan.routes.length ? t.routeStartPrompt : ''].join(' ');
     const stop = plan.stop ? `${t.confirmedStop}: ${plan.stop.place}, ${plan.stop.duration_min} ${t.minutes}. ${t.stopHoursUnknown}` : '';
     return [!changed ? t.confirmedPlan : '', summary, stop, ...plan.unknown].filter(Boolean).join(' ');
   }
   function stopReading() { mutePendingSpeech.current = true; speech.stop(); }
   function acceptSession(next: AreaSession) {
+    guideAfterPlan.current = false;
+    setReadyForGuidance(false);
     guidance?.stop();
     setReplanDestination(null);
     voice?.cancel(); commands?.cancel(); session.current = next;
     setOverview(next.overview); setStep(null); setAnswer(null); setDestination(next.destination ?? null);
     setPositionUncertain(false); setView('overview'); setError(null);
-    present([next.overview.text, ...next.overview.unknown].join(' '), next.overview.unknown);
+    const deferred = deferredOriginCommand.current;
+    deferredOriginCommand.current = null;
+    if (deferred) setReadyOriginCommand(deferred);
+    else present([next.overview.text, ...next.overview.unknown].join(' '), next.overview.unknown);
   }
   function startOver() {
+    guideAfterPlan.current = false;
+    setReadyForGuidance(false);
+    deferredOriginCommand.current = null; setReadyOriginCommand(null);
     guidance.stop();
     setReplanDestination(null);
     voice.cancel(); commands.cancel(); places.cancel(); stopReading();
@@ -159,13 +191,28 @@ export function App() {
     setLastReading(''); setError(null); setPositionUncertain(false); setView('overview');
     announce(t.placesIntro);
   }
-  function dispatchCommand(command: VoiceCommand) {
+  function dispatchCommand(command: VoiceCommand, utterance = '') {
+    if (destination && /^(let['’]?s go|take me there|guide me|start navigation)[.!?]?$/i.test(utterance.trim())) {
+      command = { action: 'navigate', params: { state: 'start' } };
+    }
+    const needsOrigin = ['overview', 'explore', 'ask', 'route', 'set_destination', 'more'].includes(command.action)
+      || (command.action === 'navigate' && command.params.state === 'start');
+    if (!session.current && needsOrigin) {
+      deferredOriginCommand.current = command;
+      if (places.pending === 'origin' && places.phase === 'confirming' && places.candidates.length) void places.confirm('yes');
+      else void places.setOriginHere({ autoConfirm: true });
+      return;
+    }
     switch (command.action) {
-      case 'stop': voice.cancel(); guidance.stop(); stopReading(); return;
+      case 'stop': guideAfterPlan.current = false; setReadyForGuidance(false); voice.cancel(); guidance.stop(); stopReading(); return;
       case 'navigate':
-        if (command.params.state === 'stop') { guidance.stop(); stopReading(); present(t.navigationStopped); return; }
-        if (!journey.plan) { present(t.routeFirst); return; }
-        if (!planMatchesDestination) { present(t.routePreviousDestination.replace('{place}', journey.plan.destination.name)); return; }
+        if (command.params.state === 'stop') { guideAfterPlan.current = false; setReadyForGuidance(false); guidance.stop(); stopReading(); present(t.navigationStopped); return; }
+        if (!journey.plan || !planMatchesDestination) {
+          guideAfterPlan.current = true;
+          if (destination) createVoicePlan(destination);
+          else { void places.setDestinationByQuery(''); present(t.routeDestinationRequired); }
+          return;
+        }
         if (journey.uncertain) { journey.refresh(); return; }
         void guidance.start(); return;
       case 'repeat': mutePendingSpeech.current = false; speech.speak(readingText, language); return;
@@ -203,6 +250,11 @@ export function App() {
         if (!overview) { present(t.placesIntro); return; }
         if (!destination) { void places.setDestinationByQuery(''); present(t.routeDestinationRequired); return; }
         if (journey.uncertain) { journey.refresh(); return; }
+        if (/^other routes[.!?]?$/i.test(utterance.trim()) && journey.plan && planMatchesDestination) {
+          setView('plan'); setAnswer(null);
+          present([journey.plan.routes.map((route) => route.summary).join(' '), t.routeChooseOffered, ...journey.plan.unknown].join(' '), journey.plan.unknown);
+          return;
+        }
         if (journey.plan && planMatchesDestination) { setView('plan'); setAnswer(null); planResult(journey.plan, false); return; }
         createVoicePlan(destination);
         return;
@@ -368,7 +420,7 @@ export function App() {
         <div className="session-strip"><p><strong>{localize(overview.zone.name)}</strong> · {source === 'saved' ? t.savedMode : t.liveMode}</p>
           <button type="button" aria-disabled={busy} onClick={() => {
             if (busyRef.current) return;
-            speech.stop(); session.current = null; setOverview(null); setStep(null); setAnswer(null); setLastReading(''); setError(null); setPositionUncertain(false); setView('overview');
+            startOver();
             announce(t.startOver); requestAnimationFrame(() => document.getElementById('start-heading')?.focus());
           }}>{t.startOver}</button>
         </div>

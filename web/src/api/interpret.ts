@@ -31,7 +31,7 @@ const index = (v: unknown): v is number => typeof v === 'number' && Number.isSaf
 /** Structural projection of contracts/README.md, not a separate wire schema. */
 export function parseCommand(value: unknown): VoiceCommand {
   if (!isRecord(value) || !text(value.utterance) || !text(value.action) || !isRecord(value.params)
-    || !['grammar', 'claude'].includes(String(value.via))) throw new Error('Invalid interpreted command');
+    || !['grammar', 'jev', 'claude'].includes(String(value.via))) throw new Error('Invalid interpreted command');
   const { action, params: p } = value;
   if (simple.has(action)) return { action: action as SimpleAction, params: {} };
   if (action === 'explore' && commands.has(String(p.command))

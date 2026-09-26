@@ -34,6 +34,7 @@ async function mockEngine(page: Page) {
   await page.route(/^https?:\/\/[^/]+\/api\//, async (route) => {
     const request = route.request();
     const path = new URL(request.url()).pathname;
+    if (path === '/api/tts') return route.fulfill({ status: 503, json: { detail: 'Simulated TTS unavailable: exercise browser fallback' } });
     const body = request.postData() ? request.postDataJSON() as Record<string, unknown> : {};
     requests.push({ method: request.method(), path, body });
     if (path === '/api/interpret') {
@@ -102,7 +103,9 @@ async function confirmDestination(page: Page) {
   await send(page, 'go to viale Isonzo');
   await expect(latest(page)).toContainText(`I found ${destination.name}`);
   await send(page, 'yes');
-  await expect(latest(page)).toContainText(`Your destination is ${destination.name}.`);
+  await expect(latest(page)).toContainText(initial.routes[0].summary);
+  await expect(latest(page)).toContainText("Say 'let's go' to start, or 'other routes'.");
+  for (const unknown of initial.unknown) await expect(latest(page)).toContainText(unknown);
 }
 
 async function compare(page: Page) {
@@ -155,13 +158,30 @@ test('a route request without a confirmed destination prompts for it and cannot 
   expect(engine.errors).toEqual([]);
 });
 
+test('confirming a destination creates one plan and other routes reads every alternative without another API request', async ({ page }) => {
+  const engine = await mockEngine(page);
+  await confirmOrigin(page);
+  await confirmDestination(page);
+  expect(engine.requests.filter(({ path, method }) => path === plansPath && method === 'POST')).toHaveLength(1);
+  await expect(latest(page)).not.toContainText(initial.routes[1].summary);
+  const before = [...engine.requests];
+  await send(page, 'other routes');
+  await expect(latest(page)).toContainText(initial.routes[1].summary);
+  const more = latest(page).getByRole('button', { name: 'More detail', exact: true });
+  if (await more.isVisible()) await more.click();
+  for (const route of initial.routes) await expect(latest(page)).toContainText(route.summary);
+  for (const unknown of initial.unknown) await expect(latest(page)).toContainText(unknown);
+  expect(engine.requests).toEqual(before);
+  expect(engine.unexpected).toEqual([]); expect(engine.errors).toEqual([]);
+});
+
 test('an unoffered route ID cannot mutate the plan and an offered selection still works afterwards', async ({ page }) => {
   const engine = await mockEngine(page);
   await confirmOrigin(page);
   await confirmDestination(page);
   await compare(page);
   await send(page, 'choose an unoffered route');
-  await expect(latest(page)).toContainText(/offered|choose|match/i);
+  await expect(latest(page)).toContainText('I did not catch that.');
   expect(engine.requests.some(({ path }) => path.endsWith('/select'))).toBe(false);
   await send(page, 'choose route A');
   await expect(latest(page)).toContainText(selected.differences[0]);
