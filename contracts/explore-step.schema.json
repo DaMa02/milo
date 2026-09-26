@@ -7,7 +7,7 @@
   "additionalProperties": false,
   "required": ["command", "lang", "position", "heading_deg", "text", "branches", "came_from", "junction_stack_depth", "at_boundary", "facts", "meta"],
   "properties": {
-    "command": {"enum": ["start", "forward", "left", "right", "back", "home", "where"]},
+    "command": {"enum": ["start", "forward", "left", "right", "take", "back", "home", "where"], "description": "take: follow the branch the request names by its index in the previous step's branches[] (0 = leftmost) or by its name."},
     "lang": {"$ref": "fact.schema.json#/definitions/lang"},
     "position": {
       "type": "object", "additionalProperties": false, "required": ["lat", "lon", "osm_node"],

@@ -21,7 +21,7 @@
     "min": 5,
     "pct": 25
   },
-  "text": "Every way to viale Isonzo has at least one crossing without a signal. So no route meets the requirement of signals at every crossing. The route with the fewest is route A, 14 minutes, with 1 crossing without a signal. Do you want me to relax the requirement to avoid when possible?",
+  "text": "In the mapped area, every way to viale Isonzo has at least one crossing without a signal. So no route there meets the requirement of signals at every crossing. The route with the fewest is route A, 14 minutes, with 1 crossing without a signal. Do you want me to relax the requirement to avoid when possible?",
   "routes": [],
   "compliant_route_available": "no",
   "selected_route_id": null,
@@ -30,6 +30,29 @@
     "Signals at every crossing are now required: route A, route B and route C are no longer offered, because of crossings known to have no signal."
   ],
   "facts": [
+    {
+      "type": "radius",
+      "value": 800,
+      "unit": "m",
+      "source": "unknown",
+      "evidence": [],
+      "inputs": {
+        "graph": {
+          "center": [
+            45.44386,
+            9.20808
+          ],
+          "dist_m": 800,
+          "network_type": "walk",
+          "simplify": false,
+          "snap": "nearest_edge",
+          "snapshot": "2026-09-26",
+          "source": "OpenStreetMap via Overpass, osmnx 2.1.1"
+        }
+      },
+      "data_date": "2026-09-26",
+      "completeness": "complete"
+    },
     {
       "type": "compliant_routes",
       "value": 0,
@@ -65,7 +88,7 @@
         "filter": "only crossings mapped as signalled"
       },
       "data_date": "2026-09-26",
-      "completeness": "complete"
+      "completeness": "unknown"
     },
     {
       "type": "route_duration",
@@ -204,12 +227,13 @@
     }
   ],
   "unknown": [
+    "Routes that leave the mapped area, 800 m around Talent Garden, were not considered.",
     "Crossings at points where the map has no crossing are not counted.",
     "For most crossings the map does not say whether the signal has sound."
   ],
   "meta": {
     "mode": "offline",
     "cache": "hit",
-    "computed_at": "2026-09-26T09:36:53Z"
+    "computed_at": "2026-09-26T09:50:56Z"
   }
 }

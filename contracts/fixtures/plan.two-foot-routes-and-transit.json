@@ -21,7 +21,7 @@
     "min": 5,
     "pct": 25
   },
-  "text": "Every way to viale Isonzo has at least one crossing without a signal. Route A, on foot, 14 minutes, the same time as the shortest: 1 crossing without a signal, the fewest of any route. Route B, on foot, the shortest, 14 minutes: 3 crossings without a signal. Route C, bus 92 from Viale Umbria (Lodi M3), 19 minutes, 16 of them on foot, with 6 crossings without a signal: slower than walking, which takes 15 minutes. You chose route A. With a stop at the supermarket Lidl it takes 1 minute more on foot, plus 15 minutes of shopping.",
+  "text": "In the mapped area, every way to viale Isonzo has at least one crossing without a signal. Route A, on foot, 14 minutes, the same time as the shortest: 1 crossing without a signal, the fewest of any route in the mapped area. Route B, on foot, the shortest, 14 minutes: 3 crossings without a signal. Route C, bus 92 from Viale Umbria (Lodi M3), 19 minutes, 16 of them on foot, with 8 crossings without a signal: slower than walking, which takes 15 minutes. You chose route A. With a stop at the supermarket Lidl it takes 1 minute more on foot, plus 15 minutes of shopping.",
   "routes": [
     {
       "id": "A",
@@ -425,7 +425,7 @@
           "completeness": "complete"
         }
       ],
-      "summary": "Route A, on foot, 14 minutes, the same time as the shortest: 1 crossing without a signal, the fewest of any route.",
+      "summary": "Route A, on foot, 14 minutes, the same time as the shortest: 1 crossing without a signal, the fewest of any route in the mapped area.",
       "warnings": [
         "1 crossing without a signal."
       ]
@@ -924,9 +924,21 @@
           "tactile_paving": "no"
         },
         {
+          "osm_id": "node/4230926060",
+          "signals": "no",
+          "sound": "no",
+          "tactile_paving": "no"
+        },
+        {
           "osm_id": "node/1272557800",
           "signals": "yes",
           "sound": "yes",
+          "tactile_paving": "unknown"
+        },
+        {
+          "osm_id": "node/9340881574",
+          "signals": "no",
+          "sound": "no",
           "tactile_paving": "unknown"
         },
         {
@@ -960,9 +972,21 @@
           "tactile_paving": "unknown"
         },
         {
+          "osm_id": "node/3100174603",
+          "signals": "yes",
+          "sound": "yes",
+          "tactile_paving": "unknown"
+        },
+        {
           "osm_id": "node/241469355",
           "signals": "no",
           "sound": "no",
+          "tactile_paving": "unknown"
+        },
+        {
+          "osm_id": "node/3497486709",
+          "signals": "yes",
+          "sound": "unknown",
           "tactile_paving": "unknown"
         },
         {
@@ -992,7 +1016,7 @@
       ],
       "trade_off": {
         "extra_min": 5,
-        "violating_crossings": 6,
+        "violating_crossings": 8,
         "unknown_crossings": 0
       },
       "facts": [
@@ -1007,7 +1031,7 @@
           "inputs": {
             "request": "https://api.transitous.org/api/v6/plan?fromPlace=45.44386%2C9.20808&toPlace=45.44658%2C9.20584&time=2026-09-26T16%3A00%3A00Z&maxTransfers=2&maxTravelTime=60&directModes=",
             "depart_at": "2026-09-26T16:00:00Z",
-            "walking_legs_on_graph": {
+            "graph": {
               "center": [
                 45.44386,
                 9.20808
@@ -1018,7 +1042,8 @@
               "snap": "nearest_edge",
               "snapshot": "2026-09-26",
               "source": "OpenStreetMap via Overpass, osmnx 2.1.1"
-            }
+            },
+            "crossings_method": "OSM crossing nodes within 10 m of the Transitous walking leg geometry"
           },
           "data_date": "2026-09-26",
           "completeness": "complete"
@@ -1027,14 +1052,14 @@
           "type": "route_walk_time",
           "value": 16,
           "unit": "min",
-          "source": "computed",
+          "source": "transit_api",
           "evidence": [
             "https://api.transitous.org/api/v6/plan?fromPlace=45.44386%2C9.20808&toPlace=45.44658%2C9.20584&time=2026-09-26T16%3A00%3A00Z&maxTransfers=2&maxTravelTime=60&directModes="
           ],
           "inputs": {
             "request": "https://api.transitous.org/api/v6/plan?fromPlace=45.44386%2C9.20808&toPlace=45.44658%2C9.20584&time=2026-09-26T16%3A00%3A00Z&maxTransfers=2&maxTravelTime=60&directModes=",
             "depart_at": "2026-09-26T16:00:00Z",
-            "walking_legs_on_graph": {
+            "graph": {
               "center": [
                 45.44386,
                 9.20808
@@ -1045,27 +1070,32 @@
               "snap": "nearest_edge",
               "snapshot": "2026-09-26",
               "source": "OpenStreetMap via Overpass, osmnx 2.1.1"
-            }
+            },
+            "crossings_method": "OSM crossing nodes within 10 m of the Transitous walking leg geometry"
           },
           "data_date": "2026-09-26",
           "completeness": "complete"
         },
         {
           "type": "route_crossings",
-          "value": 13,
+          "value": 17,
           "unit": "count",
           "source": "computed",
           "evidence": [
             "node/2942696592",
             "node/4063477428",
             "node/1460519085",
+            "node/4230926060",
             "node/1272557800",
+            "node/9340881574",
             "node/4230927879",
             "node/3100172738",
             "node/794971362",
             "node/3100174602",
             "node/25543719",
+            "node/3100174603",
             "node/241469355",
+            "node/3497486709",
             "node/3497485582",
             "node/3497485578",
             "node/4063282025"
@@ -1073,7 +1103,7 @@
           "inputs": {
             "request": "https://api.transitous.org/api/v6/plan?fromPlace=45.44386%2C9.20808&toPlace=45.44658%2C9.20584&time=2026-09-26T16%3A00%3A00Z&maxTransfers=2&maxTravelTime=60&directModes=",
             "depart_at": "2026-09-26T16:00:00Z",
-            "walking_legs_on_graph": {
+            "graph": {
               "center": [
                 45.44386,
                 9.20808
@@ -1084,20 +1114,23 @@
               "snap": "nearest_edge",
               "snapshot": "2026-09-26",
               "source": "OpenStreetMap via Overpass, osmnx 2.1.1"
-            }
+            },
+            "crossings_method": "OSM crossing nodes within 10 m of the Transitous walking leg geometry"
           },
           "data_date": "2026-09-26",
           "completeness": "complete"
         },
         {
           "type": "route_violating_crossings",
-          "value": 6,
+          "value": 8,
           "unit": "count",
           "source": "computed",
           "evidence": [
             "node/2942696592",
             "node/4063477428",
             "node/1460519085",
+            "node/4230926060",
+            "node/9340881574",
             "node/4230927879",
             "node/794971362",
             "node/241469355"
@@ -1105,7 +1138,7 @@
           "inputs": {
             "request": "https://api.transitous.org/api/v6/plan?fromPlace=45.44386%2C9.20808&toPlace=45.44658%2C9.20584&time=2026-09-26T16%3A00%3A00Z&maxTransfers=2&maxTravelTime=60&directModes=",
             "depart_at": "2026-09-26T16:00:00Z",
-            "walking_legs_on_graph": {
+            "graph": {
               "center": [
                 45.44386,
                 9.20808
@@ -1116,7 +1149,8 @@
               "snap": "nearest_edge",
               "snapshot": "2026-09-26",
               "source": "OpenStreetMap via Overpass, osmnx 2.1.1"
-            }
+            },
+            "crossings_method": "OSM crossing nodes within 10 m of the Transitous walking leg geometry"
           },
           "data_date": "2026-09-26",
           "completeness": "complete"
@@ -1132,7 +1166,7 @@
           "inputs": {
             "request": "https://api.transitous.org/api/v6/plan?fromPlace=45.44386%2C9.20808&toPlace=45.44658%2C9.20584&time=2026-09-26T16%3A00%3A00Z&maxTransfers=2&maxTravelTime=60&directModes=",
             "depart_at": "2026-09-26T16:00:00Z",
-            "walking_legs_on_graph": {
+            "graph": {
               "center": [
                 45.44386,
                 9.20808
@@ -1143,7 +1177,8 @@
               "snap": "nearest_edge",
               "snapshot": "2026-09-26",
               "source": "OpenStreetMap via Overpass, osmnx 2.1.1"
-            }
+            },
+            "crossings_method": "OSM crossing nodes within 10 m of the Transitous walking leg geometry"
           },
           "data_date": "2026-09-26",
           "completeness": "complete"
@@ -1159,7 +1194,7 @@
           "inputs": {
             "request": "https://api.transitous.org/api/v6/plan?fromPlace=45.44386%2C9.20808&toPlace=45.44658%2C9.20584&time=2026-09-26T16%3A00%3A00Z&maxTransfers=2&maxTravelTime=60&directModes=",
             "depart_at": "2026-09-26T16:00:00Z",
-            "walking_legs_on_graph": {
+            "graph": {
               "center": [
                 45.44386,
                 9.20808
@@ -1170,7 +1205,8 @@
               "snap": "nearest_edge",
               "snapshot": "2026-09-26",
               "source": "OpenStreetMap via Overpass, osmnx 2.1.1"
-            }
+            },
+            "crossings_method": "OSM crossing nodes within 10 m of the Transitous walking leg geometry"
           },
           "data_date": "2026-09-26",
           "completeness": "complete"
@@ -1204,9 +1240,9 @@
           "completeness": "complete"
         }
       ],
-      "summary": "Route C, bus 92 from Viale Umbria (Lodi M3), 19 minutes, 16 of them on foot, with 6 crossings without a signal: slower than walking, which takes 15 minutes.",
+      "summary": "Route C, bus 92 from Viale Umbria (Lodi M3), 19 minutes, 16 of them on foot, with 8 crossings without a signal: slower than walking, which takes 15 minutes.",
       "warnings": [
-        "6 crossings without a signal."
+        "8 crossings without a signal."
       ]
     }
   ],
@@ -1384,6 +1420,29 @@
       "completeness": "complete"
     },
     {
+      "type": "radius",
+      "value": 800,
+      "unit": "m",
+      "source": "unknown",
+      "evidence": [],
+      "inputs": {
+        "graph": {
+          "center": [
+            45.44386,
+            9.20808
+          ],
+          "dist_m": 800,
+          "network_type": "walk",
+          "simplify": false,
+          "snap": "nearest_edge",
+          "snapshot": "2026-09-26",
+          "source": "OpenStreetMap via Overpass, osmnx 2.1.1"
+        }
+      },
+      "data_date": "2026-09-26",
+      "completeness": "complete"
+    },
+    {
       "type": "compliant_routes",
       "value": 0,
       "unit": "count",
@@ -1418,16 +1477,17 @@
         "filter": "only crossings mapped as signalled"
       },
       "data_date": "2026-09-26",
-      "completeness": "complete"
+      "completeness": "unknown"
     }
   ],
   "unknown": [
+    "Routes that leave the mapped area, 800 m around Talent Garden, were not considered.",
     "Crossings at points where the map has no crossing are not counted.",
     "The map does not say whether the supermarket is open at that time."
   ],
   "meta": {
     "mode": "offline",
     "cache": "hit",
-    "computed_at": "2026-09-26T09:36:53Z"
+    "computed_at": "2026-09-26T09:50:56Z"
   }
 }

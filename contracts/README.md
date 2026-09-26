@@ -4,7 +4,7 @@ JSON Schemas (draft-07) for everything the engine (`server-py/`) sends to the UI
 
 - `fact.schema.json`: one number or named thing with its evidence; every number said to the user is a fact. Also holds shared definitions (`meta`, crossings, relative directions).
 - `overview.schema.json`: the zone from a stated reference (place + facing): short `text`, `details` on "more", landmarks, barriers.
-- `explore-step.schema.json`: position, heading, branches left to right, where you came from, junction stack depth, boundary flag.
+- `explore-step.schema.json`: position, heading, branches left to right, where you came from, junction stack depth, boundary flag. Request: `POST /session/{id}/explore {command, branch?}`; `take` needs `branch`, the index in the previous step's `branches[]` (0 = leftmost) or its name.
 - `answer.schema.json`: one deterministic tool answering a question, with `unknown[]`.
 - `plan.schema.json`: routes under constraints, the user's selection, a stop, what changed, `compliant_route_available`.
 
