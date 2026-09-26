@@ -41,7 +41,7 @@ async function engine(page: Page, failure: 'no-plan' | 'unavailable' | 'session'
 }
 
 async function openDraft(page: Page) {
-  await page.goto('/');
+  await page.goto('/?saved=1');
   await page.getByRole('combobox', { name: 'Data source', exact: true }).selectOption({ label: 'Connected engine' });
   await page.getByRole('button', { name: 'Open the area', exact: true }).click();
   await page.getByRole('navigation', { name: 'Area views', exact: true })
@@ -87,7 +87,7 @@ test('the HTTP boundary preserves the exact detail and only the current no-plan 
     const item = cases[index];
     return route.fulfill({ status: item.status, contentType: 'application/json', body: item.body });
   });
-  await page.goto('/');
+  await page.goto('/?saved=1');
   const results = await page.evaluate(async (count) => {
     const planPath = '/src/api/plan-client.ts';
     const plan = await import(planPath) as typeof import('../src/api/plan-client');

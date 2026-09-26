@@ -38,7 +38,7 @@ async function installEngine(page: Page, answer: (route: Route) => Promise<void>
 }
 
 async function openConnectedArea(page: Page) {
-  await page.goto('/');
+  await page.goto('/?saved=1');
   await page.getByRole('combobox', { name: 'Data source', exact: true }).selectOption({ label: 'Connected engine' });
   await page.getByRole('button', { name: 'Open the area', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Overview', level: 2 })).toBeVisible();
@@ -60,7 +60,7 @@ test('saved questions use the shared answers in either view and unsupported ques
     });
   });
   await page.route(apiPattern, (route) => { apiRequests.push(route.request().url()); return route.abort(); });
-  await page.goto('/');
+  await page.goto('/?saved=1');
   await expect(page.getByRole('combobox', { name: 'Data source', exact: true }))
     .toHaveValue('saved');
   await page.getByRole('button', { name: 'Open the area', exact: true }).click();

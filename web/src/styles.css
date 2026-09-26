@@ -97,3 +97,28 @@ footer { max-width: 1120px; margin-inline: auto; padding: 1.25rem; color: var(--
 @media (prefers-contrast: more) { :root { --line: #172e2a; --muted: #172e2a; } }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; animation: none !important; transition: none !important; } }
 @media (max-width: 420px) { .app-header { align-items: flex-start; flex-direction: column; } }
+
+/* The mobile conversation is primary; every detailed control remains available. */
+.single-screen { max-width: 760px; padding: 1.1rem max(1rem, env(safe-area-inset-left)) max(1.25rem, env(safe-area-inset-bottom)); }
+.single-screen h1 { font-size: clamp(1.55rem, 4vw, 2rem); margin-bottom: 1rem; }
+.voice-console { display: flex; flex-direction: column; gap: 1.15rem; }
+.talk-dock { order: 3; position: sticky; bottom: 0; z-index: 2; background: #f7f8f4; padding: .8rem 0 max(.4rem, env(safe-area-inset-bottom)); }
+.talk-dock button { width: 100%; min-height: 82px; font-size: 1.45rem; font-weight: 700; background: var(--accent); color: white; border-color: var(--accent); touch-action: manipulation; }
+.talk-dock button[aria-pressed="true"] { background: #703419; border-color: #703419; }
+.voice-state { margin: .35rem 0 0; text-align: center; }
+.talk-dock .hint { font-size: .85rem; margin-block: .35rem; }
+.unified-command { order: 2; }
+.unified-command label { display: block; margin-bottom: .45rem; }
+.single-screen input, .single-screen select { font-size: max(16px, 1rem); }
+.latest-answer { order: 1; }
+.latest-answer h2 { font-size: 1rem; margin: .4rem 0; color: var(--muted); }
+.latest-answer-text { font-size: 1.15rem; margin-top: .5rem; }
+.journey-endpoints { font-size: .9rem; overflow-wrap: anywhere; }
+.compact-speech { margin-block: .75rem; }
+.all-controls { margin-top: 1.5rem; border-top: 1px solid var(--line); }
+.single-screen .view-voice-controls { display: none; }
+.single-screen .branch-actions { list-style: none; padding: 0; display: grid; gap: .6rem; }
+.single-screen .branch-actions button { width: 100%; text-align: left; }
+.single-screen fieldset { min-width: 0; }
+.single-screen .start-panel > h2 { font-size: 1.1rem; }
+.single-screen .start-panel > p:first-of-type { display: none; }

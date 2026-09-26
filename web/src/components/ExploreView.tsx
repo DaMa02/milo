@@ -138,7 +138,7 @@ export function ExploreView({ step, t, localize, busy, onCommand, summary, onRea
     <details>
       <summary>{t.nextBranches}</summary>
       <p>{localize(step.text)}</p>
-      <div className="button-row">
+      <div className="button-row view-voice-controls">
         <button type="button" onClick={onReadDetails} disabled={!canSpeak}>{t.readDetails}</button>
         <button type="button" aria-disabled={!speaking && !busy} onClick={() => { if (speaking || busy) onStopReading(); }}>{t.stopReading}</button>
       </div>

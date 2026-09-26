@@ -36,7 +36,7 @@ async function expandAllDetails(page: Page) {
 
 test('keyboard exploration preserves the recorded position, uncertainty and return path', async ({ page }) => {
   const observed = await observeLocalRun(page);
-  await page.goto('/');
+  await page.goto('/?saved=1');
   await keyboardActivate(page, page.getByRole('button', { name: 'Open the area', exact: true }));
   await expect(page.getByRole('heading', { name: 'Overview', level: 2 })).toBeFocused();
   const narration = page.locator('.result-text');
@@ -88,7 +88,7 @@ test('keyboard exploration preserves the recorded position, uncertainty and retu
 
 test('switching views keeps the junction and English commands preserve the return path', async ({ page }) => {
   const observed = await observeLocalRun(page);
-  await page.goto('/');
+  await page.goto('/?saved=1');
   await page.getByRole('button', { name: 'Open the area', exact: true }).click();
   await page.getByRole('button', { name: 'Explore from here', exact: true }).click();
   await page.getByRole('button', { name: 'Go forward', exact: true }).click();
@@ -123,7 +123,7 @@ test('switching views keeps the junction and English commands preserve the retur
 
 test('branch actions are visible before opening details and preserve the position on unavailable choices', async ({ page }) => {
   const observed = await observeLocalRun(page);
-  await page.goto('/');
+  await page.goto('/?saved=1');
   await keyboardActivate(page, page.getByRole('button', { name: 'Open the area', exact: true }));
   await keyboardActivate(page, page.getByRole('button', { name: 'Explore from here', exact: true }));
   const narration = page.locator('.result-text');
@@ -169,7 +169,7 @@ test('take uses displayed connection numbers and rejects invalid choices without
     }
     return route.abort();
   });
-  await page.goto('/');
+  await page.goto('/?saved=1');
   await page.getByRole('combobox', { name: 'Data source', exact: true }).selectOption({ label: 'Connected engine' });
   await page.getByRole('button', { name: 'Open the area', exact: true }).click();
   await page.getByRole('button', { name: 'Explore from here', exact: true }).click();
@@ -216,7 +216,7 @@ test('a delayed branch result keeps focus in a question draft edited while waiti
     }
     return route.abort();
   });
-  await page.goto('/');
+  await page.goto('/?saved=1');
   await page.getByRole('combobox', { name: 'Data source', exact: true }).selectOption({ label: 'Connected engine' });
   await page.getByRole('button', { name: 'Open the area', exact: true }).click();
   await page.getByRole('button', { name: 'Explore from here', exact: true }).click();
@@ -235,7 +235,7 @@ test('a delayed branch result keeps focus in a question draft edited while waiti
 
 test('expanded overview and exploration remain accessible and reflow at narrow widths', async ({ page }) => {
   const observed = await observeLocalRun(page);
-  await page.goto('/');
+  await page.goto('/?saved=1');
   await page.getByRole('button', { name: 'Open the area', exact: true }).click();
   await expandAllDetails(page);
   await expect(page.getByRole('link', { name: 'way/141197445', exact: true }).first())

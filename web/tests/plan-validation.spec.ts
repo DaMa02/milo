@@ -10,7 +10,7 @@ const numberError = 'Enter a valid number of minutes, zero or more.';
 const stopError = 'Enter a whole number of minutes from 1 to 180.';
 
 async function openPlan(page: Page, connected = false) {
-  await page.goto('/');
+  await page.goto('/?saved=1');
   if (connected) await page.getByRole('combobox', { name: 'Data source', exact: true }).selectOption('connected');
   await page.getByRole('button', { name: 'Open the area', exact: true }).click();
   await page.getByRole('navigation', { name: 'Area views', exact: true }).getByRole('button', { name: 'Plan your trip', exact: true }).click();

@@ -10,6 +10,9 @@ export interface SpeechControls {
   speak: (text: string, language: string) => void;
   stop: () => void;
   repeat: () => void;
+  rate: number;
+  setRate: (rate: number) => void;
+  prime: () => void;
 }
 
 interface SpeechRequest {
@@ -28,6 +31,10 @@ export function useSpeech(): SpeechControls {
   const [speaking, setSpeaking] = useState(false);
   const [error, setError] = useState<SpeechError | null>(null);
   const [canRepeat, setCanRepeat] = useState(false);
+  const [rate, updateRate] = useState(1);
+  const rateRef = useRef(1);
+  const primed = useRef(false);
+  const gapTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const mounted = useRef(false);
   const generation = useRef(0);
   const lastRequest = useRef<SpeechRequest | null>(null);
@@ -37,6 +44,8 @@ export function useSpeech(): SpeechControls {
   // synchronously, or deliver a delayed event after the next utterance starts.
   const cancelCurrent = useCallback(() => {
     generation.current += 1;
+    if (gapTimer.current !== null) clearTimeout(gapTimer.current);
+    gapTimer.current = null;
     const utterance = currentUtterance.current;
     if (utterance) {
       utterance.onstart = null;
@@ -69,32 +78,41 @@ export function useSpeech(): SpeechControls {
       const request = { text, language };
       lastRequest.current = request;
       setCanRepeat(true);
-      const utterance = new window.SpeechSynthesisUtterance(request.text);
-      utterance.lang = request.language;
       const token = generation.current;
-      const isCurrent = () => mounted.current
-        && token === generation.current
-        && currentUtterance.current === utterance;
-
-      utterance.onstart = () => {
-        if (isCurrent()) setSpeaking(true);
+      const spoken = /^en\b/i.test(language) ? text.replace(/(\d[\d,.]*)\s+m\b/g, '$1 metres') : text;
+      const sentences = spoken.trim().split(/(?<=[.!?])\s+/).filter(Boolean);
+      const banned = /\b(Albert|Bad News|Bahh|Bells|Boing|Bubbles|Cellos|Wobble|Eddy|Flo|Fred|Grandma|Grandpa|Jester|Junior|Kathy|Organ|Ralph|Reed|Rocko|Sandy|Shelley|Superstar|Trinoids|Whisper|Zarvox)\b/i;
+      const readSentence = (index: number) => {
+        if (!mounted.current || token !== generation.current) return;
+        try {
+          const utterance = new window.SpeechSynthesisUtterance(sentences[index]);
+          utterance.lang = /^en\b/i.test(request.language) ? 'en-GB' : request.language;
+          utterance.rate = rateRef.current;
+          const voices = window.speechSynthesis.getVoices?.() ?? [];
+          const safe = voices.filter((voice) => !banned.test(voice.name) && voice.lang.toLowerCase().startsWith(request.language.slice(0, 2).toLowerCase()));
+          const voice = safe.find((item) => /^Daniel(?:\s|$)/i.test(item.name) && /^en[-_]GB$/i.test(item.lang))
+            ?? safe.find((item) => /Google UK English (Female|Male)/i.test(item.name))
+            ?? safe.find((item) => item.lang.toLowerCase() === utterance.lang.toLowerCase()) ?? safe[0];
+          if (voice) utterance.voice = voice;
+          else if (voices.length) { setSpeaking(false); setError('unavailable'); return; }
+          const isCurrent = () => mounted.current && token === generation.current && currentUtterance.current === utterance;
+          utterance.onstart = () => { if (isCurrent()) setSpeaking(true); };
+          utterance.onend = () => {
+            if (!isCurrent()) return;
+            currentUtterance.current = null;
+            if (index + 1 < sentences.length) gapTimer.current = setTimeout(() => { gapTimer.current = null; readSentence(index + 1); }, 300);
+            else setSpeaking(false);
+          };
+          utterance.onerror = (event) => {
+            if (!isCurrent()) return;
+            currentUtterance.current = null; setSpeaking(false); setError(event.error);
+          };
+          currentUtterance.current = utterance;
+          window.speechSynthesis.speak(utterance);
+        } catch { if (token === generation.current) { currentUtterance.current = null; setSpeaking(false); setError('failed'); } }
       };
-      utterance.onend = () => {
-        if (!isCurrent()) return;
-        currentUtterance.current = null;
-        setSpeaking(false);
-      };
-      utterance.onerror = (event) => {
-        if (!isCurrent()) return;
-        currentUtterance.current = null;
-        setSpeaking(false);
-        setError(event.error);
-      };
-      // Keep a reference until completion: some browsers otherwise collect it
-      // before dispatching its completion events.
-      currentUtterance.current = utterance;
       setSpeaking(true);
-      window.speechSynthesis.speak(utterance);
+      readSentence(0);
     } catch {
       // Also invalidate any events queued before speak() threw.
       generation.current += 1;
@@ -109,6 +127,19 @@ export function useSpeech(): SpeechControls {
     if (request) speak(request.text, request.language);
   }, [speak]);
 
+  const setRate = useCallback((next: number) => {
+    if (!Number.isFinite(next)) return;
+    rateRef.current = Math.min(2, Math.max(0.5, next)); updateRate(rateRef.current);
+  }, []);
+  const prime = useCallback(() => {
+    if (!supported || primed.current) return;
+    try {
+      const utterance = new window.SpeechSynthesisUtterance('');
+      utterance.lang = 'en-GB'; utterance.volume = 0;
+      window.speechSynthesis.speak(utterance); primed.current = true;
+    } catch { /* Explicit speech will report a platform failure if it persists. */ }
+  }, [supported]);
+
   useEffect(() => {
     mounted.current = true;
     return () => {
@@ -122,5 +153,5 @@ export function useSpeech(): SpeechControls {
     };
   }, [cancelCurrent]);
 
-  return { supported, speaking, error, canRepeat, speak, stop, repeat };
+  return { supported, speaking, error, canRepeat, speak, stop, repeat, rate, setRate, prime };
 }

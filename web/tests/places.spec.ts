@@ -10,7 +10,7 @@ const destination = { name: 'Viale Isonzo', lat: 45.44658, lon: 9.20584 };
 
 async function harness(page: Page) {
   // Mount the owned C2 components without depending on App's parallel wiring.
-  await page.route('**/src/App.tsx', async (route) => {
+  await page.route(/\/src\/App\.tsx(?:\?|$)/, async (route) => {
     const original = await (await route.fetch()).text();
     const react = original.match(/from\s+["']([^"']*\/react\.js[^"']*)["']/)?.[1];
     if (!react) throw new Error('Vite React module not found');

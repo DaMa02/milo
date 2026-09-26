@@ -24,14 +24,27 @@ interface PlanSpeechWindow extends Window { __planSpeech: { readings: string[]; 
 async function recordSpeech(page: Page) {
   await page.addInitScript(() => {
     (window as PlanSpeechWindow).__planSpeech = { readings: [], cancellations: 0 };
+    let beginsReading = true;
     Object.defineProperty(window, 'speechSynthesis', {
       configurable: true,
       value: {
-        speak(utterance: SpeechSynthesisUtterance) { (window as PlanSpeechWindow).__planSpeech.readings.push(utterance.text); },
-        cancel() { (window as PlanSpeechWindow).__planSpeech.cancellations += 1; },
+        speak(utterance: SpeechSynthesisUtterance) {
+          const readings = (window as PlanSpeechWindow).__planSpeech.readings;
+          if (beginsReading) { readings.push(utterance.text); beginsReading = false; }
+          else readings[readings.length - 1] += ` ${utterance.text}`;
+          // Complete each sentence so the integration test observes the whole
+          // reading, including later uncertainty, through the real chunk queue.
+          setTimeout(() => utterance.onend?.({} as SpeechSynthesisEvent), 0);
+        },
+        cancel() { (window as PlanSpeechWindow).__planSpeech.cancellations += 1; beginsReading = true; },
       },
     });
   });
+}
+
+async function completedReading(page: Page) {
+  await expect(page.getByRole('button', { name: 'Stop reading', exact: true }).first()).toBeDisabled();
+  return page.evaluate(() => (window as PlanSpeechWindow).__planSpeech.readings.at(-1));
 }
 
 async function tabTo(page: Page, target: Locator) {
@@ -131,7 +144,7 @@ async function installEngine(page: Page) {
 }
 
 async function openPlan(page: Page, connected = false) {
-  await page.goto('/');
+  await page.goto('/?saved=1');
   if (connected) await page.getByRole('combobox', { name: 'Data source', exact: true }).selectOption({ label: 'Connected engine' });
   await page.getByRole('button', { name: 'Open the area', exact: true }).click();
   await planNavigation(page).click();
@@ -179,7 +192,7 @@ test('the saved party journey works by keyboard from exploration to a chosen fiv
   const errors: string[] = [];
   page.on('pageerror', (error) => errors.push(error.message));
   await page.route(apiPattern, (route) => { requests.push(route.request().url()); return route.abort(); });
-  await page.goto('/');
+  await page.goto('/?saved=1');
   await activate(page, page.getByRole('button', { name: 'Open the area', exact: true }));
   await activate(page, page.getByRole('button', { name: 'Explore from here', exact: true }));
   await activate(page, page.getByRole('button', { name: 'Go forward', exact: true }));
@@ -260,11 +273,11 @@ test('rejected changes and uncertain cache failures keep the last confirmed plan
   await expect.poll(() => engine.requests.filter(({ method, path }) => method === 'GET' && path.endsWith('/plan')).length).toBe(1);
   await expect(routeA(page)).toContainText('30 minutes');
   await expect(panel(page).getByRole('button', { name: 'Update stop duration', exact: true })).toBeEnabled();
-  const confirmedReading = await page.evaluate(() => (window as PlanSpeechWindow).__planSpeech.readings.at(-1));
+  const confirmedReading = await completedReading(page);
   expect(confirmedReading).toContain('Confirmed journey comparison');
   expect(confirmedReading).toContain('Confirmed stop: Lidl, 15 minutes.');
   for (const difference of stop15.differences) expect(confirmedReading).not.toContain(difference);
-  for (const unknown of stop15.unknown) expect(confirmedReading).toContain(unknown);
+  for (const unknown of stop15.unknown) expect(confirmedReading).toContain(unknown.replace('800 m', '800 metres'));
 
   engine.state.failure = { status: 503, apply: false };
   engine.state.failGet = true;
@@ -276,11 +289,11 @@ test('rejected changes and uncertain cache failures keep the last confirmed plan
   expect(await page.evaluate(() => (window as PlanSpeechWindow).__planSpeech.readings.at(-1))).toContain('The change could not be confirmed.');
   await page.getByRole('button', { name: 'Overview', exact: true }).click();
   await planNavigation(page).click();
-  const uncertainReading = await page.evaluate(() => (window as PlanSpeechWindow).__planSpeech.readings.at(-1));
+  const uncertainReading = await completedReading(page);
   expect(uncertainReading).toContain('The displayed plan is the last confirmed version.');
   expect(uncertainReading).not.toContain('Confirmed journey comparison');
   await page.getByRole('button', { name: 'Listen to this result', exact: true }).first().click();
-  expect(await page.evaluate(() => (window as PlanSpeechWindow).__planSpeech.readings.at(-1))).toBe(uncertainReading);
+  expect(await completedReading(page)).toBe(uncertainReading);
   await expect(panel(page).getByRole('button', { name: 'Update stop duration', exact: true })).toBeDisabled();
   expect(engine.requests.filter(({ method, path }) => method === 'GET' && path.endsWith('/plan'))).toHaveLength(2);
   engine.state.failGet = false;
@@ -313,7 +326,7 @@ test('a lost comparison response recovers confirmed state without replaying hist
   await showSummary(page);
   await expect(summary(page)).toContainText('Talent Garden');
   await expect(summary(page)).not.toContainText('via Brembo');
-  const oldReading = await page.evaluate(() => (window as PlanSpeechWindow).__planSpeech.readings.at(-1));
+  const oldReading = await completedReading(page);
   expect(oldReading).toContain('Confirmed journey comparison');
   expect(oldReading).toContain('Confirmed stop: Lidl, 15 minutes.');
   for (const difference of stop15.differences) expect(oldReading).not.toContain(difference);
@@ -328,7 +341,7 @@ test('a lost comparison response recovers confirmed state without replaying hist
   await panel(page).getByRole('button', { name: 'Compare routes', exact: true }).click();
   await expect(routeA(page)).toContainText('14 minutes');
   await expect(panel(page).getByRole('button', { name: 'Compare routes', exact: true })).toBeEnabled();
-  const resetReading = await page.evaluate(() => (window as PlanSpeechWindow).__planSpeech.readings.at(-1));
+  const resetReading = await completedReading(page);
   expect(resetReading).toContain('Confirmed journey comparison');
   expect(resetReading).not.toContain('Confirmed stop: Lidl');
   expect(engine.requests.filter(({ method, path }) => method === 'GET' && path.endsWith('/plan'))).toHaveLength(2);
@@ -377,7 +390,7 @@ test('manual refresh accepts a creation reset after both the POST response and i
 test('a pending stop keeps a newer draft and keyboard focus while stopping speech leaves the mutation active', async ({ page }) => {
   await recordSpeech(page);
   const engine = await installEngine(page);
-  await page.goto('/');
+  await page.goto('/?saved=1');
   await page.getByRole('combobox', { name: 'Data source', exact: true }).selectOption({ label: 'Connected engine' });
   await page.getByRole('button', { name: 'Open the area', exact: true }).click();
   await page.getByRole('button', { name: 'Explore from here', exact: true }).click();

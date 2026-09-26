@@ -55,7 +55,7 @@ async function installSpeechMock(page: Page, supported = true) {
 
 test('speech is explicit, repeats the same language, and ignores cancelled events', async ({ page }) => {
   await installSpeechMock(page);
-  await page.goto('/');
+  await page.goto('/?saved=1');
   const listen = page.getByRole('button', { name: 'Listen to this result', exact: true });
   const repeat = page.getByRole('button', { name: 'Repeat last reading', exact: true });
   const stop = page.getByRole('button', { name: 'Stop reading', exact: true }).first();
@@ -95,7 +95,7 @@ test('speech is explicit, repeats the same language, and ignores cancelled event
 
 test('unsupported speech keeps the visible result usable', async ({ page }) => {
   await installSpeechMock(page, false);
-  await page.goto('/');
+  await page.goto('/?saved=1');
   await expect(page.getByText('This browser does not support app speech. All results remain available as text.')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Listen to this result', exact: true })).toHaveCount(0);
   await expect(page.getByRole('main')).toBeVisible();
@@ -103,7 +103,7 @@ test('unsupported speech keeps the visible result usable', async ({ page }) => {
 
 test('speech errors are announced and an explicit retry can succeed', async ({ page }) => {
   await installSpeechMock(page);
-  await page.goto('/');
+  await page.goto('/?saved=1');
   const listen = page.getByRole('button', { name: 'Listen to this result', exact: true });
   const stop = page.getByRole('button', { name: 'Stop reading', exact: true }).first();
   await listen.click();
@@ -115,12 +115,17 @@ test('speech errors are announced and an explicit retry can succeed', async ({ p
   await expect(message).toHaveCount(0);
   await expect(stop).toBeEnabled();
   await page.evaluate(() => (window as SpeechTestWindow).__speechTest.calls[1].end?.());
+  await expect.poll(() => page.evaluate(() => (window as SpeechTestWindow).__speechTest.calls.length)).toBe(3);
+  await expect(stop).toBeEnabled();
+  expect(await page.evaluate(() => (window as SpeechTestWindow).__speechTest.calls[2].text))
+    .toBe('Explore how streets connect, compare ways to get there and prepare a trip around your needs.');
+  await page.evaluate(() => (window as SpeechTestWindow).__speechTest.calls[2].end?.());
   await expect(stop).toBeDisabled();
 });
 
 test('opening the area stops the previous reading and new readings stay in English', async ({ page }) => {
   await installSpeechMock(page);
-  await page.goto('/');
+  await page.goto('/?saved=1');
   await page.getByRole('button', { name: 'Listen to this result', exact: true }).click();
   const beforeChange = await page.evaluate(() => (window as SpeechTestWindow).__speechTest.cancellations);
   await page.getByRole('button', { name: 'Open the area', exact: true }).click();
@@ -138,14 +143,14 @@ test('opening the area stops the previous reading and new readings stay in Engli
     ({ text, language }) => ({ text, language }),
   ));
   expect(readings).toHaveLength(3);
-  expect(readings.every((reading) => reading.language === 'en')).toBe(true);
+  expect(readings.every((reading) => reading.language === 'en-GB')).toBe(true);
   expect(readings[1].text).toContain('Facing north from Talent Garden.');
   expect(readings[2]).toEqual(readings[1]);
 });
 
 test('detail readings can be stopped by the immediately following keyboard control', async ({ page }) => {
   await installSpeechMock(page);
-  await page.goto('/');
+  await page.goto('/?saved=1');
   await page.getByRole('button', { name: 'Open the area', exact: true }).click();
 
   for (const summary of ['More detail', 'Street connections']) {

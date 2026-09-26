@@ -106,7 +106,7 @@ export function PlanView({ plan, busy, pending, uncertain, onCreate, onMutate, o
     onMutate('stop', { osm_id, duration_min: Number(duration) });
   }
   const stopReading = () => { if (speaking || busy) onStop(); };
-  const voice = (text: string) => <div className="button-row">
+  const voice = (text: string) => <div className="button-row view-voice-controls">
     <button type="button" disabled={!canSpeak} onClick={() => onRead([uncertain ? t.planUncertain : pending ? t.planPending : '', text].filter(Boolean).join(' '))}>{t.listen}</button>
     <button type="button" aria-disabled={!speaking && !busy} onClick={stopReading}>{t.stopReading}</button>
   </div>;

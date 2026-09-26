@@ -4,7 +4,7 @@ import AxeBuilder from '@axe-core/playwright';
 test('keyboard entry, English interface and narrow reflow', async ({ page }) => {
   const errors: string[] = [];
   page.on('pageerror', (error) => errors.push(error.message));
-  await page.goto('/');
+  await page.goto('/?saved=1');
   await page.keyboard.press('Tab');
   await expect(page.getByRole('link', { name: 'Skip to main content' })).toBeFocused();
   await page.keyboard.press('Enter');

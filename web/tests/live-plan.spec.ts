@@ -107,7 +107,7 @@ async function inspectSummary(page: Page, plan: Plan) {
 }
 
 async function prepareJourney(page: Page, withExploration: boolean) {
-  await page.goto('/');
+  await page.goto('/?saved=1');
   await page.getByRole('combobox', { name: 'Data source', exact: true }).selectOption({ label: 'Connected engine' });
   const created = await resultAfter(page, '/api/session',
     () => page.getByRole('button', { name: 'Open the area', exact: true }).click(), (raw) => {

@@ -144,14 +144,14 @@ export function AskView({ answer, busy, onAsk, onRead, onStop, speaking, canSpea
         <p>{t.askRecoveryHint}</p>
         <button type="button" onClick={chooseType}>{t.askChooseType}</button>
       </div>}
-      <div className="button-row">
+      <div className="button-row view-voice-controls">
         <button type="button" disabled={!canSpeak} onClick={() => onRead([parts.short, ...answer.unknown].join(' '))}>{t.listenAnswer}</button>
         <button type="button" aria-disabled={!speaking && !busy} onClick={stop}>{t.stopReading}</button>
       </div>
       {parts.detail && <details>
         <summary>{t.details}</summary>
         <p>{parts.detail}</p>
-        <div className="button-row">
+        <div className="button-row view-voice-controls">
           <button type="button" disabled={!canSpeak} onClick={() => onRead([answer.text, ...answer.unknown].join(' '))}>{t.readDetails}</button>
           <button type="button" aria-disabled={!speaking && !busy} onClick={stop}>{t.stopReading}</button>
         </div>

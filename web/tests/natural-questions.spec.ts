@@ -18,7 +18,7 @@ async function setup(page: Page, answer: (route: Route) => Promise<void>) {
     }
     return route.abort();
   });
-  await page.goto('/');
+  await page.goto('/?saved=1');
   await page.getByRole('combobox', { name: 'Data source', exact: true }).selectOption('connected');
   await page.getByRole('button', { name: 'Open the area', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Overview', level: 2 })).toBeVisible();
