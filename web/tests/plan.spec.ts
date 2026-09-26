@@ -65,6 +65,7 @@ async function installEngine(page: Page) {
   const state = {
     current: clone(initial),
     failure: null as null | { status: number; apply: boolean },
+    createFailure: null as null | { status: number; apply: boolean },
     failGet: false,
     holdStop: null as Promise<void> | null,
     reorder: false,
@@ -87,8 +88,12 @@ async function installEngine(page: Page) {
         : route.fulfill({ json: state.current });
     }
     if (path === '/api/session/plan-session/plan') {
+      const failure = state.createFailure;
+      state.createFailure = null;
+      if (failure && !failure.apply) return route.fulfill({ status: failure.status, body: 'Simulated unapplied comparison' });
       state.current = clone(initial);
-      return route.fulfill({ json: state.current });
+      return failure ? route.fulfill({ status: failure.status, body: 'Simulated lost comparison response' })
+        : route.fulfill({ json: state.current });
     }
     if (body?.if_version !== state.current.plan_version) {
       return route.fulfill({ status: 409, body: 'Simulated stale plan version' });
@@ -239,6 +244,17 @@ test('rejected changes and uncertain cache failures keep the last confirmed plan
   await expect(panel(page)).toContainText('The change could not be confirmed.');
   await expect(routeA(page)).toContainText('30 minutes');
   await expect(panel(page).getByRole('button', { name: 'Update stop duration', exact: true })).toBeDisabled();
+  await page.getByRole('button', { name: 'Listen to this result', exact: true }).first().click();
+  expect(await page.evaluate(() => (window as PlanSpeechWindow).__planSpeech.readings.at(-1))).toContain('The change could not be confirmed.');
+  await page.getByRole('button', { name: 'Overview', exact: true }).click();
+  await planNavigation(page).click();
+  const uncertainReading = await page.evaluate(() => (window as PlanSpeechWindow).__planSpeech.readings.at(-1));
+  expect(uncertainReading).toContain('The displayed plan is the last confirmed version.');
+  expect(uncertainReading).not.toContain('Confirmed journey comparison');
+  await page.getByRole('button', { name: 'Listen to this result', exact: true }).first().click();
+  expect(await page.evaluate(() => (window as PlanSpeechWindow).__planSpeech.readings.at(-1))).toBe(uncertainReading);
+  await expect(panel(page).getByRole('button', { name: 'Update stop duration', exact: true })).toBeDisabled();
+  expect(engine.requests.filter(({ method, path }) => method === 'GET' && path.endsWith('/plan'))).toHaveLength(2);
   engine.state.failGet = false;
   engine.state.current = clone(stop5);
   engine.state.current.routes.reverse();
@@ -250,6 +266,83 @@ test('rejected changes and uncertain cache failures keep the last confirmed plan
   await expect(panel(page).getByRole('button', { name: 'Update stop duration', exact: true })).toBeEnabled();
   const failedMutations = engine.requests.filter(({ path }) => path.endsWith('/stop') || path.endsWith('/depart'));
   expect(failedMutations.map(({ body }) => body?.if_version)).toEqual([2, 3, 3, 3]);
+  expect(engine.errors).toEqual([]);
+});
+
+test('a lost comparison response recovers confirmed state without replaying historical differences', async ({ page }) => {
+  await recordSpeech(page);
+  const engine = await installEngine(page);
+  await openPlan(page, true);
+  await addSavedStop(page);
+  await page.getByRole('checkbox', { name: 'Read new results aloud', exact: true }).check();
+  const origin = panel(page).getByRole('textbox', { name: 'Journey origin', exact: true });
+  await origin.fill('via Brembo');
+  engine.state.createFailure = { status: 503, apply: false };
+  await panel(page).getByRole('button', { name: 'Compare routes', exact: true }).click();
+  await expect(page.locator('.error-message')).toContainText('The latest confirmed plan has been retrieved.');
+  await expect(origin).toHaveValue('via Brembo');
+  await expect(routeA(page)).toContainText('30 minutes');
+  await showSummary(page);
+  await expect(summary(page)).toContainText('Talent Garden');
+  await expect(summary(page)).not.toContainText('via Brembo');
+  const oldReading = await page.evaluate(() => (window as PlanSpeechWindow).__planSpeech.readings.at(-1));
+  expect(oldReading).toContain('Confirmed journey comparison');
+  expect(oldReading).toContain('Confirmed stop: Lidl, 15 minutes.');
+  for (const difference of stop15.differences) expect(oldReading).not.toContain(difference);
+  expect(engine.requests.filter(({ method, path }) => method === 'GET' && path.endsWith('/plan'))).toHaveLength(1);
+  const comparisons = engine.requests.filter(({ method, path }) => method === 'POST' && path === '/api/session/plan-session/plan');
+  expect(comparisons).toHaveLength(2);
+  expect(comparisons[1].body?.origin).toEqual({ name: 'via Brembo' });
+
+  // A creation that reached the engine may also reset its version from 3 to 1.
+  await origin.fill(initial.origin.name);
+  engine.state.createFailure = { status: 503, apply: true };
+  await panel(page).getByRole('button', { name: 'Compare routes', exact: true }).click();
+  await expect(routeA(page)).toContainText('14 minutes');
+  await expect(panel(page).getByRole('button', { name: 'Compare routes', exact: true })).toBeEnabled();
+  const resetReading = await page.evaluate(() => (window as PlanSpeechWindow).__planSpeech.readings.at(-1));
+  expect(resetReading).toContain('Confirmed journey comparison');
+  expect(resetReading).not.toContain('Confirmed stop: Lidl');
+  expect(engine.requests.filter(({ method, path }) => method === 'GET' && path.endsWith('/plan'))).toHaveLength(2);
+  await panel(page).getByRole('button', { name: 'Choose route A', exact: true }).click();
+  await expect.poll(() => engine.requests.filter(({ path }) => path.endsWith('/select')).at(-1)?.body?.if_version).toBe(1);
+  expect(engine.errors).toEqual([]);
+});
+
+test('manual refresh accepts a creation reset after both the POST response and its first GET were lost', async ({ page }) => {
+  await recordSpeech(page);
+  const engine = await installEngine(page);
+  await openPlan(page, true);
+  await addSavedStop(page);
+  await page.getByRole('checkbox', { name: 'Read new results aloud', exact: true }).check();
+  engine.state.createFailure = { status: 503, apply: true };
+  engine.state.failGet = true;
+  await panel(page).getByRole('button', { name: 'Compare routes', exact: true }).click();
+  await expect(panel(page)).toContainText('The change could not be confirmed.');
+  await expect(routeA(page)).toContainText('30 minutes');
+  await panel(page).getByRole('button', { name: 'Refresh current plan', exact: true }).click();
+  await expect(panel(page).getByRole('button', { name: 'Refresh current plan', exact: true })).toBeEnabled();
+  await expect(panel(page).getByRole('button', { name: 'Compare routes', exact: true })).toBeDisabled();
+  engine.state.failGet = false;
+  await panel(page).getByRole('button', { name: 'Refresh current plan', exact: true }).click();
+  await expect(routeA(page)).toContainText('14 minutes');
+  await expect(panel(page).getByRole('button', { name: 'Compare routes', exact: true })).toBeEnabled();
+  expect(await page.evaluate(() => (window as PlanSpeechWindow).__planSpeech.readings.at(-1))).toContain('Confirmed journey comparison');
+  expect(engine.requests.filter(({ method, path }) => method === 'POST' && path === '/api/session/plan-session/plan')).toHaveLength(2);
+  expect(engine.requests.filter(({ method, path }) => method === 'GET' && path.endsWith('/plan'))).toHaveLength(3);
+
+  // Successful recovery consumes the reset permission. Later mutations must
+  // still reject a server response older than the latest confirmed plan.
+  await addSavedStop(page);
+  engine.state.current = clone(initial);
+  await panel(page).getByRole('spinbutton', { name: 'Stop duration (minutes)', exact: true }).fill('5');
+  await panel(page).getByRole('button', { name: 'Update stop duration', exact: true }).click();
+  await expect(panel(page)).toContainText('The change could not be confirmed.');
+  await expect(routeA(page)).toContainText('30 minutes');
+  await panel(page).getByRole('button', { name: 'Refresh current plan', exact: true }).click();
+  await expect(panel(page).getByRole('button', { name: 'Refresh current plan', exact: true })).toBeEnabled();
+  await expect(panel(page).getByRole('button', { name: 'Update stop duration', exact: true })).toBeDisabled();
+  await expect(routeA(page)).toContainText('30 minutes');
   expect(engine.errors).toEqual([]);
 });
 

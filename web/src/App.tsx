@@ -53,7 +53,12 @@ export function App() {
   }, [view, areaOpen]);
 
   const journey = usePlan(session.current, source === 'saved', run, planResult, t);
-  useEffect(() => { if (journey.error) announce(journey.error); }, [journey.error, announce]);
+  useEffect(() => {
+    if (journey.error) {
+      announce(journey.error);
+      if (journey.uncertain) setLastReading(journey.error);
+    }
+  }, [journey.error, journey.uncertain, announce]);
   function planResult(plan: Plan, changed = true) {
     const selected = findSelectedRoute(plan);
     const summary = changed && plan.differences.length ? plan.differences.join(' ')
@@ -87,6 +92,8 @@ export function App() {
     }, source === 'saved' ? t.loadingExamples : t.loading);
   }
   function explore(command: ExploreCommand, branch?: number) {
+    const initiator = document.activeElement;
+    const followsBranch = command === 'take' && initiator instanceof HTMLButtonElement && initiator.closest('.branch-actions');
     void run(async () => {
       if (!session.current) throw new ApiError('expired');
       if (positionUncertain && command !== 'where') { announce(t.unknownOutcomeExplore); return; }
@@ -96,9 +103,14 @@ export function App() {
         if (source === 'connected') setPositionUncertain(true);
         throw cause;
       }
+      const focusResult = followsBranch && document.activeElement === initiator;
       setStep(result); setPositionUncertain(false); setView('explore');
       present(exploreSummary(result, localize, t));
-      if (command === 'take') requestAnimationFrame(() => resultHeading.current?.focus());
+      if (focusResult) requestAnimationFrame(() => {
+        if (document.activeElement === initiator || (!initiator.isConnected && document.activeElement === document.body)) {
+          resultHeading.current?.focus();
+        }
+      });
     });
   }
   function ask(request: AskRequest) {
@@ -123,7 +135,8 @@ export function App() {
   function showPlan() {
     if (busyRef.current) return;
     mutePendingSpeech.current = false; speech.stop(); setView('plan'); setError(null);
-    if (journey.plan) planResult(journey.plan, false); else announce(t.plan);
+    if (journey.uncertain) present(t.planUncertain);
+    else if (journey.plan) planResult(journey.plan, false); else announce(t.plan);
   }
   const result = view === 'overview' ? overview : step;
   return <>

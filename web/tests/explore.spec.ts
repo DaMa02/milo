@@ -193,8 +193,44 @@ test('take uses displayed connection numbers and rejects invalid choices without
   await command.press('Enter');
   await expect(page.locator('.result-text')).toContainText('You walked 140 m');
   await expect(command).toHaveAttribute('aria-invalid', 'false');
+  await expect(command).toBeFocused();
   expect(commands).toEqual([{ command: 'start' }, { command: 'take', branch: 1 }]);
   await expect(page.locator('.branch-actions > li')).toHaveCount(junction.branches.length);
+});
+
+test('a delayed branch result keeps focus in a question draft edited while waiting', async ({ page }) => {
+  let release!: () => void;
+  const pending = new Promise<void>((resolve) => { release = resolve; });
+  const commands: Record<string, unknown>[] = [];
+  await page.route(/^https?:\/\/[^/]+\/api\//, async (route) => {
+    const path = new URL(route.request().url()).pathname;
+    if (path === '/api/session') return route.fulfill({ json: { session_id: 'delayed-take', overview } });
+    if (path === '/api/session/delayed-take/explore') {
+      const body = route.request().postDataJSON() as Record<string, unknown>;
+      commands.push(body);
+      if (body.command === 'start') return route.fulfill({ json: start });
+      if (body.command === 'take' && body.branch === 1) {
+        await pending;
+        return route.fulfill({ json: junction });
+      }
+    }
+    return route.abort();
+  });
+  await page.goto('/');
+  await page.getByRole('combobox', { name: 'Data source', exact: true }).selectOption({ label: 'Connected engine' });
+  await page.getByRole('button', { name: 'Open the area', exact: true }).click();
+  await page.getByRole('button', { name: 'Explore from here', exact: true }).click();
+  const requested = page.waitForRequest((request) => request.url().endsWith('/explore') && request.postDataJSON().command === 'take');
+  await keyboardActivate(page, page.locator('.branch-actions > li').nth(1).getByRole('button'));
+  await requested;
+  const question = page.getByRole('region', { name: 'Ask a question', exact: true }).getByRole('textbox', { name: 'Your question', exact: true });
+  await question.fill('Does via Brembo continue?');
+  await expect(question).toBeFocused();
+  release();
+  await expect(page.locator('.result-text')).toContainText('You walked 140 m');
+  await expect(question).toHaveValue('Does via Brembo continue?');
+  await expect(question).toBeFocused();
+  expect(commands).toEqual([{ command: 'start' }, { command: 'take', branch: 1 }]);
 });
 
 test('expanded overview and exploration remain accessible and reflow at narrow widths', async ({ page }) => {

@@ -16,8 +16,10 @@ export function usePlan(session: AreaSession | null, saved: boolean, run: Run, o
   const [error, setError] = useState<string | null>(null);
   const confirmed = useRef<Plan | null>(null);
   const revision = useRef(0);
+  const resetPending = useRef(false);
   useEffect(() => {
     revision.current += 1;
+    resetPending.current = false;
     confirmed.current = null; setPlan(null); setError(null); setPending(null); setUncertain(false);
     return () => { revision.current += 1; };
   }, [client]);
@@ -28,14 +30,15 @@ export function usePlan(session: AreaSession | null, saved: boolean, run: Run, o
     void run(async () => {
       setPending(description); setError(null);
       const old = confirmed.current;
-      function accept(next: Plan, allowReset = false) {
+      function accept(next: Plan, allowReset = false, reportChanges = true) {
         if (token !== revision.current) return;
         if (!allowReset && old && next.plan_version < old.plan_version) throw new ApiError('invalid');
+        resetPending.current = false;
         confirmed.current = next; setPlan(next); setUncertain(false);
-        onResult(next, allowReset || !old || next.plan_version > old.plan_version);
+        onResult(next, reportChanges && (creating || !old || next.plan_version > old.plan_version));
       }
       try {
-        accept(await operation(), creating);
+        accept(await operation(), creating || (reading && resetPending.current), !reading);
       } catch (cause) {
         if (token !== revision.current) return;
         const status = cause instanceof ApiError ? cause.status : undefined;
@@ -43,10 +46,12 @@ export function usePlan(session: AreaSession | null, saved: boolean, run: Run, o
         if (saved || rejected) {
           setError(old ? (saved ? t.planUnavailable : t.planRejected) : t.planNoResult);
         } else if (!reading) {
+          if (creating) resetPending.current = true;
           // A lost response does not cancel a server mutation. Read authoritative
           // state before enabling another write, including after a stale version.
           try {
-            accept(await client.get(), creating);
+            // GET confirms state, but its differences may describe an older write.
+            accept(await client.get(), creating, false);
             if (token === revision.current) setError(t.planRecovered);
           } catch {
             if (token === revision.current) { setUncertain(true); setError(t.planUncertain); }
