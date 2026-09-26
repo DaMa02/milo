@@ -597,7 +597,6 @@ tol = max(TOLERANCE["min"], shortest["duration_min"] * TOLERANCE["pct"] / 100)
 
 # transit via Lodi M3; directModes empty, otherwise Transitous answers with walking only (it is faster)
 t_url, t_json = transit(ORIGIN, DEST, DEPART, {"directModes": ""})
-d_url, d_json = transit(ORIGIN, DEST, DEPART, {})
 it = next(i for i in t_json["itineraries"] if "lodi m3" in i["legs"][0]["to"]["name"].lower())
 ABBR = {"v.le ": "viale ", "p.za ": "piazza ", "c.so ": "corso ", "l.go ": "largo ", "p.ta ": "porta "}
 
@@ -648,7 +647,6 @@ t_route = {"id": "C", "mode": "transit", "_src": "transit_api", "duration_min": 
            "constraint_status": statuses(C1, t_xs), "_ev": [t_url],
            "_in": {"request": t_url, "depart_at": DEPART, "graph": GRAPH,
                    "crossings_method": f"OSM crossing nodes within {XING_M} m of the Transitous walking leg geometry"}}
-direct_min = round(d_json["direct"][0]["duration"] / 60)
 
 # ---------- level 2 plan story ----------
 # v1 initial comparison -> v2 route A chosen + stop candidates -> v3 stop 15 min -> v4 stop 5 min;
@@ -736,7 +734,6 @@ def build_stop(stop, stop_min):
 sh = finish(shortest, shortest)
 sa = finish(avoid, sh)
 tr = finish(t_route, sh, [fact("transit_line", bus["line"], None, "transit_api", [t_url], {"request": t_url}),
-                          fact("transit_direct_walk", direct_min, "min", "transit_api", [d_url], {"request": d_url}),
                           fact("wait_before_leaving", wait0, "min", "transit_api", [t_url], {"request": t_url, "depart_at": DEPART})])
 n_a = len(sa["crossings"])
 
@@ -765,7 +762,7 @@ sa["summary"] = (f"Route A, on foot, {plural(sa['duration_min'], 'minute')}{same
 sh["summary"] = f"Route B, on foot, the shortest, {plural(sh['duration_min'], 'minute')}: {xing_phrase(sh)}."
 tr["summary"] = (f"Route C, bus {bus['line']} from {legs[0]['to']['name']}: you leave {wait0} minutes after the time you gave "
                  f"and arrive {tr['duration_min']} minutes after it, {tr['walk_min']} of them on foot, with {xing_phrase(tr)}; "
-                 f"walking takes {direct_min} minutes.")
+                 f"route B on foot takes {sh['duration_min']}.")
 sa["facts"].append(fact("route_crossings_total", n_a, "count", "computed", [x["osm_id"] for x in sa["crossings"]], ROUTE_IN))
 for r in (sa, sh, tr):
     add_warnings(r)

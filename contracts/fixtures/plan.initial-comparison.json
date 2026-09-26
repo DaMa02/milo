@@ -22,7 +22,7 @@
     "min": 5,
     "pct": 25
   },
-  "text": "In the mapped area, every way to viale Isonzo has at least one crossing without a signal. Route A, on foot, 14 minutes, the same time as the shortest: 1 crossing without a signal, the fewest of any route in the mapped area. Route B, on foot, the shortest, 14 minutes: 3 crossings without a signal. Route C, bus 92 from Viale Umbria (Lodi M3): you leave 10 minutes after the time you gave and arrive 29 minutes after it, 16 of them on foot, with 8 crossings without a signal; walking takes 15 minutes. Which one?",
+  "text": "In the mapped area, every way to viale Isonzo has at least one crossing without a signal. Route A, on foot, 14 minutes, the same time as the shortest: 1 crossing without a signal, the fewest of any route in the mapped area. Route B, on foot, the shortest, 14 minutes: 3 crossings without a signal. Route C, bus 92 from Viale Umbria (Lodi M3): you leave 10 minutes after the time you gave and arrive 29 minutes after it, 16 of them on foot, with 8 crossings without a signal; route B on foot takes 14. Which one?",
   "routes": [
     {
       "id": "A",
@@ -1233,20 +1233,6 @@
           "completeness": "complete"
         },
         {
-          "type": "transit_direct_walk",
-          "value": 15,
-          "unit": "min",
-          "source": "transit_api",
-          "evidence": [
-            "https://api.transitous.org/api/v6/plan?fromPlace=45.44386%2C9.20808&toPlace=45.44658%2C9.20584&time=2026-09-26T16%3A00%3A00Z&maxTransfers=2&maxTravelTime=60"
-          ],
-          "inputs": {
-            "request": "https://api.transitous.org/api/v6/plan?fromPlace=45.44386%2C9.20808&toPlace=45.44658%2C9.20584&time=2026-09-26T16%3A00%3A00Z&maxTransfers=2&maxTravelTime=60"
-          },
-          "data_date": "2026-09-26",
-          "completeness": "complete"
-        },
-        {
           "type": "wait_before_leaving",
           "value": 10,
           "unit": "min",
@@ -1262,7 +1248,7 @@
           "completeness": "complete"
         }
       ],
-      "summary": "Route C, bus 92 from Viale Umbria (Lodi M3): you leave 10 minutes after the time you gave and arrive 29 minutes after it, 16 of them on foot, with 8 crossings without a signal; walking takes 15 minutes.",
+      "summary": "Route C, bus 92 from Viale Umbria (Lodi M3): you leave 10 minutes after the time you gave and arrive 29 minutes after it, 16 of them on foot, with 8 crossings without a signal; route B on foot takes 14.",
       "warnings": [
         "8 crossings without a signal."
       ]
@@ -1342,6 +1328,6 @@
   "meta": {
     "mode": "offline",
     "cache": "hit",
-    "computed_at": "2026-09-26T10:08:45Z"
+    "computed_at": "2026-09-26T10:28:23Z"
   }
 }
