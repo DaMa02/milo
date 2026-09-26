@@ -63,6 +63,6 @@ r = client.post("/stt", content=b"not audio at all", headers={"content-type": "a
 assert r.status_code == 422, r.status_code
 
 h = client.get("/voice/health").json()
-assert h["stt"] == "parakeet" and h["tts"] == "none" and h["router"] in ("claude", "grammar"), h
+assert h["stt"] == "parakeet" and h["tts"] in ("say", "none") and h["router"] in ("claude", "grammar"), h
 shutil.rmtree(tmp)
 print("test_voice: ok")

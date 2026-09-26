@@ -7,6 +7,7 @@ never logged.
 """
 import os
 import pathlib
+import shutil
 import tempfile
 import threading
 import time
@@ -68,7 +69,7 @@ def make_router():
     @router.get("/voice/health")
     def health():
         down = READY.is_set() and STATE["model"] is None
-        return {"stt": "none" if down else "parakeet", "tts": "none",
+        return {"stt": "none" if down else "parakeet", "tts": "say" if shutil.which("say") else "none",
                 "router": "claude" if os.environ.get("ANTHROPIC_API_KEY") else "grammar"}
 
     return router
