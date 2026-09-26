@@ -26,7 +26,8 @@ export interface Meta {
 }
 
 export type AskTool = 'barrier_between' | 'extent' | 'street_continuity' | 'independent_connections' | 'walking_vs_straight_line';
-export interface AskRequest { question: string; tool: AskTool; params: Record<string, unknown> }
+export type AskRequest = { question: string; tool?: never; params?: never }
+  | { question: string; tool: AskTool; params: Record<string, unknown> };
 export interface Answer {
   question: string;
   lang: Language;

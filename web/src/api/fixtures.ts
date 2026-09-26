@@ -25,6 +25,7 @@ export function createSavedSession(): AreaSession {
   return {
     overview,
     async ask(request: AskRequest) {
+      if (request.tool === undefined) throw new ApiError('unavailable');
       const index = savedQuestions.findIndex((known) => known.question === request.question
         && known.tool === request.tool && JSON.stringify(known.params) === JSON.stringify(request.params));
       if (index === -1) throw new ApiError('unavailable');

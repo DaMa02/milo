@@ -272,5 +272,12 @@
   "planSearching": "Finding supermarkets along your chosen route…",
   "planUpdating": "Updating your journey…",
   "planRefreshing": "Checking the confirmed plan…",
-  "planNoResult": "No journey has been confirmed for this request. Your inputs are still available. Check them and try again; saved mode supports only the recorded demonstration."
+  "planNoResult": "No journey has been confirmed for this request. Your inputs are still available. Check them and try again; saved mode supports only the recorded demonstration.",
+  "askNaturalHint": "Ask in your own words about walking versus straight-line distance, barriers, connections between places, where a street ends, or how far a place extends. You can also choose a question type.",
+  "askAutomatic": "Understand my question",
+  "askQuestionLimit": "Up to 500 characters.",
+  "askQuestionRequired": "Enter your question.",
+  "askQuestionTooLong": "Keep your question within 500 characters.",
+  "askRecoveryHint": "Choose a question type to guide the next attempt. Your draft stays in the form; review it before sending again.",
+  "askChooseType": "Choose a question type"
 }

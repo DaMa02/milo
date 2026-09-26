@@ -1,6 +1,6 @@
-import { useId, useState } from 'react';
+import { useId, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
-import type { Answer, AskRequest } from '../api/contracts';
+import type { Answer, AskRequest, AskTool } from '../api/contracts';
 import { savedQuestions } from '../api/fixtures';
 import type { Dictionary } from '../i18n';
 import { Evidence, ResultMeta } from './Evidence';
@@ -33,14 +33,17 @@ export function AskView({ answer, busy, onAsk, onRead, onStop, speaking, canSpea
   const originId = useId();
   const errorId = useId();
   const answerId = useId();
-  const [tool, setTool] = useState<AskRequest['tool']>('walking_vs_straight_line');
+  const typeSelect = useRef<HTMLSelectElement>(null);
+  const [tool, setTool] = useState<AskTool | 'automatic'>(saved ? 'walking_vs_straight_line' : 'automatic');
   const [target, setTarget] = useState('');
   const [question, setQuestion] = useState('');
   const [attempted, setAttempted] = useState(false);
-  const missingTarget = attempted && !target.trim();
+  const automatic = tool === 'automatic';
+  const missingTarget = attempted && !automatic && !target.trim();
   const missingQuestion = attempted && !question.trim();
-  const invalid = missingTarget || missingQuestion;
-  const options: { value: AskRequest['tool']; label: string }[] = [
+  const longQuestion = attempted && question.trim().length > 500;
+  const invalid = missingTarget || missingQuestion || longQuestion;
+  const options: { value: AskTool; label: string }[] = [
     { value: 'walking_vs_straight_line', label: t.askDistance },
     { value: 'barrier_between', label: t.askBarriers },
     { value: 'independent_connections', label: t.askConnections },
@@ -53,8 +56,13 @@ export function AskView({ answer, busy, onAsk, onRead, onStop, speaking, canSpea
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (busy) return;
-    if (!target.trim() || !question.trim()) {
+    if ((!automatic && !target.trim()) || !question.trim() || question.trim().length > 500) {
       setAttempted(true);
+      return;
+    }
+    if (automatic) {
+      setAttempted(false);
+      onAsk({ question: question.trim() });
       return;
     }
     const name = target.trim();
@@ -68,10 +76,16 @@ export function AskView({ answer, busy, onAsk, onRead, onStop, speaking, canSpea
     if (speaking || busy) onStop();
   }
 
+  function chooseType() {
+    setTool('walking_vs_straight_line');
+    setAttempted(false);
+    typeSelect.current?.focus();
+  }
+
   return <section className="ask-panel" aria-labelledby={headingId}>
     <h2 id={headingId}>{t.ask}</h2>
     <p id={originId} className="reference">{t.askOrigin}</p>
-    <p id={hintId} className="hint">{t.askHint}</p>
+    <p id={hintId} className="hint">{saved ? t.askHint : t.askNaturalHint}</p>
 
     {saved && <fieldset>
       <legend>{t.askSavedQuestions}</legend>
@@ -90,10 +104,11 @@ export function AskView({ answer, busy, onAsk, onRead, onStop, speaking, canSpea
 
     <form onSubmit={submit} aria-describedby={`${hintId} ${originId}`} noValidate>
       <label htmlFor={typeId}>{t.askType}</label>
-      <select id={typeId} value={tool} onChange={(event) => setTool(event.target.value as AskRequest['tool'])}>
+      <select id={typeId} ref={typeSelect} value={tool} onChange={(event) => setTool(event.target.value as AskTool | 'automatic')}>
+        {!saved && <option value="automatic">{t.askAutomatic}</option>}
         {options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
       </select>
-      <label htmlFor={targetId}>{tool === 'street_continuity' ? t.askStreetName : t.askPlaceName}</label>
+      {!automatic && <><label htmlFor={targetId}>{tool === 'street_continuity' ? t.askStreetName : t.askPlaceName}</label>
       <input
         id={targetId}
         type="text"
@@ -103,26 +118,32 @@ export function AskView({ answer, busy, onAsk, onRead, onStop, speaking, canSpea
         aria-describedby={missingTarget ? errorId : undefined}
         autoComplete="off"
         onChange={(event) => setTarget(event.target.value)}
-      />
+      /></>}
       <label htmlFor={questionId}>{t.askQuestion}</label>
       <input
         id={questionId}
         type="text"
         value={question}
         aria-required="true"
-        aria-invalid={missingQuestion}
-        aria-describedby={missingQuestion ? errorId : undefined}
+        aria-invalid={missingQuestion || longQuestion}
+        aria-describedby={`${questionId}-hint${missingQuestion || longQuestion ? ` ${errorId}` : ''}`}
         autoComplete="off"
+        maxLength={500}
         onChange={(event) => setQuestion(event.target.value)}
       />
+      <p id={`${questionId}-hint`} className="hint">{t.askQuestionLimit}</p>
       <button type="submit" aria-disabled={busy}>{t.askSubmit}</button>
-      <p id={errorId} role="status">{invalid ? t.askFormRequired : ''}</p>
+      <p id={errorId} role="status">{invalid ? longQuestion ? t.askQuestionTooLong : automatic ? t.askQuestionRequired : t.askFormRequired : ''}</p>
     </form>
 
     {answer && parts && <section className="answer-panel" aria-labelledby={answerId}>
       <h3 id={answerId}>{t.answerTitle}</h3>
       <p><strong>{t.answerQuestion}:</strong> {answer.question}</p>
       <p className="answer-text">{parts.short}</p>
+      {answer.tool === 'none' && <div className="notice">
+        <p>{t.askRecoveryHint}</p>
+        <button type="button" onClick={chooseType}>{t.askChooseType}</button>
+      </div>}
       <div className="button-row">
         <button type="button" disabled={!canSpeak} onClick={() => onRead([parts.short, ...answer.unknown].join(' '))}>{t.listenAnswer}</button>
         <button type="button" aria-disabled={!speaking && !busy} onClick={stop}>{t.stopReading}</button>

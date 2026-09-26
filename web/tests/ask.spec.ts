@@ -42,6 +42,7 @@ async function openConnectedArea(page: Page) {
   await page.getByRole('combobox', { name: 'Data source', exact: true }).selectOption({ label: 'Connected engine' });
   await page.getByRole('button', { name: 'Open the area', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Overview', level: 2 })).toBeVisible();
+  await askPanel(page).getByRole('combobox', { name: 'Question type', exact: true }).selectOption('walking_vs_straight_line');
 }
 
 test('saved questions use the shared answers in either view and unsupported questions are not invented', async ({ page }) => {
@@ -115,7 +116,7 @@ test('connected questions use the documented API and the trip origin after virtu
   const position = await page.locator('.result-text').textContent();
   const panel = askPanel(page);
   await expect(panel.getByRole('combobox', { name: 'Question type', exact: true }).locator('option'))
-    .toHaveCount(5);
+    .toHaveCount(6);
   await panel.getByRole('textbox', { name: 'Place name', exact: true }).fill('viale Isonzo');
   await panel.getByRole('textbox', { name: 'Your question', exact: true }).fill('How far is viale Isonzo from Talent Garden?');
   await panel.getByRole('button', { name: 'Ask about this place', exact: true }).click();
@@ -204,7 +205,7 @@ test('an unrecognised question returns the engine clarification without an inval
   await panel.getByRole('button', { name: 'Ask about this place', exact: true }).click();
   await expect(panel.locator('.answer-text')).toHaveText(clarification.text);
   await expect(page.locator('.error-message')).toHaveCount(0);
-  await expect(panel.getByRole('combobox', { name: 'Question type', exact: true }).locator('option')).toHaveCount(5);
+  await expect(panel.getByRole('combobox', { name: 'Question type', exact: true }).locator('option')).toHaveCount(6);
   await expect(panel.getByRole('button', { name: 'Ask about this place', exact: true })).toBeEnabled();
   expect(observed.errors).toEqual([]);
 });

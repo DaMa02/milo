@@ -5,7 +5,8 @@ import type { AskTool, ExploreCommand, ExploreStep } from '../src/api/contracts'
 
 // Opt in with LOTL_LIVE_ENGINE=1 after starting the cached, deterministic engine
 // on port 8000. Every operation below uses the real UI and Vite /api proxy.
-// There are no intercepted requests, saved fixtures, or model/paid API calls.
+// There are no intercepted requests or saved fixtures. Deterministic tests do
+// not call a model; the final test needs a second explicit opt-in for one question.
 test.skip(process.env.LOTL_LIVE_ENGINE !== '1', 'Requires the local cached engine (LOTL_LIVE_ENGINE=1).');
 test.setTimeout(60_000);
 
@@ -168,5 +169,52 @@ test('the five real computations accept UI parameters and clarification never ch
   expect(located.position).toEqual(moved.position);
   expect(located.heading_deg).toBe(moved.heading_deg);
   expect(located.junction_stack_depth).toBe(moved.junction_stack_depth);
+  expect(observed).toEqual({ errors: [], externalRequests: [] });
+});
+
+test('a single natural question uses the live interpreter and keeps the confirmed journey origin', async ({ page }) => {
+  test.skip(process.env.LOTL_LIVE_LLM !== '1', 'May call the model: also requires LOTL_LIVE_LLM=1.');
+  const observed = observe(page);
+  const requests: Record<string, unknown>[] = [];
+  page.on('request', (request) => {
+    if (request.method() === 'POST' && new URL(request.url()).pathname.endsWith('/ask')) {
+      requests.push(request.postDataJSON() as Record<string, unknown>);
+    }
+  });
+  const { id, overview } = await openConnectedArea(page);
+  const start = await explore(page, id, 'start',
+    () => page.getByRole('button', { name: 'Explore from here', exact: true }).click());
+  const moved = await takeBranch(page, id, start);
+  const positionText = await page.locator('.result-text').innerText();
+  const panel = askPanel(page);
+  await expect(panel.getByRole('combobox', { name: 'Question type', exact: true })).toHaveValue('automatic');
+  await expect(panel.getByRole('textbox', { name: 'Place name', exact: true })).toHaveCount(0);
+  const question = panel.getByRole('textbox', { name: 'Your question', exact: true });
+  const text = 'Is the party close to here?';
+  await question.fill(text);
+  // Submit exactly once. This opt-in test does not retry or send a second
+  // question if the interpreter is unavailable or chooses the wrong tool.
+  const { value, request } = await resultAfter(page, `/api/session/${encodeURIComponent(id)}/ask`,
+    () => question.press('Enter'), parseAnswer);
+  expect(request).toEqual({ question: text });
+  expect(requests).toEqual([{ question: text }]);
+  expect(value.tool).toBe('walking_vs_straight_line');
+  expect(value.question).toBe(text);
+  const walking = value.facts.find((fact) => fact.type === 'walking_distance');
+  const straight = value.facts.find((fact) => fact.type === 'straight_line_distance');
+  expect(walking?.inputs.origin).toEqual([overview.reference.lat, overview.reference.lon]);
+  expect(typeof walking?.value).toBe('number');
+  expect(typeof straight?.value).toBe('number');
+  expect(walking!.value as number).toBeGreaterThanOrEqual(straight!.value as number);
+  await expect(panel.locator('.answer-panel')).toContainText(text);
+  expect(value.text).toContain(await panel.locator('.answer-text').innerText());
+  for (const unknown of value.unknown) await expect(panel.getByText(unknown, { exact: true })).toBeVisible();
+  await expect(question).toBeFocused();
+  await expect(question).toHaveValue(text);
+  await expect(page.locator('.result-text')).toHaveText(positionText);
+  const located = await explore(page, id, 'where',
+    () => page.getByRole('button', { name: 'Where am I?', exact: true }).click());
+  expect(located.position).toEqual(moved.position);
+  expect(located.heading_deg).toBe(moved.heading_deg);
   expect(observed).toEqual({ errors: [], externalRequests: [] });
 });
