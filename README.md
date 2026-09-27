@@ -24,7 +24,7 @@ The interface is a single Talk button. You speak, Milo answers aloud.
 | General questions | "What is Bocconi known for?", "Search online when the library opens" |
 | Controls | "Repeat", "Stop", "More", "What don't you know?", "Help", "Faster", "Slower", "Start over" |
 
-A live map shows the route and position for a sighted companion; the blind user never needs it. Details for each feature are in [docs/features.md](docs/features.md).
+A live map shows the route and position for a sighted companion; the blind user never needs it. Details for each feature are in [docs/features.md](docs/archivio/hackathon-2026/features.md).
 
 ## How it works
 
@@ -38,7 +38,7 @@ flowchart LR
   engine --> tts["Speech audio"]
 ```
 
-Each utterance is transcribed locally, mapped to one action (a local grammar first, then TypeSafe Jev, then Claude with a fixed JSON schema), executed by the deterministic map engine, rewritten into one or two sentences and played back as audio. Place search uses Photon and public transport uses Transitous. See [docs/architecture.md](docs/architecture.md).
+Each utterance is transcribed locally, mapped to one action (a local grammar first, then TypeSafe Jev, then Claude with a fixed JSON schema), executed by the deterministic map engine, rewritten into one or two sentences and played back as audio. Place search uses Photon and public transport uses Transitous. See [docs/architecture.md](docs/archivio/hackathon-2026/architecture.md).
 
 **Why the answers can be trusted**
 
@@ -95,7 +95,7 @@ cd server-py && python tests/test_api.py  # one engine test; each file in server
 | [`web/`](web/) | Phone web app: voice input, audio playback, compass, live guidance, live map |
 | [`server-py/`](server-py/) | Engine: API endpoints and map logic (`lotl/`) |
 | [`contracts/`](contracts/) | JSON Schemas for every engine response, fixtures and validator |
-| [`docs/`](docs/) | Features, architecture, [speaking rules](docs/speaking-rules.md), [roadmap](docs/roadmap.md) |
+| [`docs/`](docs/) | Features, architecture, [speaking rules](docs/speaking-rules.md), [roadmap](docs/archivio/hackathon-2026/roadmap.md) |
 
 ## Limitations
 
@@ -107,7 +107,7 @@ cd server-py && python tests/test_api.py  # one engine test; each file in server
 
 ## Team
 
-Built at the BAINSA Accessibility Hackathon 2026 by [Daniele Maglionico](https://github.com/DaMa02) (engine, voice back end) and [Leonardo Gallo](https://github.com/Leoldo) (web app, live map, product). See [how we built it](docs/how-we-built-it.md).
+Built at the BAINSA Accessibility Hackathon 2026 by [Daniele Maglionico](https://github.com/DaMa02) (engine, voice back end) and [Leonardo Gallo](https://github.com/Leoldo) (web app, live map, product). See [how we built it](docs/archivio/hackathon-2026/how-we-built-it.md).
 
 ## License
 
