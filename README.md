@@ -200,7 +200,7 @@ After the hackathon we started turning the prototype into a base that can grow. 
 
 ## Team
 
-Built by [Daniele Maglionico](https://github.com/DaMa02) (engine, voice back end) and [Leonardo Gallo](https://github.com/Leoldo) (web app, live map, product). See [how we built it](docs/how-we-built-it.md).
+Built by [Daniele Maglionico](https://github.com/DaMa02) and [Leonardo Gallo](https://github.com/Leoldo).
 
 ## License
 
