@@ -10,7 +10,7 @@ Research date: 27 Sep 2026. Tags: [V] verified in a primary source I fetched; [P
 2. **Volunteers see only the camera.** The call is "one-way video (two-way audio)" [V 1], and "volunteers only hear your voice and see what you share through your camera" [V 2]. They get no location and no app screen.
    - Calls are recorded, and may be licensed to research and AI developers. Users can opt out by email [V 3].
    - So the only way Milo's state reaches an anonymous volunteer is through the user's own voice.
-3. **The realistic Be My Eyes integration is the one the brief guessed:**
+3. **The realistic Be My Eyes integration is a hand-off:**
    - a short spoken summary;
    - a one-tap or voice hand-off (volunteer, group or contact);
    - Milo silent during the call;
@@ -50,7 +50,7 @@ Research date: 27 Sep 2026. Tags: [V] verified in a primary source I fetched; [P
 | (b) Remote, known | Family, friend, O&M instructor | Whole trip, or on request | Position with accuracy, heading, route, next crossing facts, status, freshness, battery; what Milo said and understood | A web link, no install |
 | (c) Remote, unknown | Be My Eyes volunteer or company agent, Aira agent | Finding the door, lost, reading signs | A 2–3 sentence context from the user, then the camera | Their own app |
 
-Two points the brief did not anticipate:
+Two further points:
 - **Language.** Milo will speak English, but a passer-by in Milan speaks Italian. The card should use the local language, with a toggle. The engine already has `en` and `it` (`packages/engine/src/i18n`).
 - **Touch.** With TalkBack or VoiceOver on, a sighted person who taps the screen gets focus changes, not actions. Mode (a) must work with no touch at all.
 

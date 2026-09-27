@@ -44,9 +44,8 @@ This report does not repeat the work items of G–P. It adds what none of them c
 | `web/src` | 38 | 4,752 | Plus 31 Playwright specs (5,763 lines), which encode the hackathon's voice flows |
 | `contracts/` | 5 schemas, 12 fixtures, 2 Python scripts | – | Draft-07. The engine's `contracts.test.ts` validates every result against them with Ajv, in both languages |
 
-- **Correction to the brief.** "13 test files, 7,512 lines" counts the gzipped fixtures as text. The engine's test code is 473 lines; the 324-case oracle lives in the data.
-- **Precedent.** The squashed history starts at PR #11. On 26 Sep the two founders merged about 47 PRs. Daniele owned the engine, server and contracts; Leonardo owned the web app and the voice flows. PR #11 ("Validate shared fixtures before the web checks") shows that contracts first is already their habit [M].
-- **Evidence of a Mac.** `server-py` runs `parakeet-mlx` (Apple Silicon only) and macOS `say`; the commits are Daniele's. So Daniele appears to have an Apple Silicon Mac [M]. Open question 3.
+- **Test code size.** Counting the gzipped fixtures as text gives "13 test files, 7,512 lines". The engine's test code is 473 lines; the 324-case oracle lives in the data.
+- **Precedent.** The squashed history starts at PR #11. On 26 Sep the two founders merged about 47 PRs, with the engine, server and contracts in one lane and the web app and voice flows in the other. PR #11 ("Validate shared fixtures before the web checks") shows that contracts first is already their habit [M].
 
 ## 1. Target monorepo
 
@@ -478,7 +477,7 @@ A 15% overhead for reviewing the other founder's agent PRs and for coordination 
 
 ### 7.2 Assumptions
 
-- **A1.** The phone lane is owned by one founder (proposed: Leonardo, who did the web and voice UX in the hackathon) and the brain lane by the other (Daniele: engine, server, contracts). §8 has the table.
+- **A1.** The phone lane is owned by one founder and the brain lane (engine, server, contracts) by the other, as in the hackathon. §8 has the table.
 - **A2.** The Mac and iOS question is settled in week 0.
   - The main case is **iOS first**: (a) on iOS, Android after (b).
   - If no Mac is available to the native owner, (a) runs on Android and (b) adds about 8–9 effective days for the Swift half.
@@ -489,7 +488,7 @@ A 15% overhead for reviewing the other founder's agent PRs and for coordination 
   - integration 3; Italian content for the MVP 4–6; field logging 2.
 - **A4.** A day is 8 hours of focused work; calendar weeks = days × 8 / H, with **H** each founder's hours per week.
 - **A5.** Accounts (Apple, Play, EAS, Hetzner) are requested in week 0. Waiting time is not counted, except Beta App Review, which I treat as one day [U].
-- **A6.** Recruiting for (c) starts at (a), as the founders said: "li cerchiamo appena abbiamo qualcosa di concreto". Its 4–8 week lead time runs in parallel [U].
+- **A6.** Recruiting for (c) starts at (a), once there is something concrete to show. Its 4–8 week lead time runs in parallel [U].
 
 ### 7.3 Dependency graph
 
@@ -641,13 +640,13 @@ These are ranges from unmeasured estimates. Re-plan after the first ten cards, u
 
 | Stream | Human owner (proposal) | Agent share | Inputs | Outputs | Blocked by | Serial steps |
 |---|---|---|---|---|---|---|
-| Engine | Daniele (single engine owner, J §7) | High | C1, C2, C6; plan §4.3–4.5; J1, L1, M, N | Cues, tiers, crossing facts, pack store, side-aware graph, matcher, golden transcripts | C1 and C2 frozen | The hot-file queues of §4.4 |
-| Dialogue and eval | Daniele; Leonardo reviews | High for the harness, medium for the brain | C3, C4, C5, C8; corpus (P) | `@milo/dialogue`, `@milo/eval`, dev set, bake-off, ADR 0009 | S0 (where the loop runs), staging gateway | J2 → S4 → J3 → J5 → bake-off |
-| Native phone modules | Leonardo (Kotlin); whoever has the Mac (Swift) | Low–medium | C1; D; O §11 | `milo-guidance` with voice-out, the spikes, C1 fixtures from real walks | Mac, devices, C1 | S0 → guidance → voice-out → audio loop |
-| App UI | Leonardo | Medium | C2, C4; plan §4.8; K0; L2 | Screens, settings (voice and classic), onboarding and consent, helper card, RNTL tests | Native events, dialogue API | Shell → UI → integration |
-| Server | Daniele, delegated to agents, reviewed by Leonardo | High | C5, C6, C7; I | Gateway, proxies, deploy, metrics; later the relay | VPS account; V4 before external testers | V1 → V2; V3 → V6 |
+| Engine | Brain-lane owner (single engine owner, J §7) | High | C1, C2, C6; plan §4.3–4.5; J1, L1, M, N | Cues, tiers, crossing facts, pack store, side-aware graph, matcher, golden transcripts | C1 and C2 frozen | The hot-file queues of §4.4 |
+| Dialogue and eval | Brain-lane owner; Phone-lane owner reviews | High for the harness, medium for the brain | C3, C4, C5, C8; corpus (P) | `@milo/dialogue`, `@milo/eval`, dev set, bake-off, ADR 0009 | S0 (where the loop runs), staging gateway | J2 → S4 → J3 → J5 → bake-off |
+| Native phone modules | Phone-lane owner (Kotlin); whoever has the Mac (Swift) | Low–medium | C1; D; O §11 | `milo-guidance` with voice-out, the spikes, C1 fixtures from real walks | Mac, devices, C1 | S0 → guidance → voice-out → audio loop |
+| App UI | Phone-lane owner | Medium | C2, C4; plan §4.8; K0; L2 | Screens, settings (voice and classic), onboarding and consent, helper card, RNTL tests | Native events, dialogue API | Shell → UI → integration |
+| Server | Brain-lane owner, delegated to agents, reviewed by Phone-lane owner | High | C5, C6, C7; I | Gateway, proxies, deploy, metrics; later the relay | VPS account; V4 before external testers | V1 → V2; V3 → V6 |
 | Data and packs | Agents under the engine owner | High | I §6, M, N §6 | Pack builder, overlays, FTS index, PMTiles extracts | C6 | Builder → pilot packs → overlays |
-| Content and i18n | Leonardo (English variants, Italian), with agents | Medium | L §4, speaking rules, plan §4.2 | Template catalogues en-GB, en-US, it; lexicon; parity test | C2 template keys | L1 refactor → content |
+| Content and i18n | Phone-lane owner (English variants, Italian), with agents | Medium | L §4, speaking rules, plan §4.2 | Template catalogues en-GB, en-US, it; lexicon; parity test | C2 template keys | L1 refactor → content |
 | Legal and recruiting | Both humans; agents draft | Drafts only | I §12, L §2, F | Privacy policy, consent and AI-disclosure texts, DPIA draft, cohorts, Milan partners | Nothing: start in week 0 | V4 before the first external tester; recruiting lead time before (c) |
 
 ## 9. Corrections to initial assumptions and earlier reports
@@ -661,14 +660,14 @@ These are ranges from unmeasured estimates. Re-plan after the first ten cards, u
    - True for `tsc` and Metro.
    - False for tools that need the compiler API [V 15, 16].
    - False for Node's type stripping on today's engine source [V 17][M].
-7. **The brief's measurement.** The engine's test code is 473 lines, not 7,512 [M].
+7. **Test code size.** The engine's test code is 473 lines; 7,512 counts the gzipped fixtures [M].
 8. **Report D vs report N: map matching in the native module.** Keep it in TypeScript unless S0 shows the JS thread cannot keep up while the screen is locked (§2.3).
 
 ## 10. Open questions for the founders
 
 1. **Hours per week** each (H_D, H_L), and whether they vary. H is the largest term in §7.4.
-2. **Stream ownership.** Is Daniele on the engine, dialogue and server, and Leonardo on native, the app and content, as in the hackathon? Who owns the engine (J §7)?
-3. **Who has a Mac?** The server-py code suggests Daniele has an Apple Silicon Mac [M]. Which phones do you carry (iPhone model; Android make, ideally a Samsung)? This decides whether (a) and the Swift half are on iOS first.
+2. **Stream ownership.** Who takes the engine, dialogue and server, and who takes native code, the app and content? Who owns the engine (J §7)?
+3. **Who has a Mac?** Which Mac and phones are available (iPhone model; Android make, ideally a Samsung)? This decides whether (a) and the Swift half are on iOS first.
 4. **Which agents each of you uses** (Claude Code only, or also Codex or Cursor), and on which plans. Can you run cloud sessions?
 5. **Private test repo.** May I propose `DaMa02/milo-eval-private`? Who holds the deploy key and approves the `eval-test` environment?
 6. **Language of the Milan field test (c).** Italian, as L's plan for the Milan cohort assumes, or English only? Italian adds about 4–6 days of content for the MVP subset.

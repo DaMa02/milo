@@ -14,7 +14,7 @@ Milo helps blind and low-vision people **understand and rehearse a walking route
 
 ## Non-negotiables
 
-- **Every number comes from the engine.** A language model may interpret what the user said and reword an answer. It never computes a distance, direction or route, and never adds a place. Model text passes the number check (`speak.ts` in `packages/assistant`, later `packages/dialogue`).
+- **Every number comes from the engine.** A language model may interpret what the user said and reword an answer. It never computes a distance, direction or route, and never adds a place. Model text passes the number check (`packages/dialogue/src/speak.ts`).
 - **Say what the map does not know.** Never infer "no sound signal" from a missing tag.
 - **Inform, never command.** No "cross now", no "you can cross".
 - **Screen reader first.** Everything works by keyboard with NVDA, JAWS, VoiceOver and TalkBack. Milo's own voice never talks over the screen reader.
@@ -29,10 +29,10 @@ Milo helps blind and low-vision people **understand and rehearse a walking route
 | Path | What |
 |---|---|
 | `packages/engine` | Deterministic walking engine on OpenStreetMap (TypeScript). Runs in the browser and in Node |
-| `packages/assistant` | Hackathon dialogue code: one action per utterance. To be renamed `packages/dialogue` and rebuilt by the DIA cards |
+| `packages/dialogue` | Hackathon dialogue code: one action per utterance, to be rebuilt by the DIA cards |
 | `contracts/` | JSON Schemas of engine results (draft-07), validated by the engine tests |
 | `docs/` | Plan, research, speaking rules |
-| `server-py/`, `web/` | **Hackathon code, do not build on it.** Being archived (plan D12); the snapshot is commit `ed9c4bf` |
+| `docs/archivio/` | Docs of the hackathon prototype, whose code is at commit `ed9c4bf` (tag `hackathon-2026`) |
 
 Planned (plan §5.2): `apps/web`, `packages/contracts`, `packages/eval`, `eval/`.
 

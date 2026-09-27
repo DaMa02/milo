@@ -260,7 +260,7 @@ Where the city lists a signal without APS (263 in Toronto, 716 in San Francisco)
 
 Parallel work:
 - The engine tag changes and the overlay format can start now.
-- City fetchers depend on the overlay format but not on each other, so Daniele and Leonardo, or their agents, can split them by city.
+- City fetchers depend on the overlay format but not on each other, so they can be split by city between people or agents.
 - Transit accessibility (entrances, lifts) depends on the transit re-routing work in N.
 
 ## 8. Open questions

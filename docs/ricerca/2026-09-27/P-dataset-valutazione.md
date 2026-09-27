@@ -194,7 +194,7 @@ Cost: at H's per-token prices, 5,000 paraphrases cost a few dollars [U, estimate
 - **Refresh.** Each month, add a "fresh" slice from opted-in exported trip logs (J). A drop between the frozen test and the fresh slice signals overfitting.
 - **Double annotation.** Two annotators per test item, adjudicated; report agreement.
 
-## 11. Work plan (for Daniele, Leonardo and agents)
+## 11. Work plan
 
 **In parallel (no dependencies):**
 - P1: harness skeleton, item schema, metrics and statistics (3 days; an agent can write it from §9).
@@ -210,7 +210,7 @@ Cost: at H's per-token prices, 5,000 paraphrases cost a few dollars [U, estimate
 - Frozen test → H's bake-off.
 - Italian half after the English launch, starting from MASSIVE it-IT and ITALIC.
 
-**Split:** Leonardo takes P1, P4 and the bake-off runner; Daniele takes P3, P5 and recordings; agents take P2 and the paraphrase pipeline.
+**Split:** one person takes P1, P4 and the bake-off runner; the other takes P3, P5 and recordings; agents take P2 and the paraphrase pipeline.
 
 ## 12. Corrections to initial assumptions
 

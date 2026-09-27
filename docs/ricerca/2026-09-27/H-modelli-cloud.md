@@ -4,7 +4,7 @@ Research date: 27 Sep 2026. Tags: [V] verified today in a primary source I fetch
 ## 0. Bottom line
 
 - **Speed belongs to a (model, host) pair.** For the same weights, DeepSeek V4.1 Flash runs at 59 to 611 tokens/s depending on the host, and gpt-oss-120b at 45 to 1,754 tokens/s [6, 7] [V] (AA 72-hour medians, re-checked on 27 Sep; they drift by about ±10%). Tool-call quality also depends on the host (§3). The bake-off must therefore compare pairs, not models.
-- **The founders' claim is half right.** Claude Haiku 4.5 no longer leads on quality per second:
+- **The claim that open models beat Claude Haiku is half right.** Claude Haiku 4.5 no longer leads on quality per second:
   - On Artificial Analysis (AA), newer non-thinking models beat it on the intelligence index and on τ²-bench [2] [V].
   - Its output speed of 81 tokens/s makes a 120-token JSON answer take about 2.2 s.
   - However, "GLM Flash" cannot be used for this step at all: GLM-5.3-Flash always thinks.
@@ -25,7 +25,7 @@ Research date: 27 Sep 2026. Tags: [V] verified today in a primary source I fetch
 | "Gemini Flash" | **Gemini 3.8 Flash** (2 Sep 2026). Also 3.7 Flash, 3.5 Flash-Lite and 2.5 Flash-Lite [20] [V] | **Closed weights.** Gemma is Google's open family, not Gemini | 3.8 and 3.7 Flash: lowest level is `low`. 3.5 Flash-Lite: `minimal` (default). 2.5 Flash-Lite: thinking off by default [21] [V] | Good escalation model. Borderline as the default because thinking stays on |
 | Claude Haiku | **Claude Haiku 4.5** (Oct 2025) is still the only Haiku [24] [V] | Proprietary | Extended thinking is optional | Baseline. Retirement date "not sooner than 15 Oct 2026" [24] [V] |
 
-Other candidates the brief asked about [2, 28, 29, 31, 32] [V]:
+Other candidates [2, 28, 29, 31, 32] [V]:
 - **GPT-6 Luna** (22 Sep 2026): $0.10/$0.50, effort `none`, strict structured outputs.
 - **gpt-oss-120b / 20b**: Apache-2.0.
 - **Qwen3.6-35B-A3B** and **Qwen3.8-27B**: Apache-2.0.

@@ -13,7 +13,7 @@ Versione 2 del 27 settembre 2026. Sostituisce la v1 (commit `28220f8`), che punt
 
 ## Come usare questo documento
 
-- **Daniele e Leonardo:** §1 (cosa fa Milo), §2 (decisioni), §6 (step di lavoro), §9 (punti aperti).
+- **Chi sviluppa:** §1 (cosa fa Milo), §2 (decisioni), §6 (step di lavoro), §9 (punti aperti).
 - **Agenti:**
   - leggete prima [`AGENTS.md`](../AGENTS.md);
   - lavorate su una card di §6 alla volta, e non uscite dallo scope di §1;
@@ -95,14 +95,14 @@ Se una risposta è no, la funzione non si fa. Chi vuole comunque farla scrive un
 | D3 | Dove gira il motore | Nel browser (`@milo/engine`, già in TypeScript) | Nessun server da pagare, privacy, stesso codice per una futura app | Decisa 27/09 |
 | D4 | Interazione predefinita | Testo più lettore di schermo. La voce (microfono e sintesi) è un'opzione, attiva di default sul telefono | Al computer il lettore di schermo usa voce e velocità scelte dall'utente. Il riconoscimento vocale del browser spesso manda l'audio a server esterni | Decisa 27/09 |
 | D5 | Lingue | Inglese come riferimento (corpus, prima beta, comunità online), più italiano. Il motore è già bilingue | Più tester in inglese [L]; a Milano si prova in italiano | Decisa 27/09 |
-| D6 | Modelli linguistici | Chiave dell'utente; Milo indica i modelli consigliati. Nei test si usa la chiave di Daniele. Nessun server nostro per i modelli | Non è ancora un servizio pubblico, e non paghiamo noi i modelli | Decisa 27/09 |
+| D6 | Modelli linguistici | Chiave dell'utente; Milo indica i modelli consigliati. Nei test si usa una chiave di sviluppo. Nessun server nostro per i modelli | Non è ancora un servizio pubblico, e non paghiamo noi i modelli | Decisa 27/09 |
 | D7 | Server | Nessun backend in Fase 1: solo hosting statico dell'app (e poi dei pacchetti città). Il browser usa direttamente i servizi pubblici (Overpass, Photon, Transitous) e il fornitore del modello | Conseguenza di D3 e D6 | Proposta |
 | D8 | Dati dell'utente | Solo nel browser (IndexedDB): memoria della sessione, preferenze, luoghi e percorsi salvati. Si possono esportare e cancellare | Privacy, niente account [J] | Proposta |
 | D9 | Conversazione | Richieste componibili. Il modello restituisce comandi tipizzati che modificano un unico «modulo di viaggio»; il codice cerca i luoghi, calcola e decide cosa chiedere [E §2] | Due turni invece di nove; niente errori del tipo «il secondo» finito sull'oggetto sbagliato | Proposta (dalla v1) |
 | D10 | Chiarimenti | Si tiene ciò che è stato capito, lo si rilegge e si chiede solo il pezzo mancante, una cosa alla volta. «Dimmi una cosa alla volta» solo dopo due fallimenti o se l'utente lo imposta [J §5] | Rilanciare la richiesta recupera il 64% dei casi, chiedere di riformulare il 49% [J] | Proposta |
 | D11 | Harness per il modello | Interfaccia `Brain` nostra. Dietro: Pi (`@earendil-works/pi-ai` e `pi-agent-core`, MIT), se lo spike DIA-5 conferma che gira nel browser con la chiave dell'utente. Altrimenti gli adattatori che abbiamo già [G] | Prende la chiave dell'utente, parla con molti fornitori e gestisce gli strumenti. OpenClaw è scartato [G] | Proposta |
-| D12 | Codice dell'hackathon | `server-py/` e `web/` escono dall'albero e restano nella storia git (commit `ed9c4bf`). Card F0-7 recupera ciò che serve | Un agente lo leggerebbe come codice attuale | Proposta: la rimozione la fate voi (F0-2) |
-| D13 | Divisione del lavoro | Daniele: motore, dialogo, valutazione. Leonardo: web app, esperienza d'uso, accessibilità. Ognuno rivede le PR dell'altro | Come all'hackathon [Q §8] | Proposta |
+| D12 | Codice dell'hackathon | `server-py/` e `web/` escono dall'albero e restano nella storia git (commit `ed9c4bf`). Card F0-7 recupera ciò che serve | Un agente lo leggerebbe come codice attuale | Fatto 27/09 |
+| D13 | Divisione del lavoro | Una persona su motore, dialogo e valutazione (D), l'altra su web app, esperienza d'uso e accessibilità (L). Ognuno rivede le PR dell'altro | [Q §8] | Proposta |
 
 **Decisioni della v1 che restano:** motore deterministico su OpenStreetMap, regola dei numeri, open source MIT, nessun account, controllo d'impatto per ogni modifica.
 
@@ -255,10 +255,10 @@ Quelli per la Fase 3 (eventi nativi, messaggio di condivisione) e per un eventua
 | Cosa | Stato | Decisione |
 |---|---|---|
 | `packages/engine` (TypeScript, 166 test, parità parola per parola col vecchio motore) | Funziona in Node; nel browser non è ancora provato | **Si tiene.** È la base di tutto |
-| `packages/assistant` (diventerà `packages/dialogue`, F0-5) | Grammatica EN/IT a un'azione per frase (233 test), adattatori per Anthropic, OpenAI-compatibili, Gemini e modello sul telefono, controllo dei numeri | **Si rifà** secondo C3. Si salvano la grammatica come punto di partenza, il controllo dei numeri e gli adattatori finché D11 non è chiusa |
+| `packages/dialogue` (ex `packages/assistant`, F0-5) | Grammatica EN/IT a un'azione per frase (233 test), adattatori per Anthropic, OpenAI-compatibili, Gemini e modello sul telefono, controllo dei numeri | **Si rifà** secondo C3. Si salvano la grammatica come punto di partenza, il controllo dei numeri e gli adattatori finché D11 non è chiusa |
 | `contracts/` | Schemi JSON dei risultati del motore, controllati nei test del motore | **Si tiene**, poi passa in `packages/contracts` (CON-1) |
-| `server-py/`, `web/` (hackathon) | Motore Python su Mac, web app a pulsante unico | **Da togliere dall'albero** (D12, F0-2). Restano nel commit `ed9c4bf` |
-| Documentazione dell'hackathon (`docs/architecture.md`, `features.md`, `how-we-built-it.md`, `roadmap.md`) | Descrive il sistema vecchio | **Da spostare** in `docs/archivio/hackathon-2026/` (F0-2) |
+| `server-py/`, `web/` (hackathon) | Motore Python su Mac, web app a pulsante unico | **Tolti dall'albero** (D12, F0-2). Restano nel commit `ed9c4bf` |
+| Documentazione dell'hackathon (`docs/architecture.md`, `features.md`, `how-we-built-it.md`, `roadmap.md`) | Descrive il sistema vecchio | **Spostata** in `docs/archivio/hackathon-2026/` (F0-2) |
 
 ### 6.2 Fasi e ordine
 
@@ -298,7 +298,7 @@ Per questo il piano ha cancelli, non date.
 ### 6.3 Card
 
 Legenda:
-- **Chi**: D = Daniele, L = Leonardo, A = agente, che lavora sotto chi è indicato.
+- **Chi**: D = chi sviluppa motore e dialogo, L = chi sviluppa la web app, A = agente, che lavora sotto chi è indicato.
 - **Dipende da**: le card che devono essere finite prima.
 - **Fatto quando**: il criterio di chiusura, da verificare nella PR.
 
@@ -307,10 +307,10 @@ Legenda:
 | ID | Card | Chi | Dipende da | Fatto quando | Stato |
 |---|---|---|---|---|---|
 | F0-1 | Togliere dal motore il server Overpass russo e quelli obsoleti | D/A | – | Resta solo `overpass-api.de` | **Fatto** |
-| F0-2 | **Archiviare l'hackathon:**<br/>• fuori dall'albero `server-py/`, `web/`, `playwright.config.ts`, `scripts/`, `tools/reference/dump.py`, `contracts/*.py`, `.env.example`;<br/>• documenti vecchi in `docs/archivio/hackathon-2026/`, con i link puntati al commit `ed9c4bf`;<br/>• `server-py/tests/guidance_transcript.txt` spostato prima in `packages/engine/test/fixtures/golden/` | **D o L a mano** (cancellazione: l'agente è stato bloccato dal controllo di sicurezza) | – | `npm run check` verde; `docs/archivio/hackathon-2026/README.md` spiega dove ritrovare tutto | Da fare |
+| F0-2 | **Archiviare l'hackathon:**<br/>• fuori dall'albero `server-py/`, `web/`, `playwright.config.ts`, `scripts/`, `tools/reference/dump.py`, `contracts/*.py`, `.env.example`;<br/>• documenti vecchi in `docs/archivio/hackathon-2026/`, con i link puntati al commit `ed9c4bf`;<br/>• `server-py/tests/guidance_transcript.txt` spostato prima in `packages/engine/test/fixtures/golden/` | D o L | – | `npm run check` verde; `docs/archivio/hackathon-2026/README.md` spiega dove ritrovare tutto | **Fatto** |
 | F0-3 | `AGENTS.md` e `CLAUDE.md` | D/A | – | Esistono e rimandano a questo piano | **Fatto** |
 | F0-4 | CI su GitHub Actions: installazione, controllo dei tipi e test su ogni PR; modello di PR con il controllo d'impatto | D/A | – | Il workflow gira sulle PR | **Fatto** (da verificare alla prima PR) |
-| F0-5 | `packages/assistant` → `packages/dialogue` (nome del pacchetto `@milo/dialogue`) | D/A | F0-2 | Test verdi con il nuovo nome | Da fare |
+| F0-5 | `packages/assistant` → `packages/dialogue` (nome del pacchetto `@milo/dialogue`) | D/A | F0-2 | Test verdi con il nuovo nome | **Fatto** |
 | F0-6 | Regole di parola aggiornate: regola 3 (sinistra e destra per le svolte), regola 10 (lingue) | D/A | – | [`speaking-rules.md`](speaking-rules.md) aggiornato | **Fatto** |
 | F0-7 | Recupero dall'hackathon (commit `ed9c4bf`) [Q §6.2]:<br/>• frasi dei test → `eval/seeds/hackathon/`;<br/>• regole di interazione da conservare (lo «stop» sempre locale e immediato, un'interpretazione superata non agisce, ecc.) → `docs/archivio/hackathon-2026/comportamenti-da-conservare.md`;<br/>• la correzione dei nomi capiti male | A (D rivede) | – | Ogni frase ha la fonte `file:riga`; nessuna frase inventata | Da fare |
 
@@ -320,7 +320,7 @@ Legenda:
 |---|---|---|---|---|
 | CON-1 | `packages/contracts` con TypeBox: C3, C2, C4, C8 (§5.3). Esempi validi e non validi per ciascuno; gli schemi attuali passano in `legacy/` | A scrive, **D e L approvano** | F0 | Test verdi. Le 6 frasi d'esempio di [E §2] passano come esempi C3. PR approvata da entrambi |
 
-#### Corsia MOT: motore (Daniele)
+#### Corsia MOT: motore (D)
 
 | ID | Card | Dipende da | Fatto quando |
 |---|---|---|---|
@@ -331,7 +331,7 @@ Legenda:
 | MOT-5 | **Frasi dai fatti:**<br/>• `render(passo, lingua)` con modelli di frase en-GB, en-US e it;<br/>• nomi pronunciabili: tipo più nome, sigle tolte, abbreviazioni sciolte con i dizionari di libpostal [N];<br/>• unità per paese [L §4] | CON-1 | Le chiavi dei cataloghi en e it coincidono (test); «San Luigi snc» diventa «la farmacia San Luigi» |
 | MOT-6 | **Esportazione:** riassunto in testo e GPX con i punti degli attraversamenti | MOT-2 | Il GPX si apre in VoiceVista o Soundscape (prova manuale) |
 
-#### Corsia DIA: dialogo (Daniele)
+#### Corsia DIA: dialogo (D)
 
 | ID | Card | Dipende da | Fatto quando |
 |---|---|---|---|
@@ -339,10 +339,10 @@ Legenda:
 | DIA-2 | **Grammatica componibile in inglese e italiano:**<br/>• spezza la frase ai connettori («and», «then», «without», «e», «poi», «senza»);<br/>• comandi della prova del percorso;<br/>• si riparte dai 233 test attuali | DIA-1 | I comandi fissi rispondono in meno di 50 ms; le frasi composte semplici non passano dal modello |
 | DIA-3 | **Memoria nel browser** (C4, IndexedDB):<br/>• eventi, registro, versioni del modulo, profilo (preferenze, luoghi salvati);<br/>• «ripeti» rigenera il passo, non rilegge un testo vecchio;<br/>• esporta e cancella [J §4] | DIA-1 | «Cosa mi hai detto prima?» e «la seconda che hai detto» si risolvono senza modello |
 | DIA-4 | **Chiarimenti mirati:**<br/>• si applica ciò che è sicuro;<br/>• mai un vincolo di sicurezza tolto su un dubbio;<br/>• si rilegge e si chiede una cosa per volta [J §5] | DIA-1 | I 7 dialoghi d'esempio di [J §5] passano come test |
-| DIA-5 | **Brain con la chiave dell'utente (spike e implementazione):**<br/>• Pi nel browser a confronto con gli adattatori attuali (D11);<br/>• CORS verificato per OpenRouter, Anthropic, OpenAI e Google;<br/>• strumenti: `edit_trip`, `ask_map`, `describe_place`, `describe_junction`, `rehearsal_status`, `recall` [G §5];<br/>• il controllo dei numeri su ogni testo del modello | DIA-1 | La frase del Duomo funziona nel browser con la chiave di Daniele; decisione D11 chiusa |
+| DIA-5 | **Brain con la chiave dell'utente (spike e implementazione):**<br/>• Pi nel browser a confronto con gli adattatori attuali (D11);<br/>• CORS verificato per OpenRouter, Anthropic, OpenAI e Google;<br/>• strumenti: `edit_trip`, `ask_map`, `describe_place`, `describe_junction`, `rehearsal_status`, `recall` [G §5];<br/>• il controllo dei numeri su ogni testo del modello | DIA-1 | La frase del Duomo funziona nel browser con una chiave di sviluppo; decisione D11 chiusa |
 | DIA-6 | **Domande generali:** risposta breve con la fonte dichiarata («secondo…»), mai indicazioni stradali (le regole di `chat.ts`) | DIA-5 | Test sulle regole |
 
-#### Corsia WEB: web app (Leonardo)
+#### Corsia WEB: web app (L)
 
 | ID | Card | Dipende da | Fatto quando |
 |---|---|---|---|
@@ -353,13 +353,13 @@ Legenda:
 | WEB-5 | **Vista per chi vede:** mappa MapLibre con il percorso e gli attraversamenti, portata dalla mappa live dell'hackathon; nascosta ai lettori di schermo, con testo equivalente [K §7] | WEB-1, MOT-2 | La mappa non ruba mai il focus |
 | WEB-6 | **Pubblicazione** su GitHub Pages dalla CI | WEB-1 | L'app è raggiungibile a un indirizzo pubblico |
 
-#### Corsia VAL: valutazione (agenti; Daniele rivede)
+#### Corsia VAL: valutazione (agenti; D rivede)
 
 | ID | Card | Dipende da | Fatto quando |
 |---|---|---|---|
 | VAL-1 | **Sistema di valutazione** in Node (`packages/eval`), che confronta il modulo che risulta dai comandi. Metriche:<br/>• modulo esatto;<br/>• F1 per campo;<br/>• azioni rischiose;<br/>• domande superflue;<br/>• latenza e costo [P §9] | CON-1, DIA-1 | Gira sul corpus di sviluppo e produce un rapporto |
 | VAL-2 | **Corpus di sviluppo in inglese e italiano.** Fonti:<br/>• semi dall'hackathon (F0-7);<br/>• MASSIVE (CC BY 4.0);<br/>• frasi scritte a mano: composte, correzioni, riferimenti, comandi della prova [P] | – | Almeno 300 frasi; più un insieme di sicurezza di almeno 300 frasi per le azioni rischiose [P] |
-| VAL-3 | **Confronto dei modelli** con la chiave di Daniele, sulle coppie modello-fornitore di [H §5]. Serve a compilare la lista dei modelli consigliati nell'app | VAL-1, VAL-2, DIA-5 | Tabella con precisione, latenza e costo per turno |
+| VAL-3 | **Confronto dei modelli** con una chiave di sviluppo, sulle coppie modello-fornitore di [H §5]. Serve a compilare la lista dei modelli consigliati nell'app | VAL-1, VAL-2, DIA-5 | Tabella con precisione, latenza e costo per turno |
 | VAL-4 | **Revisione dei testi della prova** con un istruttore O&M | MOT-2 | Le correzioni sono entrate nei modelli di frase |
 
 ### 6.4 Cancelli
@@ -423,7 +423,7 @@ Gli inventari completi, con licenze e verifiche, sono in [N], [O] e [P]. Qui sol
 ## 9. Punti aperti (da decidere insieme)
 
 1. **D7, D8, D9, D10, D11, D13:** confermate o cambiate le decisioni «proposte» di §2.
-2. **Modelli consigliati:** la lista esce da VAL-3. Fino ad allora si usa la chiave di Daniele con un modello scelto a mano: DeepSeek-V4.1-Flash via OpenRouter, oppure un modello di Anthropic [H].
+2. **Modelli consigliati:** la lista esce da VAL-3. Fino ad allora si usa una chiave di sviluppo con un modello scelto a mano: DeepSeek-V4.1-Flash via OpenRouter, oppure un modello di Anthropic [H].
 3. **Dove si salva la chiave API:** solo per la sessione (proposta) o anche sul dispositivo, con avviso.
 4. **Città di prova:** Milano più Londra e Dublino [M], più altre su richiesta dei tester (con dati solo OSM, meno completi).
 5. **Package manager:** si resta su npm o si passa a pnpm [Q §1.2]. Proposta: npm finché non dà problemi.

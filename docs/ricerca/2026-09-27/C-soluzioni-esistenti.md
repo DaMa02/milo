@@ -50,7 +50,7 @@ These apps give the best spatial awareness, but they compute no routes ([FAQ](ht
 **Specialist GPS apps.**
 - BlindSquare remains the reference for callouts and clock bearings, and its headset menu works with the screen locked. But it runs only on iOS, is paid, and leaves routing to other apps.
 - Lazarillo is free and has Italian, but requires an account.
-- Indigo Nav promises the most verbose guidance, but needs a data connection to route. Correction to the brief: GoodMaps Outdoors descends from Sendero's Seeing Eye GPS. APH later [acquired](https://www.aph.org/blog/navigating-independently-with-indigo/) the GoodMaps software.
+- Indigo Nav promises the most verbose guidance, but needs a data connection to route. Note: GoodMaps Outdoors descends from Sendero's Seeing Eye GPS. APH later [acquired](https://www.aph.org/blog/navigating-independently-with-indigo/) the GoodMaps software.
 - MyWay Pro is the Italian-speaking European option, focused on recorded routes.
 
 **Mainstream maps.**

@@ -464,21 +464,21 @@ Samsung promised in July 2024 that from One UI 6.0 the foreground services of ap
 
 ## 11. Order, parallel and serial, with owners
 
-Owners follow Q §8: Daniele owns the engine and the contracts; Leonardo owns the native modules and the UI; agents take TypeScript work that has an oracle.
+Owners follow Q §8: the brain-lane owner has the engine and the contracts; the phone-lane owner has the native modules and the UI; agents take TypeScript work that has an oracle.
 
 | Step | What | Owner | Depends on | Parallel with |
 |---|---|---|---|---|
-| **S1** | `milo.walklog/1` in `packages/contracts` (extends C1 and C2) | Daniele + agent | Q week-0 contract freeze | S6 |
-| S2 | Node replay with virtual clock; inputs and poses modes; matcher conformance vectors | Agent (Daniele reviews) | S1, J1 | S3–S5 |
+| **S1** | `milo.walklog/1` in `packages/contracts` (extends C1 and C2) | Brain-lane owner + agent | Q week-0 contract freeze | S6 |
+| S2 | Node replay with virtual clock; inputs and poses modes; matcher conformance vectors | Agent (Brain-lane owner reviews) | S1, J1 | S3–S5 |
 | S3 | Virtual walker, GNSS error model, nightly invariant fuzz | Agent | S2 | S4, S5 |
 | S4 | `tools/walk-score`, first on synthetic logs | Agent | S1 | S2, S3, S5 |
-| **S5** | Native logging in `milo-guidance` (both clocks, TTS ranges, charge counter, lifecycle), remote marks, `ReplaySource` | Leonardo | S1, S0 (Q) | S2–S4 |
-| S6 | Order the kit; register with SPIN3; PPK script (demo5 `rnx2rtkp`) | Daniele + agent | — | S1–S5 |
+| **S5** | Native logging in `milo-guidance` (both clocks, TTS ranges, charge counter, lifecycle), remote marks, `ReplaySource` | Phone-lane owner | S1, S0 (Q) | S2–S4 |
+| S6 | Order the kit; register with SPIN3; PPK script (demo5 `rnx2rtkp`) | Brain-lane owner + agent | — | S1–S5 |
 | S7 | Route bank: OSM and DBT survey sheets (agent), then the field survey (both) | Both + agent | S6 kit | S2–S5 |
-| S8 | CI device jobs: emulator TalkBack (O), `simctl` or XCUITest location, Maestro smoke | Leonardo + agent | App shell | S7 |
+| S8 | CI device jobs: emulator TalkBack (O), `simctl` or XCUITest location, Maestro smoke | Phone-lane owner + agent | App shell | S7 |
 | **S9** | Pilot walk: M2 open sky plus one canyon route. Measure fix rate and eligible "now" events; tune §2.4 | Both | S5, S6, S7 | — |
 | **S10** | Bank walk per release candidate, then regression review | Both (agent scores) | S9 | Per build |
-| S11 | O&M route review page and trip replay report | Agent (Leonardo reviews the UI) | S2 | S10 |
+| S11 | O&M route review page and trip replay report | Agent (Phone-lane owner reviews the UI) | S2 | S10 |
 | S12 | Consent and retention texts for walk logs | Both, agent drafts | I's DPIA | S10 |
 
 **The serial spine:** S1 → S5 → S9 → S10 → G-B1 → blind tests.
@@ -502,7 +502,7 @@ Owners follow Q §8: Daniele owns the engine and the contracts; Leonardo owns th
 1. **D, the design lead for "now".** 2 m by default? Ask the O&M instructors.
 2. **Crossing position:** is it measured to the near edge of the zebra or to its centre line?
 3. **SPIN3 eligibility:** ask CSI Piemonte (info.gnss@csi.it) whether two individual developers may register.
-4. **Phones already owned:** which ones do Daniele and Leonardo have? It changes the shopping list.
+4. **Phones already owned:** which ones are already available? It changes the shopping list.
 5. **Should the plan adopt the r-calibration criterion** and the severity rule for crossing facts?
 6. **Where team logs live:** a private GitHub repo with LFS, or the VPS? And may trimmed team walks become public fixtures?
 7. **Compensation** for blind testers and O&M instructors in Milan: rates [U] (L).

@@ -157,7 +157,7 @@ These are server-side tools that we do not distribute, so AGPL and GPL are compa
 | Vertex AI, EU | Gemini 3.8 Flash | $0.75 / $3.75 is the global endpoint [V 23]; the EU endpoint is about $0.83 / $4.13 (~10% more) [P 31] | EU residency reported for 3.8 Flash [P 31]. Paid tier: no training; logs kept briefly for abuse [V 30] |
 | Bedrock eu-west-1 / Vertex europe | Claude Haiku 4.5 | $1.10 / $5.50 [V 23] | [U] |
 
-**Founders' claim, from the server side.**
+**The same claim, from the server side.**
 - The prices in G (DeepSeek V4.1 Flash $0.035/$0.29) are real, but come from the cheapest host on OpenRouter (InferenceNet) [V 23].
 - DeepSeek's own endpoint charges $0.15/$0.60 [V 23].
 - None of the 27 DeepSeek V4.1 Flash endpoints or 33 GLM-5.3-Flash endpoints is tagged EU [V 23].

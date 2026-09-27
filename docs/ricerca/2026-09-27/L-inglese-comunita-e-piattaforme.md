@@ -49,7 +49,7 @@ This report builds on D (platform, wake word, on-device recognition for Italian)
 
 None of these blocks turn-by-turn guidance with the screen locked.
 
-**Founders' assumption to correct.** "English means more users and testers" is true. But it moves the natural first platform from Android to iOS, and the plan's line 153 still says Android first.
+**Assumption to correct.** "English means more users and testers" is true. But it moves the natural first platform from Android to iOS, and the plan's line 153 still says Android first.
 
 ## 2. Where English-speaking blind users and testers gather
 
@@ -155,7 +155,7 @@ Then publish the data manifest. Budget 1–2 weeks, including an outdoor false-a
 - **Android:** Google Assistant was discontinued on Android and Wear OS on 4 Sep 2026 in favour of Gemini (Wikipedia, citing 9to5Google and Android Police) [P 50]. AppFunctions, which lets Gemini call app actions, is "experimental", Android 16+, "private preview with trusted testers" [V 50]. Register interest; do not plan on it.
 - **Both platforms:** D's headset button and magic tap.
 
-**Founders' assumption to correct.** English-first removes only the language objection to a wake word. The licence, battery, false-accept and iOS objections remain.
+**Assumption to correct.** English-first removes only the language objection to a wake word. The licence, battery, false-accept and iOS objections remain.
 
 ### 3.3 Speech output
 
@@ -265,7 +265,7 @@ A found no controlled comparison between clock-face and left/right directions. I
 
 ## Open questions
 
-1. Which phones do Daniele and Leonardo carry, and does either have a Mac? This decides whether iOS-first is practical for the Swift half of the native module.
+1. Which phones and computers are available (an iPhone, an Android phone, a Mac)? This decides whether iOS-first is practical for the Swift half of the native module.
 2. Is a UK/Ireland first cohort acceptable (time zone, data, charities), or do you prefer the larger US community despite thinner OSM crossing data and feet?
 3. Personal or organisation developer accounts? The App Store shows a personal account holder's legal name, and the Play 12-tester gate applies only to personal accounts created after 13 Nov 2023 [V 4]. Organisation accounts need a legal entity.
 4. Is there a budget to pay Milan field-test participants, and will EveryWare Lab or UICI handle consent?
