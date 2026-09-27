@@ -298,3 +298,21 @@ Not in the MVP: `llama.rn`, `whisper.rn`, ViroReact, VisionCamera, `react-native
 51. react-native-accessibility-engine README. https://raw.githubusercontent.com/aryella-lacerda/react-native-accessibility-engine/main/README.md
 52. npm metadata for eslint-plugin-react-native-a11y 3.5.1 (peer dependencies). https://registry.npmjs.org/eslint-plugin-react-native-a11y/3.5.1
 53. GitHub code search, `CLBackgroundActivitySession` (0 hits in `expo/expo`; hits in Tracelet and others), 27 Sep 2026. https://github.com/search?q=CLBackgroundActivitySession&type=code
+54. Hugging Face model API: `nvidia/parakeet-tdt-0.6b-v3` (licence cc-by-4.0; language tags), 27 Sep 2026. https://huggingface.co/api/models/nvidia/parakeet-tdt-0.6b-v3
+
+## Verification (27 Sep 2026)
+
+An adversarial check re-fetched the primary sources for 30 claims (npm registry and tarballs, raw READMEs and LICENSE files, the GitHub API, PyPI, the Hugging Face API, Google, Expo and Software Mansion docs, Transistor and RNTP pricing pages, and hozo PR #452).
+
+**Confirmed as written:** Transistor v5 licensing (release-only key, v4 keys invalid) and prices; RNTP V5 prices and npm `latest` 4.1.2 (Apache-2.0); `whisper.rn` Parakeet (English + 24 European languages, q4_0 356 MB, q8_0 669 MB) and `ggml-silero-v6.2.0`; nitro-speech 0.4.9 (MIT, SpeechAnalyzer with SpeechTranscriber or DictationTranscriber, contextual strings on both platforms; repo created 16 Jan 2026, 19 stars); sherpa-onnx wrapper (FFmpeg LGPL-2.1, Shine LGPL, pin 1.12.35, VAD "scheduled for 0.7.0"); llama.rn dist-tags (0.13.0-rc.6 on 26 Sep; last stable 0.12.9 on 4 Aug), JSON-Schema→GBNF, tool calling, New Architecture since v0.10; Cactus licence terms; ExecuTorch 0.10.x compatibility (SDK 57 ✅, worklets ≥0.10 <0.13), phonemis MIT, no espeak-ng, Kokoro Italian; Viro "95% confidence" versus Google's 68th percentile; ARCore quota (1,000 sessions or 100,000 requests per minute; no price); RF-DETR licences and N figures (30.5 M, 384×384, 2.3 ms T4 TensorRT FP16); hozo TalkBack technique (API 33/35/36, not 34; UIAutomator turns TalkBack off); Appium `performAccessibilityAudit` (Xcode 15 / iOS 17); Expo `next` 58.0.0-preview.7 and RN `latest` 0.87.1; voice and Notifee archived; Play Console foreground-service declaration with video; ImVisible (MIT, 5,059 images, 21 fps); kairess GPL-3.0; Ultralytics AGPL-3.0 8.4.163; ML Kit five classes; SecureStore behaviour; Maps SDK "unlimited" quote.
+
+**Corrected or added:**
+- `expo-speech-recognition` `contextualStrings`: the report said "Android 13+ only on-device". The on-device restriction belongs to `addsPunctuation`. The code sends biasing strings on API 33+ in either mode.
+- `react-native-sherpa-onnx`: FFmpeg can be disabled at build time. The verdict stays "No", on the old pin and the missing VAD.
+- ExecuTorch structured output: the cited "schema validation" page covers tensor shapes, not LLM output. "No constrained decoding" still holds.
+- Moonshine licence: the models are MIT in every language except the legacy non-streaming non-English ones, not "English models MIT" only.
+- Cactus: npm metadata says MIT, but the shipped LICENSE is the custom one.
+- Expo SDK 58 preview bundles RN 0.88.0-rc.1 and worklets 0.13.0, outside ExecuTorch 0.10's range. This adds a condition to the ExecuTorch-Kokoro TTS fallback. MVP choices are unchanged, because ExecuTorch is not in the MVP.
+- Also added: the Transistor 30-day trial and STUDIO tier; that the Play declaration applies to `microphone` too; that `expo-location` 57.0.20 has no iOS session APIs (tarball check); Parakeet CC-BY-4.0 verified [54]; `munim-xr` as a non-geospatial AR session module; heading conversion ≈2×; the hozo PR merge date.
+
+No recommendation changed: every correction either strengthens an existing "No" or narrows a post-MVP option.
