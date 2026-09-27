@@ -1,792 +1,462 @@
 # Milo: piano di lavoro
 
-Versione 1 del 27 settembre 2026, da approvare prima di toccare il codice.
+Versione 2 del 27 settembre 2026. Sostituisce la v1 (commit `28220f8`), che puntava a un navigatore completo sul telefono.
 
-Le fonti di ogni affermazione sono nei sei rapporti di ricerca in [`docs/ricerca/2026-09-27/`](ricerca/2026-09-27/):
-- [A: studi scientifici](ricerca/2026-09-27/A-studi-scientifici.md)
-- [B: cosa dicono gli utenti ciechi](ricerca/2026-09-27/B-voci-degli-utenti.md)
-- [C: soluzioni esistenti](ricerca/2026-09-27/C-soluzioni-esistenti.md)
-- [D: piattaforma e precisione](ricerca/2026-09-27/D-piattaforma-e-precisione.md)
-- [E: conversazione](ricerca/2026-09-27/E-conversazione.md)
-- [F: contesto italiano](ricerca/2026-09-27/F-contesto-italiano.md)
-
-Lo stato attuale è preso dal codice, con i numeri veri.
+**Cosa cambia rispetto alla v1, in breve**
+- **Il cuore di Milo è preparare il percorso, non guidare in strada.** Milo aiuta a capire la zona, scegliere la strada e provarla incrocio per incrocio prima di uscire. L'accompagnamento in strada viene dopo (Fase 3).
+- **Si parte dal web, forse si resta sul web.** Il motore gira nel browser.
+- **Si interagisce scrivendo, con il lettore di schermo.** La voce è un'opzione.
+- **Lingue:** inglese come lingua di riferimento, più l'italiano.
+- **Nessun server nostro.** I modelli linguistici si usano con la chiave dell'utente, e Milo indica quali consiglia.
 
 ---
 
-## In breve
+## Come usare questo documento
 
-**Cosa manca oggi a un cieco che usa Milo**, in ordine di gravità:
-
-1. **Non può dire tutto in una frase.** «Voglio andare al Duomo fermandomi a una farmacia lungo il percorso, senza prendere mezzi pubblici» non funziona per tre motivi:
-   - Milo capisce una sola azione per frase;
-   - il motore accetta una sola tappa;
-   - il vincolo «niente mezzi» non esiste.
-
-   Per partire servono 5 turni; una tappa ne aggiunge altri 4.
-2. **Gli annunci dichiarano una precisione che non c'è.**
-   - «Gira ora» scatta circa 11 m prima della svolta.
-   - «Sei arrivato» scatta fino a 25 m prima.
-   - L'incertezza della posizione non viene mai detta.
-3. **Degli attraversamenti dice troppo poco.** Non dice:
-   - dove sono le strisce rispetto all'angolo;
-   - se c'è l'isola spartitraffico;
-   - quante corsie ci sono;
-   - se ci sono il tram o la ciclabile;
-   - se c'è il percorso tattile (lo legge dalla mappa ma non lo dice mai).
-4. **Parla troppo.**
-   - In esplorazione un incrocio produce 156 parole di fila, circa un minuto.
-   - I nomi dei luoghi sono letti come sono in mappa («San Luigi snc»).
-5. **Non funziona a mani libere né a schermo bloccato**, e non si coordina con VoiceOver e TalkBack. L'app per telefono non esiste ancora.
-6. **Non ricorda niente**: né preferenze («evito sempre le scale») né luoghi (casa, lavoro).
-
-**Cosa non cambia:**
-- il motore gira sul telefono;
-- i dati vengono da OpenStreetMap;
-- vale la regola dei numeri: ogni numero detto è un fatto con la sua prova;
-- open source, gratuito, senza account.
-
-**Una verità da mettere agli atti.** Il GPS di un telefono in città sbaglia di 5–15 m, con punte oltre i 30 m tra palazzi alti. A Londra indovina il lato della strada 1 volta su 4 (Wang 2015). Nessuna app può dire «gira adesso» con precisione al metro usando il solo GPS. Si possono però fare tre cose:
-- ancorare gli annunci a riferimenti fisici (angolo, fine dell'isolato, bordo del marciapiede);
-- dire l'incertezza;
-- nei punti critici, usare la fotocamera (posizionamento visivo, circa 0,8 m).
+- **Daniele e Leonardo:** §1 (cosa fa Milo), §2 (decisioni), §6 (step di lavoro), §9 (punti aperti).
+- **Agenti:**
+  - leggete prima [`AGENTS.md`](../AGENTS.md);
+  - lavorate su una card di §6 alla volta, e non uscite dallo scope di §1;
+  - i contratti tra componenti (§5.3) cambiano solo con una PR approvata da entrambi.
+- **Fonti:** le ricerche sono in [`docs/ricerca/2026-09-27/`](ricerca/2026-09-27/) (rapporti A–S, indice in §10). Tra parentesi quadre il rapporto e la sezione, per esempio [E §2].
 
 ---
 
-## 0. Metodo
+## 1. Cosa fa Milo
 
-### 0.1 Controllo «impatto su un cieco», obbligatorio per ogni modifica
+### 1.1 In una frase
 
-Ogni proposta di modifica risponde per iscritto a queste domande prima di essere scritta, e di nuovo prima di essere accettata:
+Milo aiuta una persona cieca o ipovedente a **capire un percorso a piedi prima di farlo**. Le dice com'è la zona, che strada conviene, cosa troverà a ogni incrocio e attraversamento e cosa la mappa non sa, e le fa **provare il percorso incrocio per incrocio**. Si usa scrivendo o parlando, con il proprio lettore di schermo.
 
-1. **Mani.** Serve toccare lo schermo mentre cammina? Tutto ciò che serve in strada deve funzionare col telefono in tasca.
-2. **Orecchie.** Aggiunge parlato? Quando, e si può interrompere? Copre il traffico? Al bordo del marciapiede si tace.
-3. **Lettore di schermo.** Funziona con VoiceOver e TalkBack, accesi e spenti? La voce di Milo si sovrappone al lettore?
-4. **Precisione.** Dichiara una precisione che non abbiamo? Dice cosa non sa?
-5. **Errore.** Cosa succede se il riconoscimento vocale sbaglia, se manca la rete, se il GPS è scarso, se la mappa è incompleta?
-6. **Sicurezza.** Può spingere a un'azione pericolosa? Al bordo del marciapiede Milo informa, non comanda.
-7. **Carico.** Quante parole dice, quante cose bisogna ricordare?
-8. **Controllo.** L'utente può ripetere, fermare, annullare, chiedere di più?
-9. **Personalizzazione.** Si può regolare a voce e dalle impostazioni?
-10. **Italiano vero.** Frasi naturali, preposizioni corrette, nomi delle vie pronunciabili.
+### 1.2 Per chi
 
-### 0.2 Prima le evidenze, poi il progetto
+- **Utenti:** persone cieche e ipovedenti che preparano un tragitto:
+  - a casa al computer, con NVDA, JAWS o VoiceOver;
+  - oppure al telefono, con VoiceOver o TalkBack.
+  - Vale sia per chi è esperto sia per chi è alle prime armi: il dettaglio si regola [A].
+- **Utenti secondari:**
+  - istruttori di orientamento e mobilità (O&M), che preparano i percorsi con gli allievi;
+  - accompagnatori vedenti, che guardano la mappa.
 
-Per ogni area:
-- studi scientifici;
-- voci degli utenti (forum, recensioni, podcast, UICI);
-- soluzioni esistenti e codice riusabile.
+### 1.3 I compiti di Milo (lo scope)
 
-La ricerca iniziale è in `docs/ricerca/`. Ogni area, quando la si apre, ne aggiunge una mirata.
+Ogni funzione deve servire almeno uno di questi compiti. Se non ne serve nessuno, non si fa.
 
-### 0.3 Con persone cieche, non per persone cieche
+| # | Compito | Esempi di richieste |
+|---|---|---|
+| **J1** | **Capire la zona** | «Com'è la zona intorno alla stazione?», «Com'è l'incrocio tra via Brembo e via Ripamonti?», «C'è qualcosa tra me e il parco?» |
+| **J2** | **Scegliere il percorso** | «Voglio andare al Duomo fermandomi in una farmacia, senza mezzi e senza scale», «Perché questa strada e non l'altra?», «Evita gli attraversamenti senza semaforo» |
+| **J3** | **Provare il percorso** | «Fammi provare il percorso», «Avanti», «Ripeti», «Com'è questo attraversamento?», «Torna alla svolta prima» |
+| **J4** | **Portarsi dietro il percorso** | Riassunto da riascoltare o stampare, file GPX per Soundscape o VoiceVista, luoghi e percorsi salvati |
+| J5 *(Fase 3)* | **Restare orientati in strada** | «Dove sono?», «Cosa arriva adesso?», «Cosa mi avevi detto per questo incrocio?». Gli annunci sono ancorati a incroci e attraversamenti e dichiarano l'incertezza |
 
-Le associazioni italiane (INMACI per UICI e ADV) considerano il percorso tattile «l'ausilio primario». Accettano il GPS solo come informazione aggiuntiva ([F](ricerca/2026-09-27/F-contesto-italiano.md)). Tra i principali motivi per cui un ausilio viene abbandonato c'è non aver consultato gli utenti (Phillips & Zhao 1993, [A](ricerca/2026-09-27/A-studi-scientifici.md)). Quindi:
-- Milo si presenta come complemento a bastone, cane e addestramento all'orientamento e mobilità (O&M);
-- si coinvolgono UICI Milano, l'Istituto dei Ciechi di Milano e gli istruttori O&M (ANIOMAP) prima di ogni rilascio.
+**Perché questo è il cuore:**
+- **La prova del percorso ha l'evidenza più forte.** Dopo tre giorni di prova, 12 utenti su 14 hanno percorso da soli un percorso reale (Guerreiro 2017/2020 [A]).
+- **Nessuna app lo fa.** Nessuna prova il percorso calcolato incrocio per incrocio descrivendo gli attraversamenti [C].
+- **La guida in strada è la parte più cara e rischiosa:**
+  - il GPS in città sbaglia di 5–15 m [D];
+  - serve un'app nativa che funzioni a schermo bloccato [O][R];
+  - i navigatori esistenti la offrono già.
 
-### 0.4 Criteri misurabili
+### 1.4 Principi (non si negoziano)
 
-Ogni area ha criteri di accettazione. Senza, un'area non è «fatta».
+1. **Ogni numero detto viene dal motore.** Il modello linguistico interpreta la frase e riformula la risposta. Non calcola distanze, direzioni o percorsi, e non inventa luoghi [E].
+2. **Cosa la mappa non sa si dice**, non si salta.
+3. **Milo informa, non comanda.** Mai «attraversa adesso», mai «puoi attraversare».
+4. **Prima breve, poi i dettagli su richiesta.** Il dettaglio si regola [B §3].
+5. **Il lettore di schermo viene prima di tutto.** Tutto si fa da tastiera, e la voce di Milo non si sovrappone mai al lettore [D §1].
+6. **I dati dell'utente restano nel browser.** Niente account. Verso l'esterno esce solo ciò che serve (§5.4).
+7. **Complemento, non sostituto** del bastone, del cane guida e dell'addestramento O&M. Lo si dice al primo avvio [F §1].
 
----
+### 1.5 Cosa Milo non è (per non perdere la direzione)
 
-## 1. Scope
+- **Un navigatore svolta per svolta alla Google Maps.** La Fase 3 accompagna, non comanda al metro.
+- **Un rilevatore di ostacoli.** È il lavoro del bastone e del cane.
+- **Un descrittore di immagini o della fotocamera.** Lo fanno Be My Eyes e Seeing AI: Milo passa a loro, non li rifà.
+- **Un assistente generico o una chat.** Le domande generali («cos'è la Bocconi?») hanno una risposta breve con la fonte, e basta.
+- **Navigazione al chiuso, in auto o in bici.**
+- **Un servizio con chiavi o costi pagati da noi.** L'utente usa la sua chiave, oppure solo le funzioni che non la richiedono.
 
-### 1.1 Per chi
+**Controllo di scope per ogni nuova funzione** (va scritto nella PR):
+1. Quale compito J1–J4 serve?
+2. Supera il controllo d'impatto (§3)?
+3. Rispetta i principi di §1.4?
 
-- **Chi:** persone cieche che usano il bastone o il cane guida, e persone ipovedenti.
-- **Esperienza:** sia esperte sia principianti. Le preferenze sui messaggi cambiano con l'esperienza (Ahmetovic 2019), quindi il dettaglio si regola.
-- **Lettore di schermo:** quasi tutte hanno VoiceOver o TalkBack sempre attivi.
-- **Età:** molte hanno più di 49 anni (81% nei campioni esaminati da Real & Araujo 2019). Serve una curva di apprendimento dolce.
-- **Lingua:** prima l'italiano, poi l'inglese.
-
-### 1.2 Fase A: esplorazione prima del viaggio
-
-- **Scopo:** costruirsi la mappa mentale e decidere il percorso.
-- **Dove:** a casa o da fermi, anche al computer (versione web, con NVDA, JAWS o VoiceOver per macOS).
-- **Contiene:**
-  - panoramica della zona;
-  - domande sulla mappa;
-  - passeggiata virtuale libera;
-  - **prova del percorso pianificato**, a salti di svolta in svolta oppure passo passo. È la funzione con più evidenza a favore: dopo tre giorni di prova, 12 utenti su 14 hanno percorso da soli un percorso reale (Guerreiro 2017/2020). È anche un vuoto di mercato ([C](ricerca/2026-09-27/C-soluzioni-esistenti.md));
-  - pianificazione con vincoli, tappe, mezzi e orari;
-  - luoghi e percorsi salvati.
-
-### 1.3 Fase B: navigazione in strada
-
-- **Scopo:** arrivare, con il telefono in tasca e le mani occupate dal bastone o dal cane.
-- **Contiene:**
-  - partenza e orientamento iniziale;
-  - svolte;
-  - attraversamenti;
-  - conferme di essere sul percorso;
-  - uscita dal percorso e ricalcolo;
-  - tappe;
-  - tratte con i mezzi: fermata, linea, fermate da contare, discesa;
-  - arrivo e ultimi metri;
-  - «dove sono» e «cosa c'è intorno» in qualsiasi momento;
-  - pausa.
-
-### 1.4 Trasversali
-
-- Comunicazione: voce, gesti, pulsanti.
-- Impostazioni.
-- Dati e trasparenza.
-- Offline e batteria.
-- Sicurezza, responsabilità, privacy.
-
-### 1.5 Fuori scope, dichiarato
-
-- **Rilevare gli ostacoli.** È il lavoro del bastone e del cane.
-- **Dire «attraversa adesso» in base alla fotocamera: mai.** Il rilevamento affidabile dei semafori è un problema aperto (El-taher 2021), e Oko funziona solo negli USA.
-- **Navigazione indoor.** Per le stazioni solo informazioni: uscite, ascensori, percorsi tattili.
-- **Auto e bici.**
-- **Sostituire l'aiuto umano.** Deve invece essere facile passare a Be My Eyes, a una chiamata a un contatto o a condividere la posizione.
+Se una risposta è no, la funzione non si fa. Chi vuole comunque farla scrive una decisione in §2 e la fa approvare a entrambi.
 
 ---
 
-## 2. L'app
+## 2. Decisioni
 
-### 2.1 Piattaforme
+| # | Decisione | Scelta | Perché | Stato |
+|---|---|---|---|---|
+| D1 | Cuore del prodotto | Preparazione del percorso (J1–J4). Il compagno in strada (J5) viene dopo | §1.3 | Decisa 27/09 |
+| D2 | Canale | Web, dal computer e dal telefono. L'app nativa solo se la Fase 3 la richiede | La preparazione non richiede lo schermo bloccato. Il web si prova subito con i lettori di schermo da computer | Decisa 27/09 |
+| D3 | Dove gira il motore | Nel browser (`@milo/engine`, già in TypeScript) | Nessun server da pagare, privacy, stesso codice per una futura app | Decisa 27/09 |
+| D4 | Interazione predefinita | Testo più lettore di schermo. La voce (microfono e sintesi) è un'opzione, attiva di default sul telefono | Al computer il lettore di schermo usa voce e velocità scelte dall'utente. Il riconoscimento vocale del browser spesso manda l'audio a server esterni | Decisa 27/09 |
+| D5 | Lingue | Inglese come riferimento (corpus, prima beta, comunità online), più italiano. Il motore è già bilingue | Più tester in inglese [L]; a Milano si prova in italiano | Decisa 27/09 |
+| D6 | Modelli linguistici | Chiave dell'utente; Milo indica i modelli consigliati. Nei test si usa la chiave di Daniele. Nessun server nostro per i modelli | Non è ancora un servizio pubblico, e non paghiamo noi i modelli | Decisa 27/09 |
+| D7 | Server | Nessun backend in Fase 1: solo hosting statico dell'app (e poi dei pacchetti città). Il browser usa direttamente i servizi pubblici (Overpass, Photon, Transitous) e il fornitore del modello | Conseguenza di D3 e D6 | Proposta |
+| D8 | Dati dell'utente | Solo nel browser (IndexedDB): memoria della sessione, preferenze, luoghi e percorsi salvati. Si possono esportare e cancellare | Privacy, niente account [J] | Proposta |
+| D9 | Conversazione | Richieste componibili. Il modello restituisce comandi tipizzati che modificano un unico «modulo di viaggio»; il codice cerca i luoghi, calcola e decide cosa chiedere [E §2] | Due turni invece di nove; niente errori del tipo «il secondo» finito sull'oggetto sbagliato | Proposta (dalla v1) |
+| D10 | Chiarimenti | Si tiene ciò che è stato capito, lo si rilegge e si chiede solo il pezzo mancante, una cosa alla volta. «Dimmi una cosa alla volta» solo dopo due fallimenti o se l'utente lo imposta [J §5] | Rilanciare la richiesta recupera il 64% dei casi, chiedere di riformulare il 49% [J] | Proposta |
+| D11 | Harness per il modello | Interfaccia `Brain` nostra. Dietro: Pi (`@earendil-works/pi-ai` e `pi-agent-core`, MIT), se lo spike DIA-5 conferma che gira nel browser con la chiave dell'utente. Altrimenti gli adattatori che abbiamo già [G] | Prende la chiave dell'utente, parla con molti fornitori e gestisce gli strumenti. OpenClaw è scartato [G] | Proposta |
+| D12 | Codice dell'hackathon | `server-py/` e `web/` escono dall'albero e restano nella storia git (commit `ed9c4bf`). Card F0-7 recupera ciò che serve | Un agente lo leggerebbe come codice attuale | Proposta: la rimozione la fate voi (F0-2) |
+| D13 | Divisione del lavoro | Daniele: motore, dialogo, valutazione. Leonardo: web app, esperienza d'uso, accessibilità. Ognuno rivede le PR dell'altro | Come all'hackathon [Q §8] | Proposta |
 
-- **Android per primo** (React Native + Expo). **iOS dallo stesso codice.** Nessuna scelta di design vale solo per Android: ogni funzione è progettata e provata sia con TalkBack sia con VoiceOver.
-- **Web** (Expo web) solo per la Fase A, cioè per pianificare al computer.
+**Decisioni della v1 che restano:** motore deterministico su OpenStreetMap, regola dei numeri, open source MIT, nessun account, controllo d'impatto per ogni modifica.
 
-### 2.2 Architettura dell'app ([D](ricerca/2026-09-27/D-piattaforma-e-precisione.md))
-
-1. **Modulo nativo (Kotlin e Swift)** per ciò che deve girare a schermo bloccato:
-   - posizione a 1 Hz fusa con passi, giroscopio e bussola;
-   - sintesi vocale con le giuste proprietà audio;
-   - suoni e vibrazioni;
-   - sessione media per il tasto delle cuffie.
-
-   I moduli Expo standard hanno limiti documentati:
-   - `expo-location` in background è fragile, con bug aperti nel 2026;
-   - `expo-speech` su Android non chiede il focus audio;
-   - `expo-speech` su iOS ignora la voce e la velocità di VoiceOver.
-2. **Motore TypeScript** (`packages/engine`, già portato con parità esatta): decisioni pure e testabili.
-3. **Interfaccia React Native** per la Fase A, le impostazioni e lo stato.
-
-### 2.3 Come si parla a Milo
-
-- **Senza toccare lo schermo:**
-  - il **tasto delle cuffie** avvia l'ascolto;
-  - su iOS la **magic tap** (doppio tocco a due dita con VoiceOver, il gesto standard per l'azione principale);
-  - su Android il **doppio tocco a due dita di TalkBack** arriva come tasto delle cuffie: stesso gesto, stessa funzione.
-- **Pulsante grande sullo schermo**, per chi preferisce toccare.
-- **Scorciatoie** Siri e Android.
-- **Tastiera**, sul web e per chi preferisce scrivere.
-- **Niente tasti del volume**: vietati da Apple, instabili su Android, e TalkBack li usa.
-- **Niente parola di attivazione nella prima versione.** I modelli liberi sono solo in inglese o hanno licenze non commerciali; Porcupine è a pagamento.
-
-### 2.4 Come parla Milo
-
-- **La guida usa la voce propria di Milo**, che funziona a schermo bloccato e gestisce coda e attenuazione degli altri audio. Su iOS usa la voce e la velocità scelte dall'utente in VoiceOver.
-- **Gli annunci del lettore di schermo servono solo come riscontro dell'interfaccia.** Mai le due voci insieme. Gli utenti lo chiedono esplicitamente ([B](ricerca/2026-09-27/B-voci-degli-utenti.md) §8).
-- **Pochi suoni, sempre insieme alla voce.** Voce e «spearcon» (frasi accelerate) battono i suoni astratti (Nees & Liebman 2023).
-- **Vibrazioni brevi e opzionali.** Hanno limiti: iPhone bloccato, risparmio energetico su Android.
-- **Mezzo secondo di silenzio prima di parlare**, per svegliare le cuffie Bluetooth (lamentela ricorrente degli utenti).
-- **Per gli ipovedenti:** caratteri grandi, alto contrasto, tema scuro, mappa per chi accompagna.
+**Decisioni della v1 superate:**
+- «Android per primo»: si parte dal web.
+- «Nessun server nostro»: resta vero, perché con D6 il server non serve.
+- «Prima l'italiano»: vedi D5.
+- L'ordine delle fasi: la prova del percorso passa davanti alla guida precisa.
 
 ---
 
-## 3. Collegamenti tra app e servizi esterni
+## 3. Metodo
 
-**Principio:**
-- tutto sul telefono;
-- verso l'esterno solo ciò che non si può fare in locale, con il minimo di dati;
-- nessun server nostro che riceva dati degli utenti.
+### 3.1 Controllo d'impatto (da scrivere in ogni PR che tocca l'utente)
 
-**Perché:** il solo fatto di usare Milo rivela una disabilità, e per il GDPR è un dato particolare (Corte di giustizia UE, C-184/20; [F](ricerca/2026-09-27/F-contesto-italiano.md) §6).
+1. **Tastiera e lettore di schermo.** Si fa tutto da tastiera? Funziona con NVDA, JAWS, VoiceOver e TalkBack? La voce di Milo, se è attiva, si sovrappone al lettore?
+2. **Orecchie.** Quanto parla Milo? Si può interrompere?
+3. **Precisione.** Dichiara una precisione che non abbiamo? Dice cosa non sa?
+4. **Errore.** Cosa succede se il modello sbaglia, se manca la rete, se la mappa è incompleta, se la chiave non c'è?
+5. **Sicurezza.** Può spingere a un'azione pericolosa? Milo informa, non comanda.
+6. **Carico.** Quante parole dice? Quante cose bisogna ricordare?
+7. **Controllo.** Si può ripetere, annullare, chiedere di più?
+8. **Lingua.** Le frasi sono naturali in inglese e in italiano? I nomi delle vie si leggono bene?
 
-**Cosa esce dal telefono, funzione per funzione:**
+### 3.2 Evidenze prima del progetto
 
-- **Calcoli** (percorsi, esplorazione, domande, guida): girano sul telefono. Non esce niente e funzionano offline.
-- **Mappa:** oggi viene dai server pubblici Overpass e resta in cache sul telefono; la proposta è passare a pacchetti città precompilati.
-  - Esce: il rettangolo della zona del viaggio (con i pacchetti, il nome della città).
-  - Offline: funziona se la zona è già scaricata.
-- **Ricerca dei luoghi:** Photon (komoot), con ripiego sui nomi della mappa scaricata.
-  - Esce: il testo cercato e la posizione approssimata.
-  - Offline: solo i nomi presenti nella mappa scaricata.
-- **Mezzi pubblici:** Transitous.
-  - Esce: partenza, arrivo e orario.
-  - Offline: solo quanto già in cache.
-- **Riconoscimento vocale:** sul telefono (Android e iOS in modalità locale), oppure con il modello scaricato Parakeet v3.
-  - Esce: niente, se la modalità locale è forzata.
-  - Offline: funziona.
-- **Voce:** sul telefono. Non esce niente e funziona offline.
-- **Frasi complesse e domande generali:** modello cloud con la chiave dell'utente, oppure modello sul telefono.
-  - Esce: la frase e il contesto del viaggio (nomi dei luoghi).
-  - Offline: modello sul telefono e grammatica.
-- **Modelli** (voce, riconoscimento, linguaggio): Hugging Face o nostra pubblicazione. Si scaricano una volta, e non esce niente.
-- **Precisione con fotocamera** (opzionale): ARCore Geospatial di Google.
-  - Esce: i dati visivi per la localizzazione.
-  - Offline: non disponibile.
+Ogni area nuova parte da una ricerca breve: studi, voci degli utenti, soluzioni esistenti e codice riusabile. Le ricerche vanno in `docs/ricerca/<data>/`.
 
-**Problemi da correggere:**
+### 3.3 Con persone cieche
 
-1. **Server russo.** Tra i server Overpass predefiniti c'è `maps.mail.ru` (VK, Russia), che riceve la zona dell'utente. Va tolto.
-2. **Primo caricamento lento.** Una zona nuova impiega circa un minuto, dipende da server pubblici instabili e da scaricare una zona per ogni viaggio. La proposta:
-   - pacchetti città precompilati (Milano per prima), pubblicati come file statici e aggiornati ogni settimana;
-   - Overpass solo come ripiego.
+Le prove con utenti ciechi partono appena c'è qualcosa di concreto (cancello G2, §6.4):
+- tester da remoto in inglese [L §2];
+- a Milano con UICI, l'Istituto dei Ciechi e istruttori O&M [F].
 
-   Soundscape ha fatto la stessa scelta dopo che il vecchio server si è rivelato «molto costoso da gestire» ([C](ricerca/2026-09-27/C-soluzioni-esistenti.md)).
-3. **Chiave API dell'utente.** È una barriera enorme per un cieco non tecnico: procurarsi una chiave è complicato e le pagine dei fornitori non sono pensate per lui. Le alternative, tutte con costi:
-   - un **server nostro** con quota: costi, abusi, obblighi GDPR, e servirebbe un soggetto giuridico responsabile;
-   - **solo il modello sul telefono**, più debole.
-
-   → Decisione 2.
+I testi della prova del percorso li rivede un istruttore O&M prima delle prove.
 
 ---
 
-## 4. Aree di intervento
-
-Ogni area riporta: stato attuale, problemi con le evidenze, migliorie, aggiunte, criteri. La prima è la comunicazione, come hai chiesto.
-
-### 4.1 Comunicazione con il sistema: cosa dice l'utente
-
-**Stato attuale**
-- **Una frase, una sola azione.** La catena è: grammatica di frasi esatte → router → modello con schema a un'azione → chat.
-- **Esempio del Duomo:** nel migliore dei casi capisce la destinazione; la tappa e il vincolo si perdono.
-- **Per partire servono 5 turni:**
-  1. partenza;
-  2. destinazione + «È giusto?»;
-  3. «come ci arrivo»;
-  4. scelta del percorso;
-  5. «andiamo».
-
-  Una tappa aggiunge 4 turni: tipo, candidati, scelta, durata.
-- **Conferme esplicite per ogni luogo**, con i candidati letti uno per volta.
-- **Nessun riferimento al contesto** («lì», «l'altra», «come prima»), nessuna correzione a metà, nessun «annulla».
-- **Niente preferenze salvate, niente luoghi salvati.**
-- **Lo stesso suggerimento fisso** chiude ogni risposta.
-- **Si attiva solo con un pulsante sullo schermo.**
-
-**Problemi, con le evidenze**
-- **Assistenti vocali e utenti ciechi.** Sono utenti esperti che vogliono efficienza e controllo. Gli assistenti vocali li penalizzano con:
-  - turni «da conversazione umana»;
-  - risposte che non si possono controllare;
-  - poco tempo per parlare;
-  - nomi impossibili da correggere.
-
-  Fonti: Abdolrahmani 2018; Branham & Roy 2019. Dettando, l'80% del tempo va a correggere errori (Azenkot & Lee 2013).
-- **Modelli linguistici come interfaccia:** ChitChatGuide (MobileHCI 2024) funziona bene per richieste vaghe, ma sui dati del suo registro:
-  - 6 volte «il secondo» è finito sull'oggetto sbagliato (5 errori notati dagli utenti), ci sono state 3 invenzioni, e 14 risposte di pianificazione su 143 sono fallite per il riconoscimento vocale;
-  - solo il 16,7% delle richieste di risposte più brevi è stato rispettato;
-  - pianificare a voce ha richiesto 99 s, contro 26 s con i pulsanti ([E](ricerca/2026-09-27/E-conversazione.md)).
-- **Utenti:** chi viene frainteso abbandona l'app. I nomi delle vie italiane vengono storpiati dal riconoscimento ([B](ricerca/2026-09-27/B-voci-degli-utenti.md) §9).
-
-**Migliorie**
-
-**M1. Richiesta di viaggio componibile.** Un solo modulo di viaggio con questi campi:
-- destinazione e partenza;
-- tappe: per tipo o per nome, dove (lungo il percorso, vicino alla partenza, vicino all'arrivo), durata, ordine;
-- cose da evitare;
-- mezzi: nessuno, permessi o preferiti; tipi; cambi massimi; minuti massimi a piedi;
-- orario: partenza oppure arrivo entro.
-
-Ogni frase produce da 1 a 4 comandi: nuovo viaggio, modifica (aggiungi, togli, sostituisci), conferma, rifiuta, annulla, avvia, ripeti, altro. Il codice:
-- applica i comandi in blocco;
-- risolve i riferimenti;
-- cerca i luoghi;
-- calcola un solo piano;
-- decide cosa chiedere.
-
-Il modello non calcola mai niente e non sceglie percorsi. Lo schema completo è in [E](ricerca/2026-09-27/E-conversazione.md) §2.
-
-*Esempio (numeri inventati):* «Voglio andare al Duomo fermandomi a una farmacia lungo il percorso, senza mezzi pubblici» diventa:
-- un comando: destinazione Duomo; tappa farmacia lungo il percorso; mezzi nessuno;
-- una risposta: «Al Duomo di Milano a piedi, 25 minuti, con la farmacia San Luigi lungo la strada, 3 minuti in più. Partiamo?».
-
-Due turni invece di nove.
-
-**M2. Riferimenti risolti dal codice, non dal modello.** Il modello dice solo «ordinale 2», «l'altra», «l'ultimo luogo». Il codice tiene il registro dei luoghi citati e dell'ultimo elenco letto. È ciò che elimina gli errori alla ChitChatGuide.
-
-**M3. Conferme proporzionate al rischio.**
-- **Esplicite:**
-  - avvio della guida verso una nuova destinazione, con una sola lettura finale di tutto;
-  - rimozione di un vincolo di sicurezza (scale, attraversamenti senza semaforo o senza sonoro, strade principali);
-  - attivazione dei mezzi;
-  - luogo incerto, o con un concorrente vicino;
-  - il turno dopo una correzione;
-  - destinazione fuori dalla zona.
-- **Implicite**, cioè Milo dice cosa ha cambiato e quanto costa: aggiunta di un vincolo, durata di una tappa, candidato unico, nuovo orario.
-- **Nessuna:** ripeti, altro, velocità, basta.
-- **Mai una domanda mentre l'utente è al bordo del marciapiede:** aspetta.
-
-**M4. Chiedere solo ciò che manca, una cosa per volta.** Valori predefiniti:
-- partenza = qui;
-- orario = adesso;
-- vincoli = preferenze salvate.
-
-**M5. «Annulla» e «cosa hai capito?» sempre disponibili.** Il modulo tiene le versioni precedenti.
-
-**M6. Preferenze e luoghi salvati, a voce:**
-- «evita sempre le scale»;
-- «salva questo posto come casa»;
-- «portami a casa».
-
-**M7. Interrompere Milo.** Parlare o premere il tasto lo zittisce subito.
-
-**M8. Nomi delle vie.**
-- Il riconoscimento vocale viene guidato con i nomi delle vie vicine (parole suggerite o *hotword*).
-- Il nome capito viene riletto quando c'è un dubbio.
-- La verifica avviene sull'elenco dei nomi della zona, per somiglianza di suono.
-
-**M9. Tre livelli di comprensione, tutti capaci di frasi composte:**
-1. **Grammatica fissa:** istantanea e offline. Diventa componibile spezzando la frase ai connettori: «e», «poi», «fermandomi», «passando da», «senza», «evitando».
-2. **Router semantico:** solo per i comandi senza nomi, come «parla più piano» o «dove sono».
-3. **Modello:** cloud o sul telefono, compila i comandi con uno schema vincolato.
-
-**Aggiunte**
-- **A1. Corpus di prova.** Circa 400 frasi reali in italiano e inglese, oggi assenti:
-  - richieste composte;
-  - correzioni;
-  - riferimenti;
-  - nomi di vie;
-  - una parte registrata all'aperto.
-
-  Il criterio è la corrispondenza esatta del modulo. Il corpus decide i modelli e le soglie.
-- **A2. Aiuto contestuale breve** («cosa posso dire adesso?») e **tutorial vocale** alla prima apertura.
-- **A3. Suggerimenti solo le prime volte**, non in coda a ogni risposta.
-
-**Scelte tecniche da verificare sul corpus** ([E](ricerca/2026-09-27/E-conversazione.md) §3–5)
-- **Modello cloud.** Secondo la classifica BFCL V4 (aprile 2026), Claude Haiku 4.5 è il più preciso tra quelli che rispondono in meno di 2 s (68,7%, 1,7 s). Oggi il predefinito è Opus 5.5: più capace, più lento. Si decide misurandoli entrambi sul corpus.
-- **Modello sul telefono.**
-  - Proposta: Qwen3.5-2B (1,28 GB), con uno schema grammaticale che vincola l'uscita, addestrato con LoRA su frasi italiane.
-  - Da confrontare con Gemma 4 E2B.
-  - Il riferimento di partenza è Qwen3-1.7B.
-  - Su un telefono di fascia media i tempi vanno misurati: un solo test pubblico riporta 7 token/s e 11 s di attesa per la prima parola.
-- **Embedding per il router.** Il modello che avevo scelto (multilingual-e5-small) in italiano è debole: 57,7 sul test MASSIVE-it. Le alternative:
-  - EmbeddingGemma-300m: 76,3;
-  - Qwen3-Embedding-0.6B: 74,0, con licenza Apache.
-- **Riconoscimento vocale.**
-  - **Parakeet-TDT-0.6b-v3** tramite sherpa-onnx: errore sulle parole in italiano del 3% sul test FLEURS, da 670 MB.
-  - **Riconoscitore di sistema** come ripiego sui telefoni con poca memoria.
-  - **Whisper tiny/base** sono troppo deboli in italiano: 30% e 18% di errore sulle parole.
-
-**Criteri**
-- La frase del Duomo produce il modulo corretto in 1 turno. Con un luogo univoco la guida parte in 2 turni.
-- Sul corpus:
-  - almeno 90% di moduli esatti con il modello cloud;
-  - almeno 75% offline, con grammatica e modello sul telefono;
-  - 0 azioni rischiose senza conferma.
-- Tempi mediani di comprensione:
-  - grammatica sotto 50 ms;
-  - modello sul telefono sotto 3 s su fascia media, da verificare;
-  - cloud sotto 2 s.
-- Un nome capito male si corregge in un turno.
-
-### 4.2 La voce di Milo: cosa e come dice
-
-**Stato attuale**
-- **Testi lunghi.** Esempi reali in italiano sui dati di Porta Romana:
-  - panoramica: 55 parole;
-  - inizio della passeggiata virtuale: 94 parole;
-  - un passo avanti: **156 parole di fila**.
-- **Riformulazione in due frasi dal modello cloud** (numeri controllati) solo con la rete. Senza rete, le prime frasi del testo.
-- **Nomi presi dalla mappa così come sono**: «San Luigi snc», senza dire che è una farmacia.
-- **Frasi che confondono**: «Cammina lungo via Brembo per 200 metri, poi gira a destra in via Brembo». Il marciapiede e l'attraversamento della stessa via hanno lo stesso nome.
-- **Nessuna priorità tra messaggi, nessuna coda, nessun controllo del dettaglio.**
-- **La voce del vecchio server era `say` di macOS**, da sostituire.
-
-**Problemi, con le evidenze**
-- **Utenti:** «troppe chiacchiere» e «manca l'informazione che serve» sono entrambe lamentele frequenti. Ci sono due regole comuni:
-  - le istruzioni hanno sempre la precedenza sui luoghi di interesse;
-  - la via va detta in ogni istruzione ([B](ricerca/2026-09-27/B-voci-degli-utenti.md) §3).
-- **Studi sul dettaglio:** discordi, l'unica costante è poterlo regolare.
-  - Mascetti 2025: istruzioni essenziali, più chiare e sicure.
-  - Kacorri 2018: la modalità prolissa è la più usata.
-- **Velocità:** i ciechi ascoltano più veloce dei vedenti (Bragg 2018). La velocità va alta e regolabile.
-- **Ascolto dei suoni reali:** le cuffie a conduzione ossea lo riducono comunque (May & Walker 2017). Al bordo del marciapiede, silenzio.
-
-**Migliorie**
-- **Tre livelli di dettaglio** (breve, normale, dettagliato), regolabili a voce («più breve», «dimmi tutto») e nelle impostazioni. Predefinito: breve. «Altro» dà il livello successivo.
-- **Esplorazione a strati.** Prima il riassunto, per esempio «Incrocio a 4 vie. Via Brembo a sinistra e a destra, via Calabiana dritto. Semaforo senza sonoro», poi i dettagli su richiesta.
-- **Nomi puliti per l'ascolto:**
-  - tipo più nome («la farmacia San Luigi»);
-  - senza «snc», «srl», «spa»;
-  - abbreviazioni sciolte («V.le» diventa «viale»).
-- **Priorità e coda:** sicurezza, poi guida, poi conferme, poi informazioni. I messaggi urgenti interrompono. Niente messaggi mentre l'utente parla.
-- **Direzioni:**
-  - sinistra e destra per le svolte (evidenza: Jain 2024; le istruzioni INMACI);
-  - le ore dell'orologio solo per i rami obliqui;
-  - mai «leggermente a sinistra», perché le svolte «leggere» sono quelle eseguite peggio;
-  - metri oppure passi, con il passo calibrato;
-  - tutto configurabile.
-
-  Va aggiornata la regola 3 di [`speaking-rules.md`](speaking-rules.md), che oggi preferisce le ore.
-- **Frasi di guida da modelli fissi:** deterministiche, istantanee, verificate. Il modello linguistico solo per le domande generali.
-
-**Criteri**
-- Al livello breve, nessun messaggio di guida supera 20 parole e nessun riassunto di incrocio supera 25.
-- Nei test, nessuna istruzione persa per sovrapposizione con il lettore di schermo.
-
-### 4.3 Posizione e momento degli annunci: «gira adesso» nel punto giusto
-
-**Stato attuale** (`packages/engine/src/navigate.ts`)
-- **Preavvisi** a 60 m e a 25 m.
-- **«Gira ora»** a 8 m, più un anticipo per la latenza della voce (2,5 s × velocità): circa **11 m prima** del punto di svolta a 1,3 m/s.
-- **«Sei arrivato»** entro max(15, min(precisione, 25)) m, cioè **fino a 25 m prima**.
-- **Fuori percorso** oltre max(20, min(precisione, 40)) m; ricalcolo dopo 25 s o 80 m.
-- **Direzione:** bussola da fermi, direzione di marcia in movimento. Nessun conteggio dei passi, nessun aggancio al marciapiede.
-- **L'incertezza della posizione non viene mai detta.**
-
-**Problemi, con le evidenze**
-- **Errore del GPS del telefono:**
-  - 4,9 m a cielo aperto;
-  - 7–13 m in città (Merry & Bettinger 2019), con massimi oltre 30 m;
-  - oltre 50 m nei canyon urbani.
-- **Lato della strada:** a Londra il GPS lo indovina nel 24,8% dei casi, il 54,5% con tecniche 3D (Wang 2015).
-- **Due frequenze (L1/L5):** molti Android recenti e iPhone Pro dal 14. Aiuta, ma nei canyon non basta.
-- **Rimedi documentati:**
-  - le correzioni di Google per i pedoni riducono del 50–75% gli errori di lato della strada;
-  - l'aggancio al marciapiede porta sotto i 5 m, con il lato corretto (Weng 2025).
-- **Posizionamento visivo** (ARCore Geospatial, VPS):
-  - circa 0,8 m, contro circa 7 m di GPS e bussola (Brata 2024);
-  - servono fotocamera, rete e un servizio Google;
-  - la copertura di Milano è probabile, da verificare via per via.
-- **Passi:** con il bastone il passo medio è 0,55 m (col cane 0,62, un vedente 0,74), e i modelli tarati sui vedenti falliscono (Ren 2021). Il passo va calibrato su ogni utente.
-- **Schema in tre tempi** di NavCog3 (errore di 1,65 m, al chiuso): dopo ogni svolta distanza e prossima azione, poi «in avvicinamento», poi «gira». Riescono il 93,8% delle svolte.
-- **Utenti:** «dice che sono arrivato ma sono dall'altra parte della strada» è la lamentela numero 1 ([B](ricerca/2026-09-27/B-voci-degli-utenti.md) §1).
-
-**Migliorie**
-
-**Annunci per livello di incertezza** (r = raggio al 95%):
-- **r ≤ 5 m:** «Gira a sinistra adesso».
-- **5–15 m:** «Al prossimo incrocio, tra circa 30 metri, gira a sinistra in via Brembo». L'annuncio è legato all'incrocio, non al metro.
-- **r > 15 m:** «Segnale GPS debole, posizione incerta di circa 40 metri. Prosegui su via Dante, ti avviso appena migliora».
-- Ogni cambio di livello viene detto, e «dove sono?» riporta anche la precisione.
-
-**Altre migliorie:**
-- **Riferimenti fisici al posto dei metri:**
-  - «alla fine dell'isolato»;
-  - «dopo l'attraversamento»;
-  - «se arrivi a via X l'hai superata». Le indicazioni scritte dai ciechi stessi contengono questo avviso (Scheuerman 2017).
-- **Fusione dei sensori nel modulo nativo:**
-  - GPS a 1 Hz;
-  - passi calibrati sull'utente;
-  - giroscopio e bussola;
-  - aggancio al grafo dei marciapiedi;
-  - uso degli attraversamenti come punti di riferimento, che dimezza l'errore (Daniş 2025).
-- **Conferma della svolta dal giroscopio:** «sei su via Brembo» quando l'utente ha davvero girato, non quando lo dice il GPS.
-- **«Adesso» calcolato sulla latenza reale della voce**, misurata sul telefono, non con una costante.
-- **Arrivo:** mai «sei arrivato» dentro l'errore del GPS. Si dice «in avvicinamento» e si passa alla modalità arrivo (§4.7).
-- **Modalità precisione con fotocamera**, opzionale, per attraversamenti e ingresso della destinazione, con il telefono al petto o in mano (→ decisione 4).
-
-**Criteri** (misurati sul campo, registrando GPS, passi e annunci, e confrontando con la verità a terra)
-- «Adesso» detto solo con r ≤ 5 m. In quei casi l'errore sul momento dell'annuncio è al massimo 2 m nel caso mediano e 5 m al 95° percentile.
-- Nessun «sei arrivato» con r > 10 m. In modalità precisione, al massimo 5 m dall'ingresso.
-- Zero falsi «fuori percorso» in 30 minuti di cammino in centro.
-
-### 4.4 Attraversamenti e incroci: dove sono le strisce
-
-**Stato attuale**
-- **Cosa conosce il motore:** semaforo (sì, no, ignoto), sonoro (sì, no, ignoto), percorso tattile (letto ma mai detto).
-- **Annunci:**
-  - a 30 m: «Tra 20 metri, attraversamento con semaforo, senza segnale sonoro»;
-  - a 5 m più l'anticipo: «attraversamento qui».
-- **Cosa non conosce e non dice:**
-  - posizione delle strisce rispetto all'angolo;
-  - isola spartitraffico;
-  - corsie e lunghezza;
-  - senso di marcia;
-  - binari del tram;
-  - pista ciclabile;
-  - bordo ribassato;
-  - pulsante, e dove si trova;
-  - vibrazione;
-  - codici LOGES.
-- **Percorsi:** evitano, se richiesto, i semafori senza sonoro e gli attraversamenti senza semaforo. Non preferiscono le strisce e non penalizzano tram e ciclabili.
-
-**Problemi, con le evidenze**
-- **Senza semaforo sonoro:** solo il 48,6% degli attraversamenti parte con il verde, con 6,4 s di ritardo medio (Barlow 2005). Con il sonoro il ritardo scende di circa 2 s (Scott 2008).
-- **Le descrizioni a voce dell'incrocio** aiutano a decidere quando attraversare, non a restare sulle strisce (Guth 2019). L'allineamento e il momento restano compito di bastone, O&M, sonoro e percorso tattile. **Milo informa, non comanda.**
-- **Italia:** gli istruttori O&M preferiscono gli attraversamenti con le strisce, a differenza degli USA (Ahmetovic 2017).
-- **Utenti:** la mancanza di informazioni su incroci e attraversamenti è la seconda lamentela per gravità. A Torino i semafori sonori coprono circa 80 attraversamenti su 600 incroci (UICI 2020).
-- **Dati OSM di Milano** (conteggi del 27/09/2026, [F](ricerca/2026-09-27/F-contesto-italiano.md) §4):
-  - 22.660 attraversamenti: l'85% con il tipo, il 49% con la segnaletica, il 41% con il percorso tattile indicato (841 «sì»);
-  - 5.532 semafori pedonali: il 40% con il sonoro rilevato (1.409 sì, 827 no), 463 con la vibrazione;
-  - 37.108 bordi del marciapiede;
-  - 2.442 km di marciapiedi mappati a sé.
-
-  Sono dati ricchi, ma il motore ne usa una parte.
-- **Semafori e LOGES in Italia:**
-  - nessun open data comunale sui semafori sonori a Milano (Firenze lo pubblica);
-  - ai semafori il percorso LOGES passa a 40–60 cm dal palo del pulsante;
-  - il «pulsante per non vedenti» attiva il suono, non necessariamente il verde. Occhio al tag `button_operated`.
-
-**Migliorie**
-- **Descrizione prima di ogni attraversamento**, a distanza utile e non al bordo:
-  - tipo (semaforo, strisce, niente);
-  - sonoro, pulsante (e dove) e vibrazione;
-  - isola;
-  - corsie e lunghezza;
-  - senso di marcia;
-  - tram e ciclabile;
-  - percorso tattile;
-  - bordo ribassato;
-  - e cosa la mappa non sa.
-- **Posizione delle strisce rispetto a un riferimento fisico**, calcolata dalla geometria OSM: «le strisce sono circa 5 metri prima dell'angolo, sulla tua destra». Senza fotocamera, mai «sei sulle strisce».
-- **Silenzio al bordo del marciapiede.**
-- **Percorsi che scelgono gli attraversamenti:**
-  - costo: sonoro < semaforo < strisce < nessuno, regolabile;
-  - penalità per tram e ciclabili;
-  - preferenza per le strisce, che in Italia è la scelta indicata dagli istruttori O&M.
-- **«Descrivi questo incrocio»** su richiesta, in entrambe le fasi.
-- **Segnalazioni:** «qui il sonoro non funziona» diventa una nota sul telefono e, se l'utente vuole, una nota OSM.
-- **Dati in più:**
-  - open data dove esistono (Firenze);
-  - scavi e manomissioni del suolo di Milano, un elenco quotidiano (dataset ds925);
-  - una convenzione OSM per i codici LOGES da proporre alla comunità italiana, perché oggi `tactile_paving:type` in Italia è usato 0 volte.
-
-**Criteri**
-- **Informazioni corrette:** su 50 attraversamenti reali a Milano, quanto viene detto corrisponde al terreno in almeno il 95% dei casi in cui la mappa ha il dato. Quando non lo ha, Milo lo dice.
-- **Posizione delle strisce:** rispetto all'angolo, corretta entro 2 m sullo stesso campione.
-
-### 4.5 Pianificazione del percorso
-
-**Stato attuale**
-- **Percorsi:** A (strade principali o meno problemi), B (il più breve), C (mezzi pubblici).
-- **Vincoli:** attraversamenti senza semaforo, semafori senza sonoro, scale, cantieri, strade principali, cambi, minuti massimi a piedi.
-- **Una sola tappa**, solo per tipo (supermercato, farmacia, bar, panetteria, bancomat, negozio), scelta fra 3 candidati.
-- **Mancano:**
-  - il vincolo «niente mezzi»;
-  - più tappe;
-  - la tappa per nome («alla farmacia Ripamonti»);
-  - i passaggi obbligati («passando dal parco»);
-  - «arrivare entro»;
-  - la scelta del tipo di mezzo;
-  - tram e ciclabili nel costo.
-- **Sui mezzi nessuna guida:** quale fermata, quante fermate, quando scendere. A Milano non c'è tempo reale aperto: ATM non pubblica GTFS-RT.
-
-**Problemi, con le evidenze**
-- **Percorso migliore:** quello «sicuro e ben servito», con meno svolte e più semafori, non il più breve. Si calcola su marciapiedi e attraversamenti, non sull'asse della strada (El-taher 2021).
-- **Utenti:** un ricalcolo che riporta soltanto al percorso originale fa abbandonare l'app ([B](ricerca/2026-09-27/B-voci-degli-utenti.md) §15).
-
-**Migliorie**
-- **Motore:**
-  - vincolo mezzi (nessuno, permessi, preferiti; tipi; cambi massimi; minuti massimi a piedi);
-  - fino a 3 tappe ordinate;
-  - tappa per nome o per tipo;
-  - passaggi obbligati;
-  - «arrivare entro».
-- **Costo di sicurezza, secondo il profilo dell'utente:** numero di svolte, attraversamenti per tipo, tram, ciclabili, strade principali.
-- **Tratte con i mezzi:**
-  - fermata descritta (pensilina, palo);
-  - linea;
-  - fermate contate e avviso prima di scendere;
-  - uscita dalla stazione, dai dati OSM;
-  - tempo reale dove esiste: Roma, Torino e Venezia hanno GTFS-RT; a Milano c'è solo l'API regionale E015, che ha vincoli d'uso.
-- **Piano:** riassunto breve, dettagli su richiesta.
-
-**Criteri**
-- La frase del Duomo produce un percorso a piedi con una farmacia lungo la strada (deviazione minima) e zero tratte con i mezzi.
-- Test differenziali e nuovi casi per tappe multiple e vincoli sui mezzi.
-
-### 4.6 Esplorazione prima del viaggio (Fase A)
-
-**Stato attuale**
-- **Panoramica:** ferrovia, cantieri, strade principali, ponti.
-- **Passeggiata virtuale libera:** da incrocio a incrocio con le ore dell'orologio, da 94 a 156 parole per incrocio.
-- **6 domande sulla mappa:**
-  - distanza a piedi contro linea d'aria;
-  - cosa c'è in mezzo;
-  - se una via continua o è chiusa;
-  - quanto è grande un luogo;
-  - quanti modi indipendenti ci sono per arrivarci;
-  - orari e accessibilità di un luogo.
-- **Mancano:**
-  - la prova del percorso pianificato;
-  - la descrizione degli incroci con i loro attraversamenti;
-  - «cosa c'è su questa via»;
-  - il salvataggio.
-
-**Problemi, con le evidenze**
-- **Prova virtuale:** funziona. Ci sono due modalità: «salto», di svolta in svolta, e «passo», passo passo (Guerreiro 2017/2020, 14 utenti).
-- **Esplorazione libera:** aiuta a scoprire scorciatoie (Connors 2014).
-- **Girarsi fisicamente** verso ogni tratto aiuta (Giudice 2010).
-- **Nessuna app** fa provare un percorso calcolato, incrocio per incrocio, con i dettagli degli attraversamenti ([C](ricerca/2026-09-27/C-soluzioni-esistenti.md)).
-- **Utenti:** vogliono simulare percorsi che partono da un punto diverso dalla posizione attuale ([B](ricerca/2026-09-27/B-voci-degli-utenti.md)).
-
-**Migliorie**
-- **«Fammi provare il percorso»**, a salti o passo passo:
-  - le stesse frasi della guida reale, con la descrizione di ogni attraversamento;
-  - l'utente si gira davvero, telefono in mano, verso ogni tratto;
-  - il punto di partenza può essere diverso dalla posizione attuale.
-- **Esplorazione a strati:** riassunto, poi dettagli.
-- **«Cosa c'è su questa via»:** luoghi per categoria, lato della strada, distanza.
-- **Domande sulla mappa anche con frasi libere e composte.**
-- **Luoghi e percorsi salvati**, con esportazione GPX (compatibile con Soundscape e VoiceVista).
-
-**Criteri**
-- Dopo la prova, gli utenti ripetono la sequenza delle svolte.
-- Confronto sul campo in una fase successiva.
-
-### 4.7 Navigazione in strada (Fase B)
-
-**Stato attuale:**
-- soglie come in §4.3;
-- ricalcolo sul percorso A;
-- «dove sono» durante la guida dice la prossima istruzione e la distanza che resta;
-- nessuna modalità arrivo, nessuna pausa, nessuna guida sui mezzi;
-- l'app, e quindi il funzionamento in background, non esiste ancora.
-
-**Migliorie**
-- **Tutto a schermo bloccato, col telefono in tasca:**
-  - su Android un servizio in primo piano di tipo «location», con «microphone» e «mediaPlayback»;
-  - su iOS posizione e audio in background;
-  - aiuto per i telefoni che chiudono le app in background (Samsung e altri).
-- **Schema in tre tempi** più la conferma dopo la svolta (§4.3).
-- **«Dove sono?» in qualsiasi momento:** la via, il lato della strada (solo se affidabile), il prossimo incrocio e la precisione.
-- **«Pausa» e «riprendi».**
-- **Modalità arrivo:**
-  - lato della strada;
-  - ingresso, dai nodi `entrance` di OSM;
-  - negozi vicini come riferimenti;
-  - conto alla rovescia (50, 25, 10 m) solo se la precisione lo permette;
-  - poi fotocamera o aiuto umano (Be My Eyes, chiamata a un contatto).
-
-  Evidenza: per 11 persone su 22 trovare la porta giusta è la parte più difficile (Saha 2019).
-- **Ricalcolo** che rispetta vincoli e preferenze e sceglie il percorso migliore da dove si è, non solo «torna al percorso».
-- **Avvisi:** GPS debole o perso, batteria bassa, cuffie scollegate (pausa e vibrazione).
-- **Batteria:** frequenza del GPS adattiva e modalità sospensione.
-- **Emergenza:** «condividi la mia posizione», «chiama [contatto]».
-
-**Criteri**
-- 60 minuti di guida a schermo bloccato, senza interruzioni, su 3 telefoni Android (almeno un Samsung).
-- Consumo misurato: obiettivo sotto il 5% l'ora, oggi solo una stima da verificare.
-
-### 4.8 App, accessibilità e impostazioni
-
-**Stato attuale:** la vecchia web app ha alcune buone pratiche (regione live, collegamento «salta al contenuto») e va sostituita. L'app per telefono non esiste ancora.
-
-**Requisiti di accessibilità** (VoiceOver e TalkBack, [D](ricerca/2026-09-27/D-piattaforma-e-precisione.md) §1)
-- **Ogni controllo** ha etichetta, ruolo e stato.
-- **Lettura:** ordine logico, intestazioni per sezione, nessun limite di tempo, focus gestito dopo ogni cambio di schermata.
-- **Magic tap su ogni schermata di iOS** = parla oppure zittisci.
-- **Lo stato vocale non ripete ciò che dice già la voce di Milo.**
-- **A ogni rilascio:** test automatici e prove manuali con VoiceOver e TalkBack. Gli utenti abbandonano le app quando un aggiornamento rompe l'accessibilità ([B](ricerca/2026-09-27/B-voci-degli-utenti.md) §15).
-
-**Impostazioni: due strade per ogni opzione**
-- **A voce:**
-  - «parla più piano»;
-  - «dettaglio breve»;
-  - «usa i passi»;
-  - «evita sempre le scale»;
-  - «salva questo posto come casa»;
-  - «usa la voce di VoiceOver».
-
-  Milo conferma il nuovo valore.
-- **Schermata classica**, da scorrere con VoiceOver o TalkBack:
-  - una riga per impostazione, con il valore nell'etichetta;
-  - interruttori veri («switch»);
-  - velocità, dettaglio e unità come controlli regolabili (scorri su e giù);
-  - elenchi lunghi in sottoschermate;
-  - sezioni con intestazione, per saltare da una all'altra.
-
-**Elenco delle impostazioni (bozza)**
-1. Lingua.
-2. Voce: del sistema, di VoiceOver su iOS, oppure scaricata. Poi velocità, volume della guida, suoni, vibrazioni.
-3. Dettaglio: breve, normale o dettagliato; suggerimenti sì o no.
-4. Direzioni: sinistra/destra, ore o gradi; metri o passi, con la calibrazione del passo.
-5. Guida:
-   - anticipo dei preavvisi;
-   - attraversamenti: sempre, oppure solo senza semaforo;
-   - promemoria nei silenzi;
-   - modalità precisione con fotocamera.
-6. Percorsi predefiniti: scale, attraversamenti senza semaforo, semafori senza sonoro, strade principali, mezzi, massimo a piedi.
-7. Luoghi salvati.
-8. Comandi: tasto delle cuffie, magic tap, scorciatoie.
-9. Intelligenza artificiale: nessuna, sul telefono (con il download del modello), oppure cloud (fornitore e chiave).
-10. Mappe offline: città scaricate, aggiornamento.
-11. Privacy: cosa esce dal telefono, cancella tutto.
-12. Aiuto e tutorial.
-
-### 4.9 Dati della mappa e trasparenza
-
-**Stato attuale**
-- Mappa OSM scaricata per zona.
-- Regola dei numeri e «cosa non so» già presenti.
-- Le fonti del vecchio sistema erano identificativi OSM letti ad alta voce: inutili per chi ascolta.
-
-**Migliorie**
-- **Pacchetti città con statistiche di completezza**, per dirle all'utente. Per esempio: «qui il sonoro dei semafori è rilevato in 4 casi su 10».
-- **Fonti leggibili:** «mappa OpenStreetMap del 20 settembre», al posto degli identificativi.
-- **Dati comunali aperti** (scavi del giorno a Milano, semafori a Firenze), con la loro fonte.
-- **Convenzione OSM per i codici LOGES** da proporre alla comunità italiana.
-- **Segnalazioni degli utenti**, che diventano note OSM.
-
-### 4.10 Sicurezza, responsabilità, privacy
-
-- **Sicurezza:**
-  - complemento, mai sostituto: lo si dice al primo avvio e nel testo di presentazione;
-  - mai «puoi attraversare»;
-  - «sei arrivato» solo con prudenza.
-- **Responsabilità** ([F](ricerca/2026-09-27/F-contesto-italiano.md) §6):
-  - dal 9 dicembre 2026 il software è un «prodotto» per la direttiva UE 2024/2853;
-  - il software open source non commerciale è escluso, ma non se ottenuto in cambio di dati personali;
-  - uno scopo dichiarato come «compensare una disabilità» può rendere l'app un dispositivo medico di classe I (regolamento MDR).
-
-  Il testo va scritto con attenzione e fatto vedere a un legale (→ decisione 5).
-- **Privacy:**
-  - niente account;
-  - niente telemetria di posizione;
-  - niente registro delle frasi;
-  - valutazione d'impatto (DPIA) prima del rilascio pubblico.
-
-### 4.11 Prove con persone cieche
-
-- **Co-progettazione:** UICI Milano, Istituto dei Ciechi di Milano, istruttori O&M (ANIOMAP).
-- **Tre livelli di prova:**
-  1. corpus di frasi, automatico;
-  2. prove in laboratorio con VoiceOver e TalkBack;
-  3. prove sul campo a Milano, registrando posizione, passi e annunci e confrontandoli con la verità a terra.
-- **Misure:**
-  - turni per partire;
-  - errori di comprensione;
-  - momento degli annunci rispetto al punto reale;
-  - falsi «fuori percorso»;
-  - attraversamenti descritti correttamente;
-  - consumo di batteria;
-  - soddisfazione (questionario SUS).
+## 4. Cosa fa l'app: funzioni
+
+### 4.1 MVP: «Prova il percorso» (Fase 1)
+
+| Funzione | Cosa fa | Compito | Stato oggi |
+|---|---|---|---|
+| **Partenza e arrivo** | Ricerca dei luoghi (Photon, con ripiego sui nomi della mappa), «casa» salvata, «qui» dal GPS del browser | J2 | Il motore ha la ricerca; manca l'interfaccia |
+| **Panoramica** | La zona intorno a partenza e arrivo: breve, poi i dettagli | J1 | C'è (`overview`) ma è lunga: da stratificare |
+| **Domande sulla mappa** | Le 6 del motore (distanza a piedi, cosa c'è in mezzo, se la via continua, estensione, collegamenti, orari e accessibilità di un luogo), anche con frasi libere | J1 | C'è (`tools`) |
+| **Percorso con vincoli** | Da A a B a piedi. Si possono evitare scale, attraversamenti senza semaforo, semafori senza sonoro, strade principali. Una tappa per categoria, «senza mezzi», confronto tra alternative con il perché | J2 | C'è una tappa sola; «senza mezzi» manca |
+| **Prova del percorso a salti** | Svolta per svolta. Per ogni tratto: la via, la lunghezza e la svolta (sinistra o destra; le ore dell'orologio solo per i rami obliqui). Per ogni incrocio: i rami da sinistra a destra. Per ogni attraversamento: tipo, semaforo, sonoro, vibrazione, isola, percorso tattile, bordo ribassato, corsie, tram e cosa non si sa. Comandi: avanti, indietro, ripeti, dettagli, «vai all'attraversamento 3» | **J3** | **Manca**: la passeggiata virtuale libera esiste, la prova del percorso calcolato no |
+| **Conversazione** | Frasi composte che diventano il modulo di viaggio. Chiarimenti mirati. Riferimenti come «l'altra», «la seconda» o «lì». «Annulla», «cosa hai capito?» | J1–J3 | Oggi un'azione per frase: da rifare |
+| **Memoria della sessione** | «Cosa mi hai detto prima?», «torna alla farmacia di prima», preferenze («evita sempre le scale»), luoghi salvati | J2–J4 | Manca |
+| **Uscita** | Testo in una regione live letta dal lettore di schermo. Voce di Milo opzionale; mai insieme al lettore di schermo | tutti | Da rifare per il web |
+| **Esportazione** | Riassunto in testo, file GPX con i punti degli attraversamenti | J4 | Manca |
+| **Impostazioni** | Lingua, livello di dettaglio, unità, voce e velocità, chiave API e modello (con i modelli consigliati), preferenze di percorso | tutti | Manca |
+| **Vista per chi vede** | Mappa con il percorso e gli attraversamenti, nascosta ai lettori di schermo | secondario | C'è la mappa live dell'hackathon (Leaflet), da portare |
+
+**Senza chiave API** funziona tutto tranne le frasi libere e le domande generali. Restano i comandi fissi della grammatica, i pulsanti e i moduli. Milo lo dice chiaramente.
+
+### 4.2 Fase 2: il resto della preparazione
+
+- Prova del percorso passo passo, oltre che a salti [A §4].
+- Esplorazione a strati e «com'è questo incrocio» ovunque, anche senza un percorso [v1 §4.6].
+- Più tappe (fino a 3), tappe per nome, passaggi obbligati, «arrivare entro» [v1 §4.5].
+- Mezzi pubblici: pianificazione con Transitous; le tratte a piedi ricalcolate col nostro motore, perché quelle di Transitous non conoscono gli attraversamenti [N].
+- Pacchetti città statici, se Overpass è troppo lento o la sua policy lo richiede [I §6].
+- Modalità istruttore O&M: preparare e condividere un percorso con un allievo [K].
+- Posizione delle strisce rispetto all'angolo, calcolata dalla geometria [v1 §4.4].
+
+### 4.3 Fase 3: il compagno in strada (J5)
+
+- Annunci ancorati a incroci e attraversamenti, con l'incertezza del GPS detta a voce [D §4][v1 §4.3].
+- Richiede la posizione a schermo bloccato. Il web su iOS non lo permette, quindi quasi certamente serve un'app nativa [R][O]. Si decide al cancello G3.
+- Passaggio a Be My Eyes e scheda per chi vede [K].
+- Fotocamera solo dopo, per l'ultimo tratto fino all'ingresso [O §7].
 
 ---
 
-## 5. Ordine di lavoro proposto
+## 5. Come: architettura
 
-Ogni fase finisce con una prova con utenti ciechi, prima di passare alla successiva.
+### 5.1 Schema
 
-1. **Fase 1: comunicazione e fondamenta dell'app** (la tua priorità)
-   1. Corpus di frasi in italiano e inglese, e sistema di valutazione.
-   2. Modulo di viaggio componibile, gestione del dialogo, riferimenti, conferme, preferenze e luoghi salvati.
-   3. Motore:
-      - vincolo sui mezzi;
-      - più tappe, anche per nome;
-      - nomi puliti;
-      - testi a strati (riassunto e dettagli);
-      - attraversamenti con tutti i dati OSM disponibili.
-   4. App Android per parlare con Milo:
-      - tasto delle cuffie e magic tap;
-      - voce propria coordinata col lettore di schermo;
-      - impostazioni a voce e classiche;
-      - funzionamento a schermo bloccato.
-2. **Fase 2: guida precisa e attraversamenti.** Fusione dei sensori, livelli di incertezza, posizione delle strisce, prove sul campo a Milano.
-3. **Fase 3: prova del percorso ed esplorazione a strati.**
-4. **Fase 4: offline completo** (pacchetti città, modelli sul telefono), **iOS e web.**
-5. **Fase 5: mezzi pubblici guidati e modalità arrivo**, con la fotocamera.
+```mermaid
+flowchart LR
+  user["Utente<br/>tastiera, lettore di schermo, voce opzionale"] --> web["apps/web<br/>React + Vite, statica"]
+  web --> dialogue["@milo/dialogue<br/>grammatica, modulo di viaggio,<br/>chiarimenti, memoria (IndexedDB), Brain"]
+  web --> engine["@milo/engine<br/>zone, percorsi, prova del percorso,<br/>domande, attraversamenti"]
+  dialogue --> engine
+  dialogue -- "chiave dell'utente" --> llm["Fornitore del modello<br/>OpenRouter, Anthropic, OpenAI, Google"]
+  engine --> osm["Overpass (poi pacchetti città)"]
+  engine --> photon["Photon (ricerca luoghi)"]
+  engine --> transit["Transitous (Fase 2)"]
+```
+
+- **Tutto gira nel browser.** L'hosting è statico: GitHub Pages o Cloudflare Pages. Non c'è un server nostro.
+- **`@milo/engine`**: decide in modo deterministico. Riceve dati e restituisce fatti strutturati con la loro fonte. Non produce frasi finali: il testo si genera da modelli di frase per lingua (card MOT-5).
+- **`@milo/dialogue`**: trasforma ciò che dice l'utente in comandi sul modulo di viaggio, li applica, tiene la memoria e decide cosa chiedere. Chiama il modello solo quando la grammatica non basta.
+- **`apps/web`**: interfaccia, accessibilità, impostazioni, uscita di testo e di voce.
+- **`@milo/eval`**: gira in Node e misura il dialogo su un corpus di frasi (§6, corsia VAL).
+
+### 5.2 Struttura del repo (obiettivo)
+
+```text
+milo/
+├─ AGENTS.md, CLAUDE.md      regole per gli agenti
+├─ apps/web/                 l'app (card WEB-1)
+├─ packages/engine/          il motore (esiste)
+├─ packages/dialogue/        il dialogo (oggi: il codice «assistant», da rifare con le card DIA)
+├─ packages/contracts/       i contratti tra componenti (card CON-1)
+├─ packages/eval/            il sistema di valutazione (card VAL-1)
+├─ eval/                     il corpus pubblico (semi, sviluppo); il set di test resta privato
+├─ contracts/                gli schemi JSON attuali del motore (passano in packages/contracts con CON-1)
+└─ docs/                     questo piano, le ricerche, le regole di parola, l'archivio dell'hackathon
+```
+
+### 5.3 Contratti tra componenti
+
+Li scrive la card CON-1 prima del lavoro in parallelo. Da lì in poi cambiano solo con una PR che aggiorna schema, esempio e registro delle modifiche, approvata da entrambi [Q §2].
+
+| # | Contratto | Tra | Base |
+|---|---|---|---|
+| C3 | **Comandi e modulo di viaggio** (tipi di luogo, riferimenti, vincoli, tappe, orario, `revert`, `clarify`) | grammatica e modello → applicatore; corpus | [E §2] con le correzioni di [Q §2.3] e [J §4.4] |
+| C2 | **Passo della prova e fatto** (tratto, svolta, incrocio, attraversamento; con i fatti e le fonti, senza testo finale) | motore → dialogo, web, esportazione | [Q §2.2] adattato alla prova; lo schema `fact` attuale |
+| C4 | **Memoria nel browser** (eventi, registro dei luoghi citati, versioni del modulo, profilo) | dialogo ↔ web | [J §4] |
+| C8 | **Frase del corpus** | autori del corpus → valutazione | [P §9] |
+
+Quelli per la Fase 3 (eventi nativi, messaggio di condivisione) e per un eventuale server (API gateway, pacchetto città) si scrivono quando servono [Q §2.2].
+
+### 5.4 Cosa esce dal browser
+
+| Verso | Cosa | Quando | Senza rete |
+|---|---|---|---|
+| Overpass (poi i pacchetti città) | Il rettangolo della zona | Prima volta in una zona; poi resta in cache nel browser | Funziona se la zona è in cache |
+| Photon | Il testo cercato e una posizione approssimata | Ricerca dei luoghi | Solo i nomi della mappa in cache |
+| Fornitore del modello (chiave dell'utente) | La frase, lo stato del modulo di viaggio e i nomi dei luoghi. **Mai le coordinate** [J §4.8] | Frasi che la grammatica non capisce, domande generali | Solo la grammatica |
+| Transitous (Fase 2) | Partenza, arrivo, orario | Percorsi coi mezzi | No |
+| Noi | **Niente** | – | – |
+
+**Rischi da verificare subito:**
+- **CORS dei fornitori di modelli e dei servizi pubblici** (spike MOT-1 e DIA-5).
+- **La chiave nel browser.** Il default è tenerla solo per la sessione; salvarla sul dispositivo è una scelta dell'utente, con un avviso.
+- **Policy d'uso di Overpass e Photon** per un'app pubblica [I §6-7]: bastano per i test, non per un rilascio ampio.
+- **Obblighi prima di un rilascio pubblico:** la frase «sono un'IA» al primo uso (AI Act art. 50, in vigore dal 2 agosto 2026), un'informativa privacy e testi che non presentino Milo come dispositivo medico [I §12][F §6].
 
 ---
 
-## 6. Decisioni che servono da te
+## 6. Step di lavoro
 
-1. **Ordine delle fasi:** va bene così, o si cambia?
-2. **Server:** tre possibilità:
-   - nessun server nostro, con la chiave dell'utente e il modello sul telefono;
-   - un server nostro con quota;
-   - solo file statici (pacchetti città e modelli).
-3. **Prove con persone cieche:** hai contatti (UICI Milano, Istituto dei Ciechi, istruttori O&M) o li cerchiamo?
-4. **Fotocamera** (posizionamento visivo, modalità arrivo): dalla Fase 2 o più avanti?
-5. **Testo di presentazione e rischio dispositivo medico:** lo vediamo con un legale prima del primo rilascio pubblico?
-6. **Modello cloud predefinito:** lo decide il corpus (il più veloce che raggiunge i criteri), o preferisci fissarlo ora?
+### 6.1 Da dove partiamo
+
+| Cosa | Stato | Decisione |
+|---|---|---|
+| `packages/engine` (TypeScript, 166 test, parità parola per parola col vecchio motore) | Funziona in Node; nel browser non è ancora provato | **Si tiene.** È la base di tutto |
+| `packages/assistant` (diventerà `packages/dialogue`, F0-5) | Grammatica EN/IT a un'azione per frase (233 test), adattatori per Anthropic, OpenAI-compatibili, Gemini e modello sul telefono, controllo dei numeri | **Si rifà** secondo C3. Si salvano la grammatica come punto di partenza, il controllo dei numeri e gli adattatori finché D11 non è chiusa |
+| `contracts/` | Schemi JSON dei risultati del motore, controllati nei test del motore | **Si tiene**, poi passa in `packages/contracts` (CON-1) |
+| `server-py/`, `web/` (hackathon) | Motore Python su Mac, web app a pulsante unico | **Da togliere dall'albero** (D12, F0-2). Restano nel commit `ed9c4bf` |
+| Documentazione dell'hackathon (`docs/architecture.md`, `features.md`, `how-we-built-it.md`, `roadmap.md`) | Descrive il sistema vecchio | **Da spostare** in `docs/archivio/hackathon-2026/` (F0-2) |
+
+### 6.2 Fasi e ordine
+
+```mermaid
+flowchart TB
+  F0["Fase 0: base del repo<br/>(in parte fatta)"] --> CON["CON-1 contratti C3, C2, C4, C8<br/>approvati da entrambi"]
+  CON --> MOT["Corsia MOT<br/>motore nel browser, prova del percorso,<br/>attraversamenti, vincoli, nomi"]
+  CON --> DIA["Corsia DIA<br/>modulo di viaggio, grammatica,<br/>memoria, chiarimenti, Brain"]
+  CON --> WEB["Corsia WEB<br/>guscio accessibile, conversazione,<br/>prova del percorso, impostazioni"]
+  CON --> VAL["Corsia VAL<br/>valutazione, corpus, confronto modelli"]
+  MOT --> INT["Integrazione"]
+  DIA --> INT
+  WEB --> INT
+  VAL --> INT
+  INT --> G1{{"G1: prova del percorso completa<br/>nel browser"}}
+  G1 --> G2{{"G2: prime prove con utenti ciechi"}}
+  G2 --> F2["Fase 2: resto della preparazione"]
+  F2 --> G3{{"G3: decisione sulla Fase 3<br/>(web o app nativa)"}}
+  G3 --> F3["Fase 3: compagno in strada"]
+```
+
+**In serie, e solo in serie:**
+1. Fase 0.
+2. CON-1: i contratti, approvati da entrambi. Tutte le corsie ci si appoggiano.
+3. Integrazione, poi i cancelli G1 → G2 → G3.
+
+**In parallelo** (subito dopo CON-1): le quattro corsie MOT, DIA, WEB e VAL. **Alcune card non aspettano CON-1**: F0-7, MOT-1, MOT-3, WEB-1 e VAL-2. Dentro ogni corsia l'ordine è quello della colonna «Dipende da» (§6.3).
+
+**Tempi.** Il codice lo scrivono gli agenti e va veloce. Non si comprime invece ciò che è fisico o umano:
+- prove con i lettori di schermo veri;
+- revisione dei testi con un istruttore O&M;
+- reclutamento e prove con utenti ciechi;
+- revisione delle PR da parte dell'altro.
+
+Per questo il piano ha cancelli, non date.
+
+### 6.3 Card
+
+Legenda:
+- **Chi**: D = Daniele, L = Leonardo, A = agente, che lavora sotto chi è indicato.
+- **Dipende da**: le card che devono essere finite prima.
+- **Fatto quando**: il criterio di chiusura, da verificare nella PR.
+
+#### Fase 0: base del repo
+
+| ID | Card | Chi | Dipende da | Fatto quando | Stato |
+|---|---|---|---|---|---|
+| F0-1 | Togliere dal motore il server Overpass russo e quelli obsoleti | D/A | – | Resta solo `overpass-api.de` | **Fatto** |
+| F0-2 | **Archiviare l'hackathon:**<br/>• fuori dall'albero `server-py/`, `web/`, `playwright.config.ts`, `scripts/`, `tools/reference/dump.py`, `contracts/*.py`, `.env.example`;<br/>• documenti vecchi in `docs/archivio/hackathon-2026/`, con i link puntati al commit `ed9c4bf`;<br/>• `server-py/tests/guidance_transcript.txt` spostato prima in `packages/engine/test/fixtures/golden/` | **D o L a mano** (cancellazione: l'agente è stato bloccato dal controllo di sicurezza) | – | `npm run check` verde; `docs/archivio/hackathon-2026/README.md` spiega dove ritrovare tutto | Da fare |
+| F0-3 | `AGENTS.md` e `CLAUDE.md` | D/A | – | Esistono e rimandano a questo piano | **Fatto** |
+| F0-4 | CI su GitHub Actions: installazione, controllo dei tipi e test su ogni PR; modello di PR con il controllo d'impatto | D/A | – | Il workflow gira sulle PR | **Fatto** (da verificare alla prima PR) |
+| F0-5 | `packages/assistant` → `packages/dialogue` (nome del pacchetto `@milo/dialogue`) | D/A | F0-2 | Test verdi con il nuovo nome | Da fare |
+| F0-6 | Regole di parola aggiornate: regola 3 (sinistra e destra per le svolte), regola 10 (lingue) | D/A | – | [`speaking-rules.md`](speaking-rules.md) aggiornato | **Fatto** |
+| F0-7 | Recupero dall'hackathon (commit `ed9c4bf`) [Q §6.2]:<br/>• frasi dei test → `eval/seeds/hackathon/`;<br/>• regole di interazione da conservare (lo «stop» sempre locale e immediato, un'interpretazione superata non agisce, ecc.) → `docs/archivio/hackathon-2026/comportamenti-da-conservare.md`;<br/>• la correzione dei nomi capiti male | A (D rivede) | – | Ogni frase ha la fonte `file:riga`; nessuna frase inventata | Da fare |
+
+#### Contratti
+
+| ID | Card | Chi | Dipende da | Fatto quando |
+|---|---|---|---|---|
+| CON-1 | `packages/contracts` con TypeBox: C3, C2, C4, C8 (§5.3). Esempi validi e non validi per ciascuno; gli schemi attuali passano in `legacy/` | A scrive, **D e L approvano** | F0 | Test verdi. Le 6 frasi d'esempio di [E §2] passano come esempi C3. PR approvata da entrambi |
+
+#### Corsia MOT: motore (Daniele)
+
+| ID | Card | Dipende da | Fatto quando |
+|---|---|---|---|
+| MOT-1 | **Motore nel browser (spike):**<br/>• pacchetto per il browser;<br/>• Overpass e Photon chiamati dal browser (CORS; il browser non imposta lo User-Agent);<br/>• zone salvate in IndexedDB;<br/>• tempi misurati (download e costruzione della zona) su un portatile e su un telefono di fascia media;<br/>• se la costruzione è lenta, la correzione di [R] (il test `intersects` per nodo in `zone.ts`) | – | Una pagina di prova costruisce la zona di Porta Romana nel browser; i tempi sono scritti nella PR |
+| MOT-2 | **Prova del percorso:**<br/>• dal percorso scelto, la sequenza dei passi strutturati (C2): tratti, svolte, incroci, attraversamenti, riferimenti, cosa non si sa;<br/>• spostamenti: avanti, indietro, vai al passo N;<br/>• tre livelli di dettaglio | CON-1 | Trascrizioni di riferimento su 3 percorsi di Porta Romana; al livello breve nessun passo supera 20 parole [v1 §4.2] |
+| MOT-3 | **Attraversamenti con tutti i dati OSM:**<br/>• `crossing`, `crossing:island`, `crossing_ref`, `traffic_signals:sound`, `traffic_signals:vibration`, `button_operated`, `tactile_paving`, `kerb`, corsie, tram, ciclabile;<br/>• valori predefiniti per paese (Regno Unito: il cono girevole) [M][L §4];<br/>• «la mappa non lo dice» quando il dato manca | – | Test sulla zona di prova; nessun «senza sonoro» dedotto dalla sola assenza del tag |
+| MOT-4 | **Vincoli:**<br/>• «senza mezzi»;<br/>• costo degli attraversamenti (sonoro < semaforo < strisce < nessuno), regolabile;<br/>• penalità per tram e ciclabili [v1 §4.5] | CON-1 | La frase del Duomo (§7) produce un percorso a piedi con una farmacia lungo la strada |
+| MOT-5 | **Frasi dai fatti:**<br/>• `render(passo, lingua)` con modelli di frase en-GB, en-US e it;<br/>• nomi pronunciabili: tipo più nome, sigle tolte, abbreviazioni sciolte con i dizionari di libpostal [N];<br/>• unità per paese [L §4] | CON-1 | Le chiavi dei cataloghi en e it coincidono (test); «San Luigi snc» diventa «la farmacia San Luigi» |
+| MOT-6 | **Esportazione:** riassunto in testo e GPX con i punti degli attraversamenti | MOT-2 | Il GPX si apre in VoiceVista o Soundscape (prova manuale) |
+
+#### Corsia DIA: dialogo (Daniele)
+
+| ID | Card | Dipende da | Fatto quando |
+|---|---|---|---|
+| DIA-1 | **Modulo di viaggio e applicatore:**<br/>• i comandi C3 applicati in blocco;<br/>• versioni per «annulla»;<br/>• registro dei luoghi citati e dell'ultimo elenco letto;<br/>• riferimenti risolti dal codice, mai dal modello [E][J] | CON-1 | Le 6 frasi d'esempio di [E §2] producono il modulo atteso |
+| DIA-2 | **Grammatica componibile in inglese e italiano:**<br/>• spezza la frase ai connettori («and», «then», «without», «e», «poi», «senza»);<br/>• comandi della prova del percorso;<br/>• si riparte dai 233 test attuali | DIA-1 | I comandi fissi rispondono in meno di 50 ms; le frasi composte semplici non passano dal modello |
+| DIA-3 | **Memoria nel browser** (C4, IndexedDB):<br/>• eventi, registro, versioni del modulo, profilo (preferenze, luoghi salvati);<br/>• «ripeti» rigenera il passo, non rilegge un testo vecchio;<br/>• esporta e cancella [J §4] | DIA-1 | «Cosa mi hai detto prima?» e «la seconda che hai detto» si risolvono senza modello |
+| DIA-4 | **Chiarimenti mirati:**<br/>• si applica ciò che è sicuro;<br/>• mai un vincolo di sicurezza tolto su un dubbio;<br/>• si rilegge e si chiede una cosa per volta [J §5] | DIA-1 | I 7 dialoghi d'esempio di [J §5] passano come test |
+| DIA-5 | **Brain con la chiave dell'utente (spike e implementazione):**<br/>• Pi nel browser a confronto con gli adattatori attuali (D11);<br/>• CORS verificato per OpenRouter, Anthropic, OpenAI e Google;<br/>• strumenti: `edit_trip`, `ask_map`, `describe_place`, `describe_junction`, `rehearsal_status`, `recall` [G §5];<br/>• il controllo dei numeri su ogni testo del modello | DIA-1 | La frase del Duomo funziona nel browser con la chiave di Daniele; decisione D11 chiusa |
+| DIA-6 | **Domande generali:** risposta breve con la fonte dichiarata («secondo…»), mai indicazioni stradali (le regole di `chat.ts`) | DIA-5 | Test sulle regole |
+
+#### Corsia WEB: web app (Leonardo)
+
+| ID | Card | Dipende da | Fatto quando |
+|---|---|---|---|
+| WEB-1 | **Guscio accessibile** in `apps/web` (React e Vite):<br/>• landmark e intestazioni;<br/>• una regione live per le risposte;<br/>• campo di testo;<br/>• scorciatoie da tastiera documentate;<br/>• focus gestito;<br/>• testo grande e alto contrasto;<br/>• controlli automatici (axe) in CI | – | Prova manuale con NVDA e con VoiceOver (macOS e iOS) scritta nella PR |
+| WEB-2 | **Conversazione:**<br/>• storico navigabile per intestazioni;<br/>• «ripeti»;<br/>• voce opzionale: sintesi del browser; microfono solo se attivato, con un avviso su dove va l'audio | WEB-1, DIA-1 | La voce di Milo tace quando il lettore di schermo sta leggendo o l'utente scrive |
+| WEB-3 | **Prova del percorso:**<br/>• un passo per volta;<br/>• tasti per avanti, indietro, ripeti e dettagli;<br/>• gli stessi comandi a parole | WEB-1, MOT-2 | Un percorso di prova completo, fatto solo da tastiera |
+| WEB-4 | **Impostazioni:**<br/>• lingua, dettaglio, unità, voce e velocità;<br/>• chiave API (solo per la sessione di default) e modello consigliato;<br/>• preferenze di percorso | WEB-1 | Ogni opzione si imposta anche a parole [v1 §4.8] |
+| WEB-5 | **Vista per chi vede:** mappa MapLibre con il percorso e gli attraversamenti, portata dalla mappa live dell'hackathon; nascosta ai lettori di schermo, con testo equivalente [K §7] | WEB-1, MOT-2 | La mappa non ruba mai il focus |
+| WEB-6 | **Pubblicazione** su GitHub Pages dalla CI | WEB-1 | L'app è raggiungibile a un indirizzo pubblico |
+
+#### Corsia VAL: valutazione (agenti; Daniele rivede)
+
+| ID | Card | Dipende da | Fatto quando |
+|---|---|---|---|
+| VAL-1 | **Sistema di valutazione** in Node (`packages/eval`), che confronta il modulo che risulta dai comandi. Metriche:<br/>• modulo esatto;<br/>• F1 per campo;<br/>• azioni rischiose;<br/>• domande superflue;<br/>• latenza e costo [P §9] | CON-1, DIA-1 | Gira sul corpus di sviluppo e produce un rapporto |
+| VAL-2 | **Corpus di sviluppo in inglese e italiano.** Fonti:<br/>• semi dall'hackathon (F0-7);<br/>• MASSIVE (CC BY 4.0);<br/>• frasi scritte a mano: composte, correzioni, riferimenti, comandi della prova [P] | – | Almeno 300 frasi; più un insieme di sicurezza di almeno 300 frasi per le azioni rischiose [P] |
+| VAL-3 | **Confronto dei modelli** con la chiave di Daniele, sulle coppie modello-fornitore di [H §5]. Serve a compilare la lista dei modelli consigliati nell'app | VAL-1, VAL-2, DIA-5 | Tabella con precisione, latenza e costo per turno |
+| VAL-4 | **Revisione dei testi della prova** con un istruttore O&M | MOT-2 | Le correzioni sono entrate nei modelli di frase |
+
+### 6.4 Cancelli
+
+| Cancello | Condizione | Chi lo verifica |
+|---|---|---|
+| **G1: prova completa nel browser** | Card MOT-1…5, DIA-1…5, WEB-1…4, VAL-1…2 chiuse. Dal computer, con NVDA e VoiceOver:<br/>• la frase del Duomo produce il percorso;<br/>• la prova del percorso si fa tutta da tastiera;<br/>• 3 percorsi a Milano e 2 a Londra, rivisti a mano | D e L |
+| **G2: prime prove con utenti ciechi** | G1 superato, VAL-4 fatta:<br/>• informativa privacy e frase «sono un'IA»;<br/>• 5–10 tester (da remoto in inglese e a Milano);<br/>• misure: compiti riusciti, turni per preparare un percorso, errori di comprensione, soddisfazione (SUS) | D e L, con i tester |
+| **G3: decisione sulla Fase 3** | Dopo G2 e la Fase 2. Si sceglie tra PWA e app nativa per l'accompagnamento in strada, con i dati di [R][O][D] | D e L |
+
+---
+
+## 7. Criteri di accettazione della Fase 1
+
+- **La frase del Duomo:**
+  - «I want to go to the Duomo, stopping at a pharmacy on the way, no public transport»;
+  - in italiano: «Voglio andare al Duomo fermandomi in una farmacia lungo la strada, senza mezzi».
+  - Produce il modulo corretto in 1 turno. Con un luogo univoco, il percorso è pronto in 2 turni.
+- **Dialogo sul corpus:**
+  - almeno 90% di moduli esatti con il modello consigliato;
+  - 0 azioni rischiose senza conferma sull'insieme di sicurezza;
+  - la grammatica da sola copre i comandi fissi e la prova del percorso.
+- **Prova del percorso:**
+  - ogni attraversamento è descritto con tutti i dati che la mappa ha, e cosa manca viene detto;
+  - al livello breve nessun passo supera 20 parole.
+- **Accessibilità:**
+  - WCAG 2.2 AA;
+  - tutto da tastiera;
+  - provato con NVDA (Firefox o Chrome), VoiceOver (macOS e iOS Safari) e TalkBack (Chrome).
+- **Privacy:** esce solo ciò che è elencato in §5.4; la chiave non va da nessun'altra parte che al fornitore scelto.
+- **Senza chiave:** tutte le funzioni tranne le frasi libere e le domande generali, e Milo lo dice.
+
+---
+
+## 8. Cosa riusiamo (per non rifare la ruota)
+
+Gli inventari completi, con licenze e verifiche, sono in [N], [O] e [P]. Qui solo ciò che serve alle Fasi 1 e 2.
+
+| Cosa | Per cosa | Licenza | Dove |
+|---|---|---|---|
+| OpenStreetMap via Overpass | Grafo pedonale, attraversamenti, luoghi | ODbL | Motore (esiste) |
+| Photon (komoot) | Ricerca dei luoghi | Apache-2.0 (servizio pubblico con policy d'uso) | Motore (esiste) |
+| Transitous (MOTIS) | Mezzi pubblici (Fase 2) | Servizio pubblico, niente uso commerciale | Motore (esiste) |
+| Pi (`@earendil-works/pi-ai`, `pi-agent-core`) | Brain: fornitori di modelli, strumenti, stato | MIT | DIA-5 [G] |
+| TypeBox | Contratti e validazione | MIT | CON-1 [Q §2] |
+| Dizionari di libpostal (solo i dati) | Sciogliere le abbreviazioni dei nomi | MIT | MOT-5 [N] |
+| Etichette inglesi di Wikidata | Nomi in inglese dei luoghi italiani | CC0 | MOT-5 [N] |
+| MapLibre GL JS, Protomaps/OpenFreeMap | Mappa per chi vede | BSD-3, ODbL | WEB-5 [K §7] |
+| axe-core | Controlli automatici di accessibilità | MPL-2.0 | WEB-1 |
+| MASSIVE, TOPv2, Taskmaster-1 | Semi per il corpus | CC BY 4.0, CC BY-SA 4.0, CC BY 4.0 | VAL-2 [P] |
+| Metodo di Soundscape-Android | Trascrizioni di riferimento per ogni percorso | MIT (idea e metodo) | MOT-2 [N] |
+| Modello dei costi di PPR (motis-project) | Costo per tipo di attraversamento e classe di strada | MIT (idea) | MOT-4 [N] |
+
+**Da non usare:**
+- OpenClaw: pesante, con problemi di sicurezza, e non usa più Pi [G].
+- Il dataset STOP: la licenza vieta i lavori derivati [P].
+- Modelli e librerie con licenze non commerciali o GPL dentro l'app [L][O].
+
+---
+
+## 9. Punti aperti (da decidere insieme)
+
+1. **D7, D8, D9, D10, D11, D13:** confermate o cambiate le decisioni «proposte» di §2.
+2. **Modelli consigliati:** la lista esce da VAL-3. Fino ad allora si usa la chiave di Daniele con un modello scelto a mano: DeepSeek-V4.1-Flash via OpenRouter, oppure un modello di Anthropic [H].
+3. **Dove si salva la chiave API:** solo per la sessione (proposta) o anche sul dispositivo, con avviso.
+4. **Città di prova:** Milano più Londra e Dublino [M], più altre su richiesta dei tester (con dati solo OSM, meno completi).
+5. **Package manager:** si resta su npm o si passa a pnpm [Q §1.2]. Proposta: npm finché non dà problemi.
+6. **Set di test privato:** un repo privato separato per le frasi di test, così nessun agente le vede [P][Q §1.1].
+7. **Istruttore O&M** per rivedere i testi della prova (VAL-4): chi contattare (Istituto dei Ciechi, ANIOMAP).
+8. **Tester per G2:** canali in inglese (AppleVis, Blind Android Users, Mastodon [L §2]) e a Milano (UICI, EveryWare Lab).
+9. **Unità in inglese:** metri, iarde o piedi per i tester britannici e americani [L §4].
+10. **Nome e dominio** dove pubblicare l'app.
+
+---
+
+## 10. Ricerche
+
+| Rapporto | Tema | Serve a |
+|---|---|---|
+| [A](ricerca/2026-09-27/A-studi-scientifici.md) | Studi scientifici | Tutto; la prova del percorso (§4) |
+| [B](ricerca/2026-09-27/B-voci-degli-utenti.md) | Cosa dicono gli utenti ciechi | Tutto |
+| [C](ricerca/2026-09-27/C-soluzioni-esistenti.md) | Soluzioni esistenti e codice riusabile | Scope, riuso |
+| [D](ricerca/2026-09-27/D-piattaforma-e-precisione.md) | Piattaforma e precisione del GPS | Fase 3 |
+| [E](ricerca/2026-09-27/E-conversazione.md) | Conversazione e modulo di viaggio | DIA, CON-1 |
+| [F](ricerca/2026-09-27/F-contesto-italiano.md) | Contesto italiano | MOT-3, prove a Milano |
+| [G](ricerca/2026-09-27/G-harness-e-dialogo.md) | Harness per il modello e dialogo | DIA-5 |
+| [H](ricerca/2026-09-27/H-modelli-cloud.md) | Modelli cloud | VAL-3, §9 |
+| [I](ricerca/2026-09-27/I-server-vps.md) | Server nostro (ora non serve, D7) | Se un giorno servirà un server |
+| [J](ricerca/2026-09-27/J-memoria-e-chiarimenti.md) | Memoria e chiarimenti | DIA-1, DIA-3, DIA-4 |
+| [K](ricerca/2026-09-27/K-vista-per-chi-vede.md) | Vista per chi vede, Be My Eyes | WEB-5, Fase 3 |
+| [L](ricerca/2026-09-27/L-inglese-comunita-e-piattaforme.md) | Inglese, comunità, voce | D5, G2, MOT-5 |
+| [M](ricerca/2026-09-27/M-citta-e-dati-anglofoni.md) | Dati delle città anglofone | MOT-3, città di prova |
+| [N](ricerca/2026-09-27/N-repo-navigazione-e-mappe.md) | Repo per percorsi e mappe | MOT, riuso |
+| [O](ricerca/2026-09-27/O-repo-mobile-voce-ia.md) | Repo per app, voce e IA sul telefono | Fase 3 |
+| [P](ricerca/2026-09-27/P-dataset-valutazione.md) | Dataset e valutazione | VAL |
+| [Q](ricerca/2026-09-27/Q-flusso-di-lavoro-e-migrazione.md) | Flusso di lavoro per voi due e gli agenti | Fase 0, CON-1. Le stime in giorni sono per lavoro a mano: non usarle |
+| [R](ricerca/2026-09-27/R-runtime-a-schermo-bloccato.md) | Schermo bloccato; tempi del motore | MOT-1 (correzione della costruzione della zona), Fase 3 |
+| [S](ricerca/2026-09-27/S-prove-di-guida-senza-utenti.md) | Prove in strada senza utenti | Fase 3 |
+
+Le ricerche A–P sono state scritte e verificate da agenti. I numeri vanno ricontrollati sulla fonte prima di diventare requisiti. Q, R e S nascono da una revisione di completezza. Tutte partono dall'idea di un navigatore sul telefono, che questa versione del piano ridimensiona (D1–D3).
