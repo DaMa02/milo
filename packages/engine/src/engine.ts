@@ -324,8 +324,8 @@ export class Engine {
   }
 
   // ---------- places ----------
-  searchPlaces(query: string, near: Point, lang: Lang, fix?: (q: string) => Promise<string[]>): Promise<Candidate[]> {
-    return searchPlaces(query, [near.lat, near.lon], lang, this.zones, { userAgent: this.opts.userAgent ?? USER_AGENT, ...this.opts.photon,
+  searchPlaces(query: string, near: Point | null, lang: Lang, fix?: (q: string) => Promise<string[]>): Promise<Candidate[]> {
+    return searchPlaces(query, near ? [near.lat, near.lon] : null, lang, this.zones, { userAgent: this.opts.userAgent ?? USER_AGENT, ...this.opts.photon,
       offline: this.opts.offline || this.opts.photon?.offline }, fix);
   }
 

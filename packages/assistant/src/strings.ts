@@ -1,0 +1,158 @@
+/**
+ * What the conversation itself says (the engine words its own results). Short sentences for the ear: a blind user
+ * hears every word, so each message says one thing and, when it asks something, how to answer.
+ */
+import type { Lang } from '@milo/engine';
+
+const en = {
+  welcome: "Hi, I'm Milo. Tell me where you want to go, for example: take me to the station. You can also ask: what's around me? Say help at any time.",
+  help: 'You can say: take me to a place; what is around me; where am I; how far is a place; is the pharmacy open; how do I get there; '
+    + "take the shortest; avoid steps; stop at a pharmacy on the way; let's go, to start guidance; stop guidance; repeat; faster or slower. "
+    + "To walk the streets in your mind, say explore, then turn left, turn right, or take and a street name.",
+  noFit: 'I did not understand. Tell me where you want to go, or ask what is around you. Say help for examples.',
+  offline: "I can't answer that without a connection or an AI model. Say help to hear what I can do.",
+  declined: "I can't help with that. Say help to hear what I can do.",
+  notSure: "I'm not sure. Say help to hear what I can do.",
+  stillWorking: 'Still working on it.',
+  faster: 'Speaking faster.',
+  slower: 'Speaking slower.',
+  language: "I'll speak English.",
+  startOver: "Let's start again. Where are you starting from? Say use my location, or name a place.",
+  // places
+  askOrigin: 'Tell me where you are starting from. Say use my location, or name a place or address.',
+  askDestination: 'Where do you want to go? Say a place or an address.',
+  searching: (q: string) => `Looking for ${q}.`,
+  found: (place: string) => `I found ${place}. Is that right?`,
+  notFound: (q: string) => `I could not find ${q}. Try another name or address.`,
+  noneMatched: 'None of these places matched. Say another name or address.',
+  choose: 'Say yes, no, or which one, for example the second one.',
+  locating: 'Checking your location.',
+  locationUnavailable: 'Your location is unavailable. Say where you are starting from instead.',
+  locationDenied: 'Location permission was denied. Say where you are starting from instead.',
+  locationConfirm: (place: string, accuracy: number) => `You seem to be at ${place}, within about ${accuracy} metres. Start here?`,
+  usingLocation: (place: string) => `Using your location, ${place}.`,
+  unknownPlace: 'your position',
+  loadingMap: (place: string) => `Loading the map around ${place}.`,
+  firstLoad: 'This area is new to me: it takes about a minute the first time.',
+  mapUnavailable: 'I could not download the map of this area, and I have no saved copy. Check the connection and try again.',
+  tooFar: (km: number) => `That is ${km} kilometres away: too far for a walking route. Choose a nearer place.`,
+  destinationSet: (place: string) => `Your destination is ${place}.`,
+  searchFailed: 'Place search is not available right now. Try again, or name a street near you.',
+  home: "I don't know where your home is. Say its address instead.",
+  // routes
+  routeFirst: 'Ask for a route first, then tell me what to change.',
+  chooseRoute: 'Say the route you want, or ask to avoid something.',
+  startPrompt: "Say let's go to start guidance, or other routes to compare.",
+  noSuchRoute: 'That route is not among the ones I offered.',
+  planFailed: 'The route could not be computed.',
+  // stops
+  stopConfirm: (place: string) => `Would you like to stop at ${place}? Say yes, no, or choose another.`,
+  stopNone: 'No stop of that kind is near this route. You can keep this route, or ask for another kind of place.',
+  stopNoneChosen: 'No stop was chosen. You can ask for another kind of place.',
+  stopHowLong: (place: string) => `How many minutes would you like to stop at ${place}?`,
+  stopRange: 'Say a whole number of minutes, from 1 to 180.',
+  stopNothing: 'There is no stop to change. Ask for one first, for example: stop at a pharmacy.',
+  // guidance
+  guidanceStarted: 'Guidance on. Hold the phone in front of you, pointing where you walk.',
+  guidanceStopped: 'Guidance stopped.',
+  guidanceWaiting: 'I am still getting your position. Ask again in a moment.',
+  guidanceNoRoute: 'Choose a route before starting guidance.',
+  progress: (instruction: string | null, distance: number | null, remaining: number | null, minutes: number | null, place: string) =>
+    [instruction && distance !== null ? `${instruction} in ${distance} m.` : '',
+      remaining !== null && minutes !== null ? `${remaining} m, about ${minutes} minutes to ${place}.` : ''].filter(Boolean).join(' '),
+  // results
+  noMore: 'There is nothing more to add.',
+  noUnknowns: 'Nothing else is unknown for this answer.',
+  noSources: 'There is no source information for this answer yet.',
+  sources: (parts: string[]) => `This comes from ${parts.join(', ')}.`,
+  sourceNames: { computed: (date: string) => `a calculation on the OpenStreetMap map of ${date}`, map_tag: 'OpenStreetMap tags',
+    transit_api: 'Transitous public transport data', web: 'the web', estimated: 'an estimate' } as Record<string, string | ((d: string) => string)>,
+  needStart: 'First tell me where you are starting from, or say use my location.',
+  sessionLost: 'The map of this trip is no longer loaded. Say where you are starting from.',
+  // hints after a reply, for the first times only
+  hints: {
+    overview: "Say take me to and a place, or explore to walk the streets in your mind.",
+    explore: 'Say turn left, turn right, or take and a street name.',
+    answer: "Say how do I get there to plan the route, or more for detail.",
+    plan: "Say let's go to start, or other routes to compare.",
+    places: 'Say yes or no.',
+    navigate: 'Say repeat to hear it again, or stop guidance to end.',
+    error: 'Say help to hear what I can do.',
+  } as Record<string, string>,
+};
+
+export type Strings = typeof en;
+
+const it: Strings = {
+  welcome: "Ciao, sono Milo. Dimmi dove vuoi andare, per esempio: portami alla stazione. Puoi anche chiedere: cosa c'è intorno a me? Di' aiuto in qualsiasi momento.",
+  help: "Puoi dire: portami a un luogo; cosa c'è intorno a me; dove sono; quanto dista un luogo; la farmacia è aperta; come ci arrivo; "
+    + 'prendi il più breve; evita le scale; fermati in farmacia lungo la strada; andiamo, per avviare la navigazione; ferma la navigazione; '
+    + 'ripeti; più veloce o più piano. Per percorrere le strade con la mente, di\' esplora, poi gira a sinistra, gira a destra, o prendi e il nome di una via.',
+  noFit: "Non ho capito. Dimmi dove vuoi andare, oppure chiedi cosa c'è intorno a te. Di' aiuto per qualche esempio.",
+  offline: "Senza connessione o senza un modello di intelligenza artificiale non posso rispondere a questo. Di' aiuto per sapere cosa posso fare.",
+  declined: "Non posso aiutarti con questo. Di' aiuto per sapere cosa posso fare.",
+  notSure: "Non ne sono sicuro. Di' aiuto per sapere cosa posso fare.",
+  stillWorking: 'Ci sto ancora lavorando.',
+  faster: 'Parlo più veloce.',
+  slower: 'Parlo più piano.',
+  language: 'Parlerò in italiano.',
+  startOver: "Ricominciamo. Da dove parti? Di' usa la mia posizione, oppure dimmi un luogo.",
+  askOrigin: "Dimmi da dove parti. Di' usa la mia posizione, oppure dimmi un luogo o un indirizzo.",
+  askDestination: 'Dove vuoi andare? Dimmi un luogo o un indirizzo.',
+  searching: (q: string) => `Cerco ${q}.`,
+  found: (place: string) => `Ho trovato ${place}. È giusto?`,
+  notFound: (q: string) => `Non ho trovato ${q}. Prova con un altro nome o indirizzo.`,
+  noneMatched: 'Nessuno di questi luoghi va bene. Dimmi un altro nome o indirizzo.',
+  choose: 'Rispondi sì, no, oppure quale, per esempio il secondo.',
+  locating: 'Controllo la tua posizione.',
+  locationUnavailable: 'La tua posizione non è disponibile. Dimmi invece da dove parti.',
+  locationDenied: 'Il permesso di posizione è stato negato. Dimmi invece da dove parti.',
+  locationConfirm: (place: string, accuracy: number) => `Sembri essere in ${place}, con una precisione di circa ${accuracy} metri. Parto da qui?`,
+  usingLocation: (place: string) => `Uso la tua posizione, ${place}.`,
+  unknownPlace: 'la tua posizione',
+  loadingMap: (place: string) => `Carico la mappa intorno a ${place}.`,
+  firstLoad: 'Questa zona è nuova per me: la prima volta ci vuole circa un minuto.',
+  mapUnavailable: 'Non sono riuscito a scaricare la mappa di questa zona e non ne ho una copia salvata. Controlla la connessione e riprova.',
+  tooFar: (km: number) => `È a ${km} chilometri: troppo lontano per un percorso a piedi. Scegli un luogo più vicino.`,
+  destinationSet: (place: string) => `La tua destinazione è ${place}.`,
+  searchFailed: 'La ricerca dei luoghi non è disponibile adesso. Riprova, oppure dimmi una via vicina.',
+  home: 'Non so dove sia casa tua. Dimmi invece il suo indirizzo.',
+  routeFirst: 'Prima chiedimi un percorso, poi dimmi cosa cambiare.',
+  chooseRoute: 'Dimmi quale percorso vuoi, oppure cosa evitare.',
+  startPrompt: "Di' andiamo per avviare la navigazione, oppure altri percorsi per confrontarli.",
+  noSuchRoute: 'Quel percorso non è tra quelli che ti ho proposto.',
+  planFailed: 'Non sono riuscito a calcolare il percorso.',
+  stopConfirm: (place: string) => `Vuoi fermarti a ${place}? Rispondi sì, no, oppure scegline un altro.`,
+  stopNone: 'Non ci sono tappe di quel tipo vicino a questo percorso. Puoi tenere questo percorso o chiedere un altro tipo di luogo.',
+  stopNoneChosen: 'Nessuna tappa scelta. Puoi chiedere un altro tipo di luogo.',
+  stopHowLong: (place: string) => `Per quanti minuti vuoi fermarti a ${place}?`,
+  stopRange: 'Dimmi un numero intero di minuti, da 1 a 180.',
+  stopNothing: 'Non c\'è nessuna tappa da cambiare. Chiedine prima una, per esempio: fermati in farmacia.',
+  guidanceStarted: 'Navigazione avviata. Tieni il telefono davanti a te, puntato dove cammini.',
+  guidanceStopped: 'Navigazione fermata.',
+  guidanceWaiting: 'Sto ancora cercando la tua posizione. Chiedimelo di nuovo tra poco.',
+  guidanceNoRoute: 'Scegli un percorso prima di avviare la navigazione.',
+  progress: (instruction: string | null, distance: number | null, remaining: number | null, minutes: number | null, place: string) =>
+    [instruction && distance !== null ? `${instruction} tra ${distance} m.` : '',
+      remaining !== null && minutes !== null ? `Mancano ${remaining} m, circa ${minutes} minuti per ${place}.` : ''].filter(Boolean).join(' '),
+  noMore: 'Non c\'è altro da aggiungere.',
+  noUnknowns: 'Per questa risposta non c\'è altro di sconosciuto.',
+  noSources: 'Per questa risposta non ci sono ancora informazioni sulle fonti.',
+  sources: (parts: string[]) => `Viene da ${parts.join(', ')}.`,
+  sourceNames: { computed: (date: string) => `un calcolo sulla mappa OpenStreetMap del ${date}`, map_tag: 'i tag di OpenStreetMap',
+    transit_api: 'i dati dei trasporti pubblici di Transitous', web: 'il web', estimated: 'una stima' },
+  needStart: "Prima dimmi da dove parti, oppure di' usa la mia posizione.",
+  sessionLost: 'La mappa di questo viaggio non è più caricata. Dimmi da dove parti.',
+  hints: {
+    overview: "Di' portami a e un luogo, oppure esplora per percorrere le strade con la mente.",
+    explore: "Di' gira a sinistra, gira a destra, oppure prendi e il nome di una via.",
+    answer: "Di' come ci arrivo per il percorso, oppure più dettagli.",
+    plan: "Di' andiamo per partire, oppure altri percorsi per confrontarli.",
+    places: 'Rispondi sì o no.',
+    navigate: "Di' ripeti per riascoltare, oppure ferma la navigazione per finire.",
+    error: "Di' aiuto per sapere cosa posso fare.",
+  },
+};
+
+export const STRINGS: Record<Lang, Strings> = { en, it };
+export const strings = (lang: Lang): Strings => STRINGS[lang] ?? en;

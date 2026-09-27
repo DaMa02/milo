@@ -34,7 +34,8 @@ export interface Candidate {
   city: string | null;
   lat: number;
   lon: number;
-  distance_m: number;
+  /** From the reference point; null without one. */
+  distance_m: number | null;
 }
 
 export interface Reverse {
@@ -61,12 +62,12 @@ async function photon(opts: PhotonOptions, path: string, params: [string, string
 }
 
 function candidate(name: string, kind: string | null, street: string | null, housenumber: string | null, city: string | null, lat: number,
-  lon: number, ref: [number, number]): Candidate {
-  return { name, kind, street, housenumber, city, lat, lon, distance_m: r10(greatCircle(ref[0], ref[1], lat, lon)) };
+  lon: number, ref: [number, number] | null): Candidate {
+  return { name, kind, street, housenumber, city, lat, lon, distance_m: ref ? r10(greatCircle(ref[0], ref[1], lat, lon)) : null };
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function fromPhoton(f: any, ref: [number, number]): Candidate {
+function fromPhoton(f: any, ref: [number, number] | null): Candidate {
   const p = f.properties ?? {};
   const [lon, lat] = f.geometry.coordinates;
   const street = p.street ?? (p.osm_key === 'highway' ? p.name : null) ?? null;
@@ -74,7 +75,7 @@ function fromPhoton(f: any, ref: [number, number]): Candidate {
 }
 
 /** Named streets and features of the loaded maps that match the query, nearest first. */
-export function offlineSearch(zones: Zone[], lang: Lang, query: string, ref: [number, number]): Candidate[] {
+export function offlineSearch(zones: Zone[], lang: Lang, query: string, ref: [number, number] | null): Candidate[] {
   const M = messages(lang);
   const q = norm(M, query);
   const out: Candidate[] = [];
@@ -95,7 +96,7 @@ export function offlineSearch(zones: Zone[], lang: Lang, query: string, ref: [nu
     }
   }
   const seen = new Set<string>();
-  return out.sort((a, b) => a.distance_m - b.distance_m).filter((c) => {
+  return out.sort((a, b) => (a.distance_m ?? 0) - (b.distance_m ?? 0)).filter((c) => {
     const k = `${c.name.toLowerCase()}|${c.lat.toFixed(4)}|${c.lon.toFixed(4)}`;
     if (seen.has(k)) return false;
     seen.add(k);
@@ -105,18 +106,23 @@ export function offlineSearch(zones: Zone[], lang: Lang, query: string, ref: [nu
 
 /**
  * Up to 3 places matching a query, near a reference point (the user's position): Photon first, restricted to about
- * 20 km around the reference, then the loaded maps. `fix` may propose corrected spellings of a misheard name.
+ * 20 km around the reference, then the loaded maps. Without a reference (no position yet) Photon ranks by
+ * importance. `fix` may propose corrected spellings of a misheard name.
  */
-export async function searchPlaces(query: string, ref: [number, number], lang: Lang, zones: Zone[], opts: PhotonOptions = {},
+export async function searchPlaces(query: string, ref: [number, number] | null, lang: Lang, zones: Zone[], opts: PhotonOptions = {},
   fix?: (query: string) => Promise<string[]>): Promise<Candidate[]> {
   const q = query.split(/\s+/).filter(Boolean).join(' ');
   if (!q) return [];
-  const [lat, lon] = ref;
-  const bbox = [lon - 0.26, lat - 0.18, lon + 0.26, lat + 0.18].map((v) => v.toFixed(3)).join(',');
+  const bias: [string, string][] = [];
+  if (ref) {
+    const [lat, lon] = ref;
+    const bbox = [lon - 0.26, lat - 0.18, lon + 0.26, lat + 0.18].map((v) => v.toFixed(3)).join(',');
+    bias.push(['lat', lat.toFixed(3)], ['lon', lon.toFixed(3)], ['bbox', bbox]);
+  }
   const near = async (text: string) => {
-    const feats = await photon(opts, '/api', [['q', text], ['limit', '3'], ['lang', photonLang(lang)], ['lat', lat.toFixed(3)],
-      ['lon', lon.toFixed(3)], ...NOISE.map((n) => ['osm_tag', n] as [string, string]), ['bbox', bbox]]);
-    return feats.map((f) => fromPhoton(f, ref)).filter((c) => c.name && c.distance_m <= MAX_KM * 1000);
+    const feats = await photon(opts, '/api', [['q', text], ['limit', '3'], ['lang', photonLang(lang)],
+      ...NOISE.map((n) => ['osm_tag', n] as [string, string]), ...bias]);
+    return feats.map((f) => fromPhoton(f, ref)).filter((c) => c.name && (c.distance_m === null || c.distance_m <= MAX_KM * 1000));
   };
   let found: Candidate[] = [];
   if (!opts.offline) {
