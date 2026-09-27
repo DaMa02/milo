@@ -5,7 +5,7 @@ Research date: 27 Sep 2026. Tags: [V] verified today in a primary source (datase
 
 1. **No public dataset matches Milo's task. Build the ~400-turn corpus mostly by hand, and use public data for seeds, stress tests and noise, never as the test set.** Nothing public covers walking trips with blind-specific avoidances (steps, unsignalled crossings, signals without sound) or mid-trip edits against a live frame. The closest dataset, TOPv2 navigation, is built around driving (§2).
 2. **Seeds: MASSIVE `transport` (CC BY 4.0, English and Italian in parallel) first, then TOPv2 navigation (CC BY-SA 4.0), then Taskmaster-1 ride booking (CC BY 4.0) for spoken corrections.** Convert them with a script into E's command union, then check them by hand.
-3. **Do not use STOP.** Its licence forbids derivative works, translation and "incorporat[ing] the STOP Dataset into any other program, dataset, or product". Meta can also revoke it or audit you [V 5]. For English spoken SLU use SLURP audio (CC BY-NC) for one-off measurements only. For Italian use ITALIC (CC BY 4.0, gated), which has a noisy test split [V 13,14].
+3. **Do not use STOP in the corpus.** Its licence forbids derivative works, translation and "incorporat[ing] the STOP Dataset into any other program, dataset, or product". Meta can also revoke it, demand deletion or audit you [V 5]. The same licence does allow using the unmodified data privately to "research, develop and improve" NLU models, and those models "may be used for academic and commercial purposes" (clauses 1–2) [V 5]. So a private ASR measurement on its navigation audio is allowed, but relabelling it to Milo frames is not. For English spoken SLU use SLURP audio (CC BY-NC) for one-off measurements only. For Italian use ITALIC (CC BY 4.0, gated), which has a noisy test split [V 13,14].
 4. **Street names are the biggest ASR risk, and no permissive dataset exists.** Across 15 recognisers, US street names spoken by US residents were transcribed wrong 44% of the time. Fewer than 1,000 synthetic TTS samples improved accuracy for non-native speakers by about 60% relative [V 42]. That dataset is NC-ND and gated [V 43]. Build a small "Milan streets in English sentences" set (L §3.1), and generate synthetic audio with Kokoro (Apache-2.0) [V 55].
 5. **Noise for mixing: MUSAN, DEMAND and SONYC-Backgrounds, all CC BY** [V 34,35,41]. UrbanSound8K, ESC-50 and CHiME are non-commercial or paid [V 37,38,39]. Keep them out of the pipeline.
 6. **Harness: write our own in TypeScript (~300 lines plus metrics) in the repo.** It scores the frame that results from applying the commands, not the command strings. Borrow τ³-bench's design (final-state check plus a simulated user) for multi-turn scripts [V 33], and When2Call's four-way "act / ask / refuse / answer" label [V 29]. Do not adapt BFCL's code (§4).
@@ -29,18 +29,18 @@ Milo's items are **turns in context**, not isolated sentences. Each item carries
 | Control words, as a regression set | 15 | Grammar |
 | **Total** | **400** | At least 150 recorded outdoors on the phone, at least 10 speakers, at least 5 of them blind |
 
-Recording: use the app itself with `expo-speech-recognition` audio persistence (O), at walking pace, in three conditions: quiet, street, and tram or bus stop. Each item stores the reference transcript, the ASR n-best, and the audio (with consent).
+Recording: use the app itself with `expo-speech-recognition` audio persistence (`recordingOptions.persist`, Android 13+ and iOS only) (O), at walking pace, in three conditions: quiet, street, and tram or bus stop. Each item stores the reference transcript, the ASR n-best, and the audio (with consent).
 
 ## 2. Task-oriented parsing datasets
 
 | Dataset | Size / languages | Licence | Last activity | Use in Milo | MIT and commercial? | Effort |
 |---|---|---|---|---|---|---|
 | **TOP** (Meta, 2018) | 44,783 English queries, 25 intents, 36 slots; 35% nested deeper than 2; navigation and events only [V 1,2] | CC-BY-SA (README) [V 1] | v1.1, Dec 2018 [V 1] | Superseded: TOPv2 contains the same navigation data (below) | Derived items must stay CC BY-SA; never bundle in the app | – |
-| **TOPv2** (Meta, 2020) | 8 domains; navigation 20,998 / 2,971 / 6,075 train/eval/test, 17 intents, 33 slots, 57% flat [V 4] | CC BY-SA 4.0 (LICENSE in the zip) [V 3] | Static since 2020 | **Seeds** by conversion; out-of-scope negatives; a parser stress test (nested destinations such as "directions to the Eagles game") | As above; fine for dev and training files that keep the licence | 2–3 days |
-| **STOP** (Meta, 2022) | TOPv2 read aloud: 236,477 files, 218 h, 885 speakers; also TTS versions [V 6] | Proprietary agreement: no derivatives or translation, no incorporation into datasets or products, revocable, audit right [V 5] | v3 paper, Oct 2022 | **None.** Relabelling to Milo frames is a derivative work | No | – |
+| **TOPv2** (Meta, 2020) | 8 domains; navigation 20,998 / 2,971 / 6,075 train/eval/test, 17 intents, 33 slots, 57% flat [V 4] | CC BY-SA 4.0 (LICENSE in the zip) [V 3] | v1.1, Mar 2021 (added low-resource splits only) [V 3] | **Seeds** by conversion; out-of-scope negatives; a parser stress test (nested destinations such as "directions to the Eagles game") | As above; fine for dev and training files that keep the licence | 2–3 days |
+| **STOP** (Meta, 2022) | TOPv2 read aloud: 236,477 files, 218 h, 885 speakers; also TTS versions [V 6] | Proprietary agreement: no derivatives or translation, no incorporation into datasets or products, revocable, audit right; use to develop NLU models is granted, and the resulting models may be used commercially (clauses 1–2) [V 5] | v3 paper, Oct 2022 | **Not as seeds or corpus.** Relabelling to Milo frames is a derivative work. At most a private ASR check on the unmodified navigation audio | Never in the repo, CI or app; private model-development use is permitted | – |
 | **SLURP** (2020) | 72,277 recordings, 58 h, 177 speakers, 18 scenarios, headset and far-field [V 9] | Text CC BY 4.0; audio CC BY-NC 4.0 [V 8,10] | Static | English spoken-SLU measurement on `transport` audio; **SLU-F1 metric** (entity credit despite ASR spelling errors) [V 9] | Text yes; audio only for one-off research, not in CI | 1 day |
 | **MASSIVE 1.1** (Amazon) | 52 locales incl. en-US and it-IT; 16,521 parallel utterances per locale (11,514/2,033/2,974); 18 scenarios, 60 intents, 55 slot types [V 11,12] | CC BY 4.0 (NOTICE) [V 11] | Nov 2022 [V 12] | **Best seed source.** `transport` has 805 utterances per locale (query 314, ticket 187, traffic 154, taxi 150) and `recommendation_locations` 235 [V, own count on 12]. The Italian is localised, not just translated ("walmart" becomes "conad") [V 12]. Use it for the Italian half later | Yes | 0.5 day |
-| **ITALIC** (2023) | MASSIVE read aloud in Italian: 16,521 samples, 70 speakers from 13 regions, 15.46 h; `hard_speaker` and `hard_noisy` splits [V 13,14] | CC BY 4.0, gated (share contact details) [V 13] | Card updated Feb 2025 | Italian ASR + parse test in noise (Whisper large zero-shot WER 11.46%) [V 14] | Yes | 1 day |
+| **ITALIC** (2023) | MASSIVE read aloud in Italian: 16,521 samples, 70 speakers from 13 regions, 15.46 h; `hard_speaker` and `hard_noisy` splits [V 13,14] | CC BY 4.0, gated (share contact details) [V 13] | Card updated Feb 2025 | Italian ASR + parse test in noise (Whisper large zero-shot WER 11.46% on the random `massive` split, 15.41% on `hard_noisy`, 8.65% on `hard_speaker`) [V 14] | Yes | 1 day |
 | **Speech-MASSIVE** | 12 languages, **no English or Italian** [V 15] | CC BY-NC-SA 4.0 [V 15] | 2024 | None | – | – |
 | **SNIPS / ATIS** | Single-intent assistant and flight queries | SNIPS benchmark repo CC0 [V 19]; ATIS provenance not checked [U] | Static | Only through MixSNIPS | SNIPS yes | – |
 
@@ -96,8 +96,8 @@ Recording: use the app itself with `expo-speech-recognition` audio persistence (
   - average transcription error: 44%; Whisper-Large accuracy 73%;
   - accuracy for speakers whose primary language is not English was 46%, against 64% for English-only speakers;
   - fine-tuning on fewer than 1,000 synthetic samples (XTTS voice cloning) gave about 60% relative improvement for those speakers.
-- **Its data:** SF Streets (2,262 utterances, 78 participants) and US Streets (3,600 recordings, 97 participants). The paper states CC BY-NC-ND 4.0 [V 42]. On Hugging Face both are gated with licence "other" [V 43]. Use them for measurement only.
-- **Common Voice:** CC0 [P 46]; scripted-speech v27.0 (2026-09) [V 45]. It has had a `sentence_domain` field since v17.0 [V 45]. The domains include "Automotive and Transport", but none for addresses or places [V 44]. It is a CC0 source of Italian and English speakers, but not of street names.
+- **Its data:** SF Streets (2,262 utterances, 78 participants) and US Streets (3,600 recordings, 97 participants, all non-English-primary speakers). The paper's appendix gives CC BY-NC-ND 4.0 for the public SF Streets set and says only "for public research use" for US Streets [V 42]. On Hugging Face both are gated with licence "other" [V 43]. Use them for measurement only.
+- **Common Voice:** CC0 1.0, as listed on Mozilla Data Collective, which is now the download site [V 45,46]; scripted-speech v27.0 (2026-09) [V 45]. It has had a `sentence_domain` field since v17.0 [V 45]. The domains include "Automotive and Transport", but none for addresses or places [V 44]. It is a CC0 source of Italian and English speakers, but not of street names.
 - **Build our own set.** Take 50 Milanese names (L) plus 50 names from the English-speaking test city (M), each in 2–3 carrier sentences. Record 10 or more speakers. Add Kokoro-82M TTS (Apache-2.0; 20 American and 8 British English voices, 2 Italian) [V 55]. Score entity accuracy after J's phonetic match to the gazetteer, not raw WER.
 
 ### 5.2 Noise and noisy speech
@@ -117,12 +117,12 @@ Mix at SNR 15, 5 and 0 dB with `audiomentations` (MIT, 0.43.1) [V 59], and score
 ## 6. Blind-navigation and camera datasets
 
 - **Route descriptions written by or for blind people.** No open corpus was found in this round [U]. Memory-Maze collected instructions given from memory for guiding blind people, with "stutters, errors, and omissions"; its release is not stated [V 52]. Ask ANIOMAP O&M instructors to describe 20–30 Milan routes. They are ground truth for guidance text, not for the parser.
-- **GPS traces of blind pedestrians.** None open were found [U]. The nearest is **uB-VisioGeoloc** (Dijon): RGB-D video with GPS and IMU from sighted pedestrians, 16 sequences, CC BY 4.0 on Harvard Dataverse [P 50]. Replay its GPS through the engine to test off-route false alarms. Milo's own field logs (plan §4.11) remain the real source.
+- **GPS traces of blind pedestrians.** None open were found [U]. The nearest is **uB-VisioGeoloc** (Dijon): RGB-D video with GPS and IMU carried by a walking person (whether sighted is not stated), 16 sequences of which 14 real and 2 synthetic; the data is CC0 1.0 on Harvard Dataverse, the article CC BY [V 50]. Replay its GPS through the engine to test off-route false alarms. Milo's own field logs (plan §4.11) remain the real source.
 - **BlindWays:** 11 blind participants, 8 urban routes, 3D motion with text descriptions [V 51]; no licence stated [U]. Useful for engine-side studies of turn behaviour, not for the corpus.
 - **Intersection descriptions:** no dataset found [U]. Derive them from OSM tags (C, N).
 - **Camera (phase 2):**
   - **VizWiz-VQA**: 20,523/4,319/8,000 image-question pairs; blind people "recorded a spoken question" about each photo; CC BY 4.0 [V 47]. Use it to seed camera-mode questions and to test the vision model.
-  - **ImVisible PTL**: 5,059 images, MIT [V 48]. It can train a crossing-light detector that ships in the app. Milo must never turn the detected light state into "cross now".
+  - **ImVisible PTL**: 5,059 images; the repo is MIT, but the images are on Google Drive and the README states no separate data licence [V 48]. It can train a crossing-light detector that ships in the app; ask the author to confirm the images fall under MIT first. Milo must never turn the detected light state into "cross now".
   - **GuideDog**: 22,084 egocentric walking-scene descriptions, of which 2,106 are human-verified gold; data CC BY-NC 4.0 [V 49]. For evaluation only.
   - **PTL-Crosswalk** has no licence, and **Mapillary Vistas** is CC BY-NC-SA (C). Skip both for shipping.
 - **Vision-and-language navigation** (Touchdown, CC BY 4.0 text with gated Street View panoramas [V 53]; R2R, under the indoor Matterport3D Terms of Use [V 54]; Talk2Nav, not checked): **irrelevant**. These train an agent to follow instructions visually. Milo parses requests and generates instructions.
@@ -131,7 +131,7 @@ Mix at SNR 15, 5 and 0 dB with `audiomentations` (MIT, 0.43.1) [V 59], and score
 
 | Class | Datasets | Rule |
 |---|---|---|
-| Permissive | MASSIVE, SLURP text, Taskmaster, When2Call, SNIPS, MultiWOZ, MUSAN, SONYC, Common Voice, VizWiz, ImVisible, ITALIC, uB-VisioGeoloc, Kokoro | Use for dev, training and the public repo, with attribution in `corpus/NOTICE.md` |
+| Permissive | MASSIVE, SLURP text, Taskmaster, When2Call, SNIPS, MultiWOZ, MUSAN, SONYC, Common Voice, VizWiz, ImVisible (repo MIT; image licence to confirm), ITALIC, uB-VisioGeoloc, Kokoro | Use for dev, training and the public repo, with attribution in `corpus/NOTICE.md` |
 | Share-alike or GPL | TOP/TOPv2, SGD, DEMAND (conservatively), MixATIS/MixSNIPS/BlendX | Keep derived items in separate files under the same licence (`corpus/seeds/topv2/`). Never bundle them in the app. Whether weights trained on CC BY-SA data are "adapted material" is unsettled [U]. For the on-device LoRA, prefer permissive data |
 | Non-commercial, no-derivatives or proprietary | STOP, SLURP audio, Speech-MASSIVE, SpokenWOZ, SF/US Streets, UrbanSound8K, ESC-50, GuideDog, Mapillary Vistas, CHiME, R2R | One-off private measurement at most; never in CI, never redistributed. If Milo becomes a business (X, Y), even internal evaluation is a grey area [U] |
 | Unknown | ClariQ, CLAQUA, CLAMBER, Frames, BlindWays, PTL-Crosswalk | Ideas only |
@@ -175,7 +175,7 @@ Cost: at H's per-token prices, 5,000 paraphrases cost a few dollars [U, estimate
 | WER / entity WER | For audio items (`jiwer`) | Diagnostic |
 
 **Statistics.**
-- Report Wilson 95% intervals: at 90% on 400 items, about 86.6–92.6%; on a 160-item test, about 84.4–93.7%.
+- Report Wilson 95% intervals: at 90% on 400 items, about 86.7–92.6%; on a 160-item test, about 84.4–93.8%.
 - Compare models with a paired McNemar test on the same items, not by eye.
 - A difference under ~5 points on the test split is a tie. Break ties with latency, cost and hosting (H §5.2).
 
@@ -215,7 +215,7 @@ Cost: at H's per-token prices, 5,000 paraphrases cost a few dollars [U, estimate
 ## 12. Where the founders' assumptions are wrong or imprecise
 
 1. **"Public datasets can give us the corpus."** Not the test set. TOPv2's navigation data is 42% traffic questions, "walk" appears as a travel method 57 times against 3,148 for driving, and only 5 utterances add a stop to a route [V, own count on 3].
-2. **"Meta's STOP is an open spoken navigation dataset."** Its licence forbids derivative works and use inside other datasets or products, and it can be revoked [V 5].
+2. **"Meta's STOP is an open spoken navigation dataset."** Its licence forbids derivative works and use inside other datasets or products, and it can be revoked [V 5]. It does allow private use to develop models, which may then be used commercially, so it is a measurement resource, not a corpus source.
 3. **"400 utterances scored by exact frame match decide the model."** They can only tell apart models more than ~5 points apart. "0 risky actions" needs its own set of 300 or more items. Exact match alone also misses over-asking and question quality (item 7).
 4. **"Scoring by exact match of the frame."** Match the resulting frame (§9), not the model's command text. Otherwise equivalent edits count as errors.
 5. **"English first makes speech easier."** English benchmarks contain no Italian names, and even US street names fail 44% of the time in US English [V 42]. The Milan-name set (L) is required, not optional.
@@ -276,11 +276,11 @@ Cost: at H's per-token prices, 5,000 paraphrases cost a few dollars [U, estimate
 43. SF Streets and US Streets on Hugging Face (gated, licence "other"). https://huggingface.co/datasets/kzhou/sf_streets ; https://huggingface.co/datasets/kzhou/us_streets
 44. Mozilla Foundation, "Offering Domain tags for sentences on Common Voice". https://www.mozillafoundation.org/en/blog/domain-datasets-common-voice/
 45. Common Voice dataset releases (v27.0, `sentence_domain`). https://github.com/common-voice/cv-dataset
-46. Common Voice, Wikipedia (CC0). https://en.wikipedia.org/wiki/Common_Voice
+46. Mozilla Data Collective, Common Voice datasets (licence CC0-1.0). https://mozilladatacollective.com/organization/cmfh0j9o10006ns07jq45h7xk ; also Common Voice, Wikipedia. https://en.wikipedia.org/wiki/Common_Voice
 47. VizWiz-VQA (CC BY 4.0). https://vizwiz.org/tasks-and-datasets/vqa/
 48. ImVisible / PTL dataset README and LICENSE (MIT). https://github.com/samuelyu2002/ImVisible
 49. GuideDog README and dataset card (CC BY-NC 4.0). https://github.com/jun297/GuideDog ; https://huggingface.co/datasets/kjunh/GuideDog
-50. uB-VisioGeoloc, Data in Brief 2024. https://pmc.ncbi.nlm.nih.gov/articles/PMC10865199/
+50. uB-VisioGeoloc, Data in Brief 2024. https://pmc.ncbi.nlm.nih.gov/articles/PMC10865199/ ; data on Harvard Dataverse (CC0 1.0). https://doi.org/10.7910/DVN/UYFPKM
 51. BlindWays (Text to Blind Motion). https://blindways.github.io/ ; https://arxiv.org/abs/2412.05277
 52. Memory-Maze. https://arxiv.org/abs/2405.07060
 53. Touchdown README (CC BY 4.0). https://github.com/lil-lab/touchdown
@@ -290,3 +290,42 @@ Cost: at H's per-token prices, 5,000 paraphrases cost a few dollars [U, estimate
 57. BIG-bench README (canary strings). https://github.com/google/BIG-bench
 58. Rule of three (statistics); Hanley & Lippman-Hand, JAMA 1983. https://en.wikipedia.org/wiki/Rule_of_three_(statistics)
 59. Package registries: inspect-ai 0.3.271 https://pypi.org/project/inspect-ai/ ; promptfoo 0.123.1 https://www.npmjs.com/package/promptfoo ; jiwer 4.0.0 https://pypi.org/project/jiwer/ ; audiomentations 0.43.1 https://pypi.org/project/audiomentations/
+
+## Verification (27 Sep 2026)
+
+An adversarial check of 40 claims against primary sources: licence files, dataset files, Hugging Face and Zenodo APIs, the papers, and PyPI and npm.
+
+**Confirmed as written:**
+- STOP licence text (no derivatives or translation, no incorporation, revocable, audit).
+- STOP: 236,477 files, 218 h, 885 speakers, TTS versions, v3 Oct 2022.
+- TOP README "CC-BY-SA", 44,783 queries, 25 intents, 36 slots, 35% deeper than 2.
+- TOPv2 LICENSE is CC BY-SA 4.0.
+- Every TOPv2 navigation count, recomputed from the zip: 30,044 utterances; roots identical to TOP; 17 intents; 33 slots; 57% flat. Drive/driving 3,148 against walk/walking 57. The "walk or on foot" figure of 89 depends on the regex (69–94).
+- MASSIVE 1.1: CC BY 4.0, 52 locales, 16,521 utterances per locale, the transport counts, the "walmart" → "conad" localisation.
+- SLURP: licences, and 72,277 recordings, 58 h, 177 speakers.
+- ITALIC: CC BY 4.0, gated, 16,521 samples, 70 speakers, 13 regions, 15.46 h.
+- Speech-MASSIVE: CC BY-NC-SA 4.0, 12 languages.
+- Street-names paper: 15 models, 44%, 73%, 46% vs 64%, under 1,000 samples and about 60%.
+- DEMAND: CC BY 4.0 on Zenodo; the DNS README says CC BY-SA 3.0.
+- Noise corpora: UrbanSound8K, ESC-50/ESC-10, MUSAN, SONYC.
+- τ-bench: MIT; τ³ voice (ElevenLabs, G.711 μ-law 8 kHz); v1.0.1 in July 2026.
+- BFCL: Apache-2.0, 2026.3.23, `multi_turn_miss_param`, weights 40/30.
+- When2Call: CC BY 4.0, "ready for commercial use".
+- GPL-2.0 for AGIF and BlendX, and the MixATIS/MixSNIPS clean sizes.
+- GuideDog: CC BY-NC 4.0, 22,084/2,106.
+- VizWiz: CC BY 4.0 and the split sizes.
+- Kokoro: Apache-2.0; voices 20 US, 8 UK, 2 IT.
+- Common Voice: v27.0 and `sentence_domain`.
+- Other resources: Taskmaster-1, SGD, MultiWOZ, SNIPS, Qulac and ClariQ; RegretBench, LINGUIST, CLAMBER and BIG-bench.
+- Package versions: inspect-ai, promptfoo, jiwer and audiomentations.
+
+**Changed:**
+- STOP. The same licence grants private use to develop NLU models, and lets those models be used commercially (clauses 1–2). The recommendation is narrowed from "do not use" to "not in the corpus; a private ASR check is allowed".
+- ITALIC. 11.46% is the zero-shot WER on the random split, not in noise. Added `hard_noisy` 15.41% and `hard_speaker` 8.65%.
+- SF/US Streets. The CC BY-NC-ND 4.0 statement in the paper covers SF Streets. For US Streets the paper says only "public research use".
+- Common Voice CC0 raised from [P] to [V] (Mozilla Data Collective listing).
+- uB-VisioGeoloc. The data is CC0 1.0 on Dataverse, not CC BY 4.0. There are 14 real and 2 synthetic sequences, and the walkers are not stated to be sighted. Retagged [V].
+- ImVisible. MIT is the repo licence. The images carry no separate licence, so confirm with the author before shipping a detector trained on them.
+- TOPv2's last activity is v1.1, March 2021, not 2020.
+- Wilson intervals rounded correctly (86.7–92.6, 84.4–93.8).
+- Added the Android 13+ / iOS limit of `expo-speech-recognition` audio persistence.

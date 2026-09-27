@@ -9,7 +9,7 @@ This report builds on F (Milan data), I (server, city packs, Transitous rules), 
    - **London:** the richest keyless transit API (station entrances, lift outages, street disruptions), dense OSM in the centre, and one hour from Milan.
    - **NYC:** publishes every accessible pedestrian signal (APS) monthly, and the MTA feeds need no key. It also has the largest gap between OSM and reality, so conflation adds the most there.
    - **Dublin:** in the EU and one hour away. Its signals are well surveyed in OSM, and they appear to be almost all audio-tactile.
-   - **Toronto:** flags every one of its 2,559 signals as audible or not, under a licence OSM accepts, but the TTC has no real-time feed in Transitous.
+   - **Toronto:** flags the audible ones among its 2,559 signals (1,400), under a licence OSM accepts. The TTC's real time is not in Transitous, but the TTC publishes its own keyless GTFS-RT (trip updates, vehicle positions, lift alerts) [V 41].
 2. **OSM alone must not tell a user "this signal has no sound" in North America.** I matched official APS lists to OSM within 40 m [M]:
    - OSM has `traffic_signals:sound=yes` at 27% of NYC's APS intersections, and at about 50% in Toronto, Seattle and San Francisco.
    - At 12% of NYC's APS intersections, OSM carries only `sound=no`, which is stale.
@@ -20,13 +20,13 @@ This report builds on F (Milan data), I (server, city packs, Transitous rules), 
    - The engine does not read `traffic_signals:vibration`, `crossing_ref` or `button_operated` (see `NODE_TAGS` in `packages/engine/src/osm/overpass.ts`). So it cannot say "feel for the cone under the button box".
 4. **Only four candidate cities publish open APS data**: NYC, Toronto, Seattle and San Francisco.
    - London, Dublin, Vancouver and Sydney publish signal locations only.
-   - Chicago had APS at 85 of 2,713 signalised intersections in March 2025 [P 24].
+   - Chicago had APS at 85 of 2,713 signalised intersections in March 2025 [P 24]; its lawyers put it at about 3% of 2,800+ in June 2025 [V 57].
    - Milan publishes nothing (F).
 5. **Transitous routed trips in all 14 cities** [M]. In a Sunday test, however, it gave no live times for the Tube, TTC, CTA or ATM. Station-level accessibility data is best at:
    - **MBTA:** GTFS with 9,291 pathways and 333 entrances;
    - **MTA:** 2,120 subway entrances and a keyless elevator-outage feed;
    - **TfL:** entrances and lift disruptions in the Unified API [M].
-6. **Street-works feeds with geometry and no key** exist in London (TfL road disruptions), NYC (construction permits with a sidewalk field, plus closures), Toronto (road restrictions, real time), Seattle and Vancouver. England's Street Manager pushes events by SNS under the Open Government Licence (OGL) [V 43]; its England-only scope is [P].
+6. **Street-works feeds with geometry and no key** exist in London (TfL road disruptions), NYC (construction permits with a sidewalk field, plus closures), Toronto (road restrictions, real time), Seattle and Vancouver. England's Street Manager pushes events by SNS after registration and acceptance of its Terms of Use [V 43]; the OGL line on that page is the docs site footer, so the data licence is [U]; its England-only scope is [P].
 7. **Public Overpass was unusable from here today** [M]:
    - overpass-api.de reset every connection through the session proxy;
    - `overpass.private.coffee` timed out, and when it did answer, its data dated from 24–28 Jul 2026.
@@ -121,20 +121,20 @@ This report builds on F (Milan data), I (server, city packs, Transitous rules), 
 | New York | DOT "Accessible Pedestrian Signal Locations" (Socrata `de3m-c5p4`) [V 7] | One point per intersection, with install date. Signals are audible and vibrotactile, activated by push button | 4,404 intersections: Bronx 855, Brooklyn 1,127, Manhattan 776, Queens 1,050, Staten Island 596. Rows updated 17 Sep 2026; updated monthly [M]. 3,436 of them installed 2022–2026 [M] | No licence field. Local Law 11 of 2012 releases city data "without… restrictions" [P 27]. Usable in the app; an OSM import is possible after community review |
 | San Francisco | DataSF "Traffic Signals" (`ybh5-27n2`), column `aps` [V 10]; SFMTA list (PDF) [V 9] | Per signal: APS type and project | 1,507 signals, 535 with APS, 150 pending or future. Rows last updated 31 May 2024 [M]. The PDF lists 611 APS intersections at 30 Jun 2026 [V 9] | PDDL, i.e. public domain [V 10] |
 | Seattle | SDOT "Accessible Pedestrian Signals (Active)" view [V 11] | Signal assemblies whose push-button model contains "NAV-" (one maker's APS) | 442 assemblies; layer edited 25 Sep 2026; latest push-button install 18 Dec 2024 [M]. The filter may miss other brands | City data is "public domain with attribution" (as used for the Seattle import) [V 13] |
-| Toronto | "Traffic Signals Tabular" [V 14] | Per signal: `AUDIBLEPEDSIGNAL`, `APS_OPERATION`, and the `PX` id | 2,559 signals, 1,400 with the audible flag set to 1; refreshed 26 Sep 2026 [M]. The city page says 1,219 APS (May 2023) and 20–30 more a year [V 15] | OGL–Toronto, found compatible with ODbL by OSMF in 2024 [P 16] |
-| London | TfL "Traffic Signals" (SFM) [V 17] | Site type: Pelican, Puffin, Toucan, their "dual" variants, Pedestrian, Junction. No audible or cone attribute | 6,460 sites in service: 3,130 junctions, 1,825 pedestrian, 465 puffin, 376 pelican, 266 toucan, 398 dual. Extract dated 31 Jul 2026 [M] | "Open Government Licence" [V 17]. OGL v2/v3 is compatible with ODbL [V 25, 26] |
+| Toronto | "Traffic Signals Tabular" [V 14] | Per signal: `AUDIBLEPEDSIGNAL`, `APS_OPERATION`, and the `PX` id | 2,559 signals, 1,400 with the audible flag set to 1 (1,132 blank, 27 set to -1); refreshed 26 Sep 2026 [M]. The city page says 1,219 APS (May 2023) and 20–30 existing signals upgraded a year [V 15] | OGL–Toronto 1.0, listed as compatible with OSM by the OSMF Licensing Working Group (minutes 8 Apr 2024) [V 16] |
+| London | TfL "Traffic Signals" (SFM) [V 17] | Site type: Pelican, Puffin, Toucan, their "dual" variants, Pedestrian, Junction. No audible or cone attribute | 6,460 sites in service: 3,130 junctions, 1,825 pedestrian, 465 puffin, 376 pelican, 266 toucan, 398 dual. Item metadata updated 31 Jul 2026; layer data last edited 23 Sep 2026; the `EXTRACT_DATE` column is empty in every row [M] | "Open Government Licence" [V 17]. OGL v2/v3 is compatible with ODbL [V 25, 26] |
 | Dublin | DCC "Traffic signals and SCATS sites" [V 20] | Locations only | Refreshed Mar 2026 [V 20] | CC BY 4.0: fine in the app. It needs a waiver before import into OSM [V 25] |
 | Vancouver | "Traffic signals" [V 21] | Location and type only | 966; weekly [V 21] | OGL–Vancouver |
 | Sydney | TfNSW "Traffic Lights Location" [V 22] | Locations only | Updated Jun 2026 | CC BY |
-| Chicago | None found | Court order: at least 71% of signalised intersections within 10 years. 85 of 2,713 had APS in Mar 2025 [P 24] | – | – |
+| Chicago | None found | Court order (proposed Mar 2025, entered 2 Jun 2025): at least 71% of signalised intersections within 10 years, then 100% within 5 more unless the city wins an exemption [V 57]. 85 of 2,713 had APS in Mar 2025 [P 24]; about 3% of 2,800+ per the plaintiffs' lawyers [V 57] | – | – |
 | Boston, Melbourne, Edinburgh, Glasgow | None found [U] | – | – | – |
 | Milan | None (F) | – | – | – |
 
-NYC is under a court order to fit APS at 10,000 signalised intersections by the end of 2031 [P 8]. At that pace, the city data will outrun OSM surveys for years.
+NYC is under a court order (ruling of Dec 2021, remedial order of Mar 2022) to fit APS at 10,000 signalised intersections within ten years, i.e. around end-2031, and at all remaining ones by 2036 [V 8]. At that pace, the city data will outrun OSM surveys for years.
 
 ### 3.2 Conflation test [M]
 
-I took the official points inside each city's 10 km box and looked for OSM signalised nodes within 40 m of each one.
+I took the official points inside each city's 10 km box and looked for OSM signalised nodes within 40 m of each one. Here every `highway=traffic_signals` node counts as a signal, which is broader than the §1 definition; with the §1 definition, NYC gives 188 / 82 / 388 / 53 of 711 points (verification re-run).
 
 | City (data date) | Official APS points | OSM `sound=yes` nearby | Only `sound=no` nearby | Untagged | No OSM signal nearby |
 |---|---|---|---|---|---|
@@ -149,7 +149,7 @@ Where the city lists a signal without APS (263 in Toronto, 716 in San Francisco)
 
 | Region | Evidence | What Milo says at a signalised crossing with no sound tag |
 |---|---|---|
-| UK | Guidance: audible and/or tactile devices must be provided wherever pedestrian signals are [P 19]. TfL says all London crossings have "audible signals and/or rotating cones" [P 18]. Standard audible signals are not used at staggered crossings ("bleep and sweep" there) [P 18] | "There should be a cone under the button box that turns when it is safe to cross." Say "should": the map does not confirm it |
+| UK | Guidance (Inclusive Mobility, 2021): tactile signals, "in the form of a rotating cone", "should be provided at controlled signal crossings as a default" [V 19]. TfL says all London crossings have "audible signals and/or rotating cones" [P 18]. Standard audible signals are not used at staggered crossings ("bleep and sweep" there) [P 18] | "There should be a cone under the button box that turns when it is safe to cross." Say "should": the map does not confirm it |
 | Ireland | OSM core: 793 yes against 37 no. A South Dublin specification says tactile devices "shall always be utilised" [P 56] | As for the UK |
 | Australia | Audio-tactile push buttons date from 1984 (PB/5) [P 55]; Victoria requires them at all new signals [P 23]; OSM core shows 1,970 yes against 19 no | "The button should beep and vibrate" |
 | US, Canada | APS are the exception outside court-ordered programmes (NYC, Chicago); Toronto has 1,400 of 2,559 | "The map does not say if this signal has sound." Never say "no sound" from OSM alone |
@@ -177,7 +177,7 @@ Where the city lists a signal without APS (263 in Toronto, 716 in San Francisco)
 | San Francisco | SFMTA and regional feeds via 511 (API key) [V 28] | Yes | 511 terms [U] | 10 of 11 legs live | – |
 | Seattle | King County Metro, Sound Transit [V 28] | Yes | [U] | 4 of 5 legs live | – |
 | Chicago | CTA, Metra [V 28] | Transitous lists CTA real time [V 28], but 0 of 5 legs were live | CTA Developer License Agreement [P 40] | Routed | Train Tracker is a separate API |
-| Toronto | TTC via Transitland [V 28] | TTC not in Transitous; the TTC alerts feed is marked retired [P 41] | OGL–Toronto | Routed; 0 of 14 legs live | – |
+| Toronto | TTC via Transitland [V 28] | TTC real time not in Transitous [V 28]. The TTC's own keyless GTFS-RT at `gtfsrt.ttc.ca` has trip updates (surface since Nov 2025, subway since Jun 2026), surface vehicle positions and service alerts; the open-data entry is not retired [V 41] | Static: OGL–Toronto. Real time: "License not specified" on the portal [U] | Routed; 0 of 14 legs live | Elevator/escalator alerts in the TTC accessibility feed [V 41] |
 | Vancouver | TransLink [V 28] | Yes | [U] | 3 of 5 legs live | – |
 | Sydney | TfNSW, CC BY 4.0 [V 28] | Yes (key) | CC BY 4.0 | Routed (Sydney Metro) | – |
 | Melbourne | Transport Victoria, CC BY 4.0 [V 28] | Yes (key) | CC BY 4.0 | Train, tram and bus routed | – |
@@ -186,7 +186,7 @@ Where the city lists a signal without APS (263 in Toronto, 716 in San Francisco)
 | Milan | ATM (F) | None (F) | – | Routed; 0 live | F |
 
 - **Test conditions:** the live checks ran on Sunday 27 Sep 2026 around 14:00 UTC, so Sydney and Melbourne were at night and not checked for live times.
-- **Where live times are missing** (Tube, TTC, CTA, ATM), Milo should say the time is scheduled, not live. For London, the TfL arrivals API can fill the gap under TfL's terms.
+- **Where live times are missing** (Tube, TTC, CTA, ATM), Milo should say the time is scheduled, not live. For London, the TfL arrivals API can fill the gap under TfL's terms; for Toronto, the TTC's own GTFS-RT can, once its licence is clear. A re-run at 15:00 UTC gave the same result: no live Tube, TTC, CTA or ATM legs, while London Buses and Elizabeth line legs were live.
 - **Commercial use:** Transitous's non-commercial rule is covered in I §9.
 
 ## 5. Other useful open data
@@ -201,14 +201,14 @@ Where the city lists a signal without APS (263 in Toronto, 716 in San Francisco)
 | Vancouver | Sidewalk condition rating 2021: 15,580 records [M 49] | Surface hazards (old data) |
 | Melbourne | City of Melbourne Pedestrian Network [P 53] | Not checked |
 
-- **Project Sidewalk.** Its data is CC0 [V 50]. Its public English-speaking cities near the candidates are Seattle, Chicago, Burnaby (next to Vancouver, BC) and Waltham (near Boston). The "Vancouver" in its list is Vancouver, Washington [M 50]. Its label clusters (obstacle, surface problem, missing ramp) could feed a hazards overlay in Seattle and Chicago only.
-- **OpenSidewalks and the Transportation Data Exchange Initiative (TDEI).** In January 2026 the TDEI held about 5,600 datasets covering 10.5 M crossings, mostly in Washington State [P 51]. N covers the schema; in Seattle the data largely overlaps what OSM already imported.
+- **Project Sidewalk.** Its data is CC0 [V 50]. Its public English-speaking cities near the candidates are Seattle, Chicago, Burnaby (next to Vancouver, BC), Waltham (near Boston), and seven New Jersey towns near NYC (Cliffside Park, Teaneck, Hackensack, Maywood, Oradell, Clifton, Paterson), none inside NYC. The "Vancouver" in its list is Vancouver, Washington, and "Bayonne" is Bayonne, France [M 50]. Its label clusters (obstacle, surface problem, missing ramp) could feed a hazards overlay in Seattle and Chicago only among the candidate cities.
+- **OpenSidewalks and the Transportation Data Exchange Initiative (TDEI).** A figure of about 5,600 datasets and 10.5 M crossings (January 2026), mostly in Washington State, is not on the cited page [U 51]. N covers the schema; in Seattle the data largely overlaps what OSM already imported.
 
 **Street works and closures**
 
 | City | Feed | Notes |
 |---|---|---|
-| London | TfL `/Road/all/Street/Disruption`: TIMS segments with `closure` and a lineString, no key [M 37]. Street Manager: SNS push of permit and works events, OGL, with registration [V 43]; covers England [P] | Start with TfL; add Street Manager in phase 2 |
+| London | TfL `/Road/all/Street/Disruption`: TIMS segments with `closure` and a lineString, no key; the call needs `startDate` and `endDate`, otherwise it returns 404 [M 37]. Street Manager: SNS push of permit and works events, with registration and Terms of Use [V 43]; data licence [U]; covers England [P] | Start with TfL; add Street Manager in phase 2 |
 | New York | Street Closures by block and by intersection (updated 21 Sep 2026) [M 44]. Street Construction Permits 2022–present (updated 26 Sep 2026), with `sidewalkshortdesc` and WKT geometry [M 45] | The permit feed is the only candidate feed with a sidewalk field |
 | Toronto | Road Restrictions, marked real time, JSON [M 48] | – |
 | Seattle | `Road_Closure_View` and street-use layers [M 12] | – |
@@ -233,7 +233,7 @@ Where the city lists a signal without APS (263 in Toronto, 716 in San Francisco)
 | London | Dense in the centre; cones tagged at 34% of signalised nodes | Locations only; UK default helps | Best API | TfL, keyless | 1 h from Milan; English; UK GDPR | **Pilot 1** |
 | New York | Sidewalks and crossings dense; entrances weak; sound tags stale | Monthly, every APS | Keyless GTFS-RT, entrances, lifts | Permits with sidewalk field | 6 h; Manhattan urban canyons (A, D) | **Pilot 2** |
 | Dublin | Signals well surveyed; sidewalks mostly road tags | Locations only; APS look near-universal | GTFS-R | Not checked [U] | 1 h; EU law, same as Milan | **Pilot 3** |
-| Toronto | Sidewalk tags on 89% of roads; few kerbs | Every signal, OSM-compatible licence | No live TTC data | Real time | 6 h | Runner-up (North America) |
+| Toronto | Sidewalk tags on 89% of roads; few kerbs | Every signal, OSM-compatible licence | TTC GTFS-RT exists (keyless, licence unclear) but not in Transitous | Real time | 6 h | Runner-up (North America) |
 | Seattle | Best sidewalks and kerbs | Filter by model | Good | Yes | 9 h | Runner-up |
 | Melbourne, Sydney | Sidewalks partial | Not needed (near-universal) | Good, CC BY | Not checked | 8–9 h | Later |
 | San Francisco, Boston | Good | Stale 2024 data / none | Very good (MBTA) | Not checked | 9 h / 6 h | Later |
@@ -243,7 +243,7 @@ Where the city lists a signal without APS (263 in Toronto, 716 in San Francisco)
 **Why this set.**
 - **London and Dublin** anchor the cohort in L's UK/Ireland recommendation. They are close enough to Milan for live support sessions.
 - **NYC** brings the largest US tester pool (L), and the one dataset where conflation changes what Milo says at more than half of the APS junctions. Start NYC testers outside Midtown: GNSS there is the worst case (A, D).
-- **Toronto** is a better choice than NYC if the team wants data it can also contribute back to OSM, or if Manhattan positioning proves unusable.
+- **Toronto** is a better choice than NYC if the team wants data it can also contribute back to OSM, or if Manhattan positioning proves unusable. Verification found that the TTC does publish keyless GTFS-RT with lift alerts, which narrows Toronto's transit gap; the ranking stays, because the London, NYC and Dublin reasons are unchanged.
 
 **Remote testers elsewhere** still get the OSM-only mode. Say this plainly in onboarding: crossing information outside pilot cities is less complete.
 
@@ -256,7 +256,7 @@ Where the city lists a signal without APS (263 in Toronto, 716 in San Francisco)
 | London | TfL signal sites into "signalised, expect cone" where OSM lacks crossing tags; TfL street disruptions into a closures overlay; StopPoint entrances and lift disruptions for station arrival. Street Manager later | 5 |
 | New York | DOT APS (monthly) into the APS overlay; MTA entrances and elevator outages for station arrival; street closures plus sidewalk permits into the hazard overlay; ramps (2021) optional | 5–6 |
 | Dublin | DCC signal locations to fill gaps in OSM crossing nodes; NTA GTFS-R key; check whether the city publishes a works feed | 2 |
-| Toronto (if chosen) | Signals CSV into the APS overlay via `PX`; Pedestrian Network crosswalk types; Road Restrictions | 3–4 |
+| Toronto (if chosen) | Signals CSV into the APS overlay via `PX`; Pedestrian Network crosswalk types; Road Restrictions; TTC GTFS-RT and lift alerts (after checking the licence, or by asking Transitous to add the feed) | 3–4 |
 
 Parallel work:
 - The engine tag changes and the overlay format can start now.
@@ -270,7 +270,7 @@ Parallel work:
 3. **London live times:** call the TfL arrivals API directly, under TfL's terms and branding rules, or accept scheduled-only Tube times from Transitous?
 4. **Street Manager access:** the subscription needs a named organisation that accepts the terms. Who signs, and is a two-person project eligible?
 5. **Dublin works data:** I did not check whether Dublin City Council publishes one [U].
-6. **Re-check the NYC and San Francisco APS figures at each release.** NYC added about 60–70 intersections a month in 2024–2025 and about 50 a month in 2026 [M 7], under the court order [P 8], and the DataSF column stopped updating in May 2024.
+6. **Re-check the NYC and San Francisco APS figures at each release.** NYC added about 60–70 intersections a month in 2024–2025 (866 and 737 a year) and about 50 a month in 2026 [M 7], under the court order [V 8], and the DataSF column stopped updating in May 2024. The order's schedule rises to 900 a year in years four and five [V 8]; the Independent Monitor's annual reports linked from [8] say whether the city is on track.
 
 ## Sources
 
@@ -283,7 +283,7 @@ Parallel work:
 7. https://data.cityofnewyork.us/Transportation/Accessible-Pedestrian-Signal-Locations/de3m-c5p4 (API: https://data.cityofnewyork.us/resource/de3m-c5p4.json)
 8. https://dralegal.org/case/american-council-of-the-blind-of-new-york-inc-v-the-city-of-new-york/
 9. https://www.sfmta.com/getting-around/walk/accessible-pedestrian-signals
-10. https://data.sfgov.org/Transportation/Traffic-Signals/ybh5-27n2 (metadata: https://data.sfgov.org/api/views/ybh5-27n2.json)
+10. https://data.sfgov.org/Transportation/Traffic-Signals/ybh5-27n2 (metadata: https://data.sfgov.org/api/views/ybh5-27n2.json; on 27 Sep 2026 the API redirected to https://data.sf.gov/, so a fetcher must follow redirects)
 11. https://services.arcgis.com/ZOyb2t4B0UYuYNYH/arcgis/rest/services/Accessible_Pedestrian_Signals_(Active)/FeatureServer/0
 12. SDOT feature services (Sidewalks_(Active), Curb_Ramps_(Active), Marked_Crosswalks_(Active), Road_Closure_View): https://services.arcgis.com/ZOyb2t4B0UYuYNYH/arcgis/rest/services
 13. https://wiki.openstreetmap.org/wiki/Seattle,_Washington/Sidewalk_Import
@@ -314,7 +314,7 @@ Parallel work:
 38. https://tfl.gov.uk/corporate/terms-and-conditions/transport-data-service
 39. https://www.bus-data.dft.gov.uk/ ; https://en.wikipedia.org/wiki/Bus_Open_Data_Service
 40. https://www.transitchicago.com/developers/
-41. https://open.toronto.ca/dataset/ttc-gtfs-realtime-gtfs-rt/
+41. https://open.toronto.ca/dataset/ttc-gtfs-realtime-gtfs-rt/ ; feed index and release notes: https://gtfsrt.ttc.ca/ , https://gtfsrt.ttc.ca/release-notes
 42. https://data.gov.ie/dataset/nta-gtfs ; https://developer.nationaltransport.ie/
 43. https://department-for-transport-streetmanager.github.io/street-manager-docs/open-data/
 44. https://data.cityofnewyork.us/Transportation/Street-Closures-due-to-Construction-Activities-by-/i6b5-j7bu
@@ -330,3 +330,37 @@ Parallel work:
 54. https://seattle.gov/transportation/projects-and-programs/programs/ada-program/make-an-ada-request/request-an-accessible-pedestrian-signal-(aps)
 55. https://en.wikipedia.org/wiki/PB/5_pedestrian_crossing_button
 56. https://www.sdcc.ie/en/services/transport/road-bye-laws/traffic-system-specifications/sdcc-ts-04-issue-6-may-2020.pdf
+57. Disability Rights Advocates on the Chicago APS case: https://dralegal.org/press/chicago-pedestrian-signals-proposed-plan/ (18 Mar 2025) ; https://dralegal.org/press/chicago-pedestrian-signals-remedial-plan-order/ (2 Jun 2025)
+
+## Verification (27 Sep 2026)
+
+An adversarial check re-fetched the primary sources and re-ran the key measurements on the same BBBike extracts (header timestamp 25 Sep 2026 23:00 UTC). Checked 26 claims.
+
+**Confirmed:**
+- NYC APS: 4,404 rows with the stated borough split; 3,436 installed 2022–2026; rows updated 17 Sep 2026; monthly.
+- NYC conflation: 711 points, 189 / 82 / 415 / 25, against the report's 712 / 189 / 82 / 416 / 25.
+- Toronto: 2,559 signals and 1,400 audible, refreshed 26 Sep 2026. Conflation reproduced exactly (402; 203 / 25 / 165 / 9), and so were the 38% and 5% figures for non-APS signals.
+- San Francisco: DataSF has 1,507 signals, 535 APS and 150 pending or future, rows updated 31 May 2024, PDDL. SFMTA gives 611 APS intersections at 30 Jun 2026, 311 requests and 90-day answers.
+- Seattle: 442 assemblies; view filter `PP_MODELTYPE LIKE '%NAV-%'`; data edited 25 Sep 2026; latest install 18 Dec 2024. The layer also holds an `APSPED` model value, which supports the "other brands may be missing" caveat.
+- TfL signals: 6,460 sites and the type breakdown; OGL v3.
+- MTA: outage JSON and GTFS-RT answered without a key; the display page still says to create an account; 2,120 entrances.
+- MBTA GTFS: 9,291 pathways, 80 levels and 333 entrances; Last-Modified 24 Sep 2026. MTA subway GTFS has no pathways and no entrances.
+- Transitous feeds: TTC is static only; GB comes from Aubin (BODS plus National Rail, no Tube source named); Ireland is labelled CC BY-SA 4.0 against CC BY 4.0 on data.gov.ie. The Sunday live-leg result was reproduced.
+- OSMF: CC BY needs a waiver; OGL 2.0/3.0 is compatible.
+- Project Sidewalk: CC0.
+- The TfL claim that all crossings have audible signals and/or cones (secondary source).
+- London 3×3 km counts; Seattle import licence; Seattle, NYC ramp, permit and closure datasets; Dublin, Vancouver and Sydney signal datasets; TfL entrances and lift feed; engine `NODE_TAGS`.
+
+**Changed:**
+- TTC real time: the report said the alerts feed was "marked retired". It is not; `gtfsrt.ttc.ca` serves keyless trip updates, vehicle positions and lift alerts. Key finding 1 and the §4, §6 and §7 rows were updated. The pilot ranking is unchanged.
+- UK guidance: the report said "must provide audible and/or tactile devices" [P]. The cited Inclusive Mobility text says tactile cones "should be provided … as a default" [V].
+- NYC order: the report said "by the end of 2031" [P]. The order is 10,000 within ten years (Dec 2021 ruling, Mar 2022 order) and all by 2036 [V].
+- Chicago: added the final order date (2 Jun 2025), the 100%-in-15-years clause and the plaintiffs' "about 3% of 2,800+". The figure of 85 of 2,713 stays [P]; WTTW blocked the fetch.
+- TfL signals date: 31 Jul 2026 is the item metadata date. The layer data was edited on 23 Sep 2026, and `EXTRACT_DATE` is empty.
+- Street Manager: OGL is the docs footer, not a stated data licence, so the data licence is now [U].
+- OGL–Toronto: upgraded to [V] (LWG minutes, 8 Apr 2024).
+- Project Sidewalk: added the New Jersey towns near NYC; "Bayonne" is in France.
+- TDEI figures: the numbers are not on the cited page, so they are now [U].
+- TfL street-disruption call: needs `startDate` and `endDate`.
+- Conflation method note: the test counts every `highway=traffic_signals` node as a signal.
+- DataSF now redirects to `data.sf.gov`.
