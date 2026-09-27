@@ -7,12 +7,12 @@
  */
 import type { OverpassResponse } from './types';
 
-export const DEFAULT_OVERPASS_ENDPOINTS = [
-  'https://overpass-api.de/api/interpreter',
-  'https://overpass.private.coffee/api/interpreter',
-  'https://maps.mail.ru/osm/tools/overpass/api/interpreter',
-  'https://overpass.kumi.systems/api/interpreter',
-];
+/**
+ * Public Overpass, only until city packs exist (plan §3): its usage policy asks apps to run their own instance.
+ * Removed: maps.mail.ru (VK, Russia, received the user's area), overpass.kumi.systems (now redirects to
+ * private.coffee) and overpass.private.coffee (served data two months old on 27 Sep 2026, report M).
+ */
+export const DEFAULT_OVERPASS_ENDPOINTS = ['https://overpass-api.de/api/interpreter'];
 
 export const WALK_FILTER =
   '["highway"]["area"!~"yes"]["access"!~"private"]' +
