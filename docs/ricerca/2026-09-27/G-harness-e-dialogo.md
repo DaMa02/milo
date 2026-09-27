@@ -340,7 +340,7 @@ sequenceDiagram
 
 Revisit both then.
 
-## 7. Models: checking the founders' claim
+## 7. Models: checking the initial claim
 
 | Model | Released | Open weights | Thinking control | AA speed / first token | Price per M tokens in/out | BFCL V4 |
 |---|---|---|---|---|---|---|

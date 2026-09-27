@@ -228,7 +228,7 @@ Not in the MVP: `llama.rn`, `whisper.rn`, ViroReact, VisionCamera, `react-native
 | `milo-moonshine` (only if Parakeet via whisper.rn is too slow or big) | Moonshine streaming ASR | No RN binding [V 1] | 4–6 d | Later |
 | **`milo-precision`** | ARCore Geospatial (Android; iOS via the `ARCore/Geospatial` pod), VPS availability, crossing/signal model on AR frames, 68%→95% conversion | Only Viro exposes Geospatial, inside a 3D engine [V 29] | 10–15 d + model 10–15 d | Phase 2 |
 
-## 12. Where the founders' assumptions need adjusting
+## 12. Corrections to initial assumptions
 
 - **"Reuse, don't rebuild" does not hold for the guidance core.** The two mature modules became paid products in 2025–26 [V 3, 4, 12]. The open alternatives are stale or archived [V 2, 9]. About 2–4 weeks of Kotlin and Swift is unavoidable. That is where Milo differs from a map app.
 - **"Camera from phase 2" is realistic only as a native module.** A Viro demo will look finished after a few days. But Viro mislabels accuracy [V 29, 30], and it cannot run a crossing detector on the same frames without work in its native layer [U].

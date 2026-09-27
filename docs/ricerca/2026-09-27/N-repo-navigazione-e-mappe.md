@@ -260,7 +260,7 @@ Sequencing [M]:
 - **In series:** side-aware graph → PPR cost matrix → re-routed transit walking legs, all in the engine. The HMM matcher follows the side-aware graph, because its states are (edge, side). GPX transcript tests start with the matcher.
 - **Later:** a custom planetiler tile schema, Overture places, and MVT packs.
 
-## 10. Where the founders' assumptions need adjusting
+## 10. Corrections to initial assumptions
 
 - **"PPR, used by Transitous".** Transitous runs MOTIS 2 on `osr`, which has no crossing or signal model [V 4–6]. So Milo cannot trust MOTIS walking legs for a blind user; they must be re-routed.
 - **"Reuse the Soundscape GeoEngine".** It is Kotlin Multiplatform and does no routing. Its value for Milo is its behaviours and its test method, not a library to embed.

@@ -650,7 +650,7 @@ These are ranges from unmeasured estimates. Re-plan after the first ten cards, u
 | Content and i18n | Leonardo (English variants, Italian), with agents | Medium | L §4, speaking rules, plan §4.2 | Template catalogues en-GB, en-US, it; lexicon; parity test | C2 template keys | L1 refactor → content |
 | Legal and recruiting | Both humans; agents draft | Drafts only | I §12, L §2, F | Privacy policy, consent and AI-disclosure texts, DPIA draft, cohorts, Milan partners | Nothing: start in week 0 | V4 before the first external tester; recruiting lead time before (c) |
 
-## 9. Where the founders' assumptions, and the earlier reports, need adjusting
+## 9. Corrections to initial assumptions and earlier reports
 
 1. **"We can scrap everything."** Scrapping the engine would throw away 7,051 lines and a 324-case oracle [M]. Keep it. What goes is the hackathon's server and browser app.
 2. **"Two developers with agents will be fast."** The measured agent effect ranges from a 19% slowdown [V 36] to a weak, uncertain speed-up [V 37]. Self-reports overstate it by about 40 points [V 38]. The long poles are native code, devices, the street and review.

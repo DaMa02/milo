@@ -486,7 +486,7 @@ Owners follow Q §8: Daniele owns the engine and the contracts; Leonardo owns th
 - One bank walk with L0–L2 green is enough for (b), the closed beta.
 - The full G-B1 gates (c).
 
-## 12. Where the plan and the founders' assumptions need adjusting
+## 12. Corrections to the plan and initial assumptions
 
 1. **The plan's §4.3 criteria mix invariants and accuracy.** Invariants can be tested on every log and in the fuzzer, cheaply and continuously; only accuracy needs walks.
 2. **r is assumed honest.** It is 68% on Android [V 41] and unspecified on iOS [V 42]. Calibrate it, or the tiers mislead.

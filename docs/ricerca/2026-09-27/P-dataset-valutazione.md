@@ -212,7 +212,7 @@ Cost: at H's per-token prices, 5,000 paraphrases cost a few dollars [U, estimate
 
 **Split:** Leonardo takes P1, P4 and the bake-off runner; Daniele takes P3, P5 and recordings; agents take P2 and the paraphrase pipeline.
 
-## 12. Where the founders' assumptions are wrong or imprecise
+## 12. Corrections to initial assumptions
 
 1. **"Public datasets can give us the corpus."** Not the test set. TOPv2's navigation data is 42% traffic questions, "walk" appears as a travel method 57 times against 3,148 for driving, and only 5 utterances add a stop to a route [V, own count on 3].
 2. **"Meta's STOP is an open spoken navigation dataset."** Its licence forbids derivative works and use inside other datasets or products, and it can be revoked [V 5]. It does allow private use to develop models, which may then be used commercially, so it is a measurement resource, not a corpus source.
@@ -225,7 +225,7 @@ Cost: at H's per-token prices, 5,000 paraphrases cost a few dollars [U, estimate
 
 1. **Testers.** Who records the English outdoor items: remote AppleVis/Reddit volunteers (L) or English speakers in Milan? At least 5 blind speakers are needed.
 2. **Voice recordings and GDPR.** Consent and retention for voice data: store it on the EU VPS or keep it local? (I, J)
-3. **Business plans.** Will Milo be run commercially (X, Y)? This decides whether NC datasets may be used even for internal measurement.
+3. **Non-commercial datasets.** They stay out of anything Milo ships; whether they may be used even for internal measurement still needs a decision.
 4. **Test city.** Which English-speaking city's gazetteer goes into the corpus (M)?
 5. **ITALIC access.** Register for the gated dataset now, so the Italian half can start later without delay.
 

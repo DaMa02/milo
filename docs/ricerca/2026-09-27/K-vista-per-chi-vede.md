@@ -318,7 +318,7 @@ This answers J's open question 5: show the recent instruction history, only whil
 
 Apache-2.0, BSD and MIT code can all go into an MIT app used commercially. Apache-2.0 requires keeping its NOTICE file.
 
-## 11. Where the founders' assumptions need adjusting
+## 11. Corrections to initial assumptions
 
 1. **"Shareable with Be My Eyes."** Volunteers see only the camera, and there is no API [V 1, 2][U]. Sending an anonymous, recorded volunteer a live link would be wrong anyway [V 3]. What is realistic:
    - the hand-off with a summary;

@@ -228,7 +228,7 @@ This refines the dynamic blocks of G §5.3. The token counts are targets to meas
 
 **An illustration (my arithmetic, not a measurement).** If each content word is misrecognised with probability 0.1, an 8-content-word request comes through perfectly only 0.9^8 ≈ 43% of the time. Repeating the whole sentence has the same odds. Keeping the correct 7 words and asking about 1 does not.
 
-### 5.2 Verdict on the founders' proposal
+### 5.2 Verdict on the initial proposal
 
 Asking the user to split the request is an AskRephrase / YouCanSay strategy, which is middle tier [V 18]. As a first response it has three costs:
 - it throws away what was understood;
@@ -325,7 +325,7 @@ Add about 60 recall turns and about 60 compound turns to the corpus (plan A1 / G
 
 Compare against the founders' "split it" policy as a baseline. Then test the default clarification style and the meaning of "repeat" with blind users in Milan.
 
-## 6. Where the founders' assumptions need correcting
+## 6. Corrections to initial assumptions
 
 - **"Ask to break the request into single questions"** is supported as a fallback, not as the default (§5.2).
 - **"Borrow the memory from Pi or OpenClaw".** Pi persists an agent transcript. OpenClaw writes Markdown notes produced by the model. Neither is a trip memory. Milo's memory is its own `TripStore`, which Pi's `prepareRequest` reads.

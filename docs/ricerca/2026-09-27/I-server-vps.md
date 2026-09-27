@@ -10,7 +10,7 @@
 5. **City packs** are built on the server from Geofabrik extracts by a private Overpass instance. It runs the engine's own queries, so parity is exact and the engine does not change. Packs are split into 1 km tiles in the engine's current Overpass JSON, gzipped, and served as static files from the VPS. Central Milan measures about 0.8 MB gzipped per 9 km² [M]. The companion map uses a PMTiles extract of the Protomaps daily build [V 53].
 6. **Geocoding and transit go through our server,** so users' IP addresses never reach third parties. Early on, the server forwards to public Photon and Transitous. Later it hosts its own Photon, and its own MOTIS if Transitous declines: Transitous forbids commercial use and asks to be contacted before routing traffic [V 64].
 7. **Live share for a sighted helper:** the gateway relays only ciphertext. The key sits in the link's `#fragment`, as in Excalidraw [V 69]. I found no public Be My Eyes API to push a link into a call [U]; the realistic version is a link sent through any messenger.
-8. **The GDPR minimum cannot wait for a lawyer:**
+8. **The GDPR minimum comes before the first external tester:**
    - a privacy policy, which both stores require even for testing tracks [V 80,83];
    - explicit consent for special-category data (Art. 9(2)(a) [V 75]), and Apple's explicit permission before sharing data with "third-party AI" [V 83];
    - the AI Act Art. 50 disclosure, applicable since 2 Aug 2026 [V 85];
@@ -287,7 +287,7 @@ The engine plans a trip in a zone of at most 6 km span plus a 1.5 km margin (`en
   - JS client 2.11.3, 10 Sep 2026 [V 67];
   - RAM for an Italy import is not published [U].
 
-  Plan it for when Milo becomes commercial or Transitous says no.
+  Plan it in case Transitous says no.
 - **Feeds:**
   - Transitous's per-country feed lists are reusable as-is. Italy has 83 sources, including `Lombardia-ATM` and `Lombardia-Trenord` [V 66].
   - The Mobility Database lists 6,000+ feeds in 99+ countries [V 68].
@@ -346,7 +346,7 @@ The engine plans a trip in a zone of at most 6 km span plus a 1.5 km margin (`en
 | Transfers outside the EU | EU–US Data Privacy Framework upheld by the General Court on 3 Sep 2025; appeal filed Oct 2025 and pending [P 87] (case number C-703/25 P [U]). China: see the Garante order on DeepSeek [V 32] | Avoid them: EU hosts only for content |
 | Breach procedure: 72 h to the Garante | Art. 33 | Half a page now |
 | DPO, EU representative | Art. 37: only for "large scale" processing; the founders are established in the EU | Can wait |
-| Lawyer review, legal entity, product liability (F §6) | — | Can wait until public release or monetisation. Revisit the entity question before open testing |
+| Lawyer review, legal entity, product liability (F §6) | — | Can wait until public release. Revisit the entity question before open testing |
 
 **Play production access** for personal accounts created after 13 Nov 2023 requires a closed test with ≥12 testers opted in for 14 days [V 82]. Plan the Milan testers for it.
 

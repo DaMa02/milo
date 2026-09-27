@@ -256,7 +256,7 @@ The default's ≈ $0.7 breaks down as:
 
 A €5–15/month VPS is negligible per user. A quota of about 100 turns a day would cap the worst case at about $1.7 per user per month with the default mix.
 
-## 6. Where the founders' assumptions are wrong or imprecise
+## 6. Corrections to initial assumptions
 
 1. **"GLM Flash is fast."** GLM-5.3-Flash cannot disable thinking [18]. Its TTFA is ≥ 8.9 s on every host [9].
 2. **"Gemini Flash is open."** Gemini is closed weights.
