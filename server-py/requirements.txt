@@ -8,4 +8,4 @@ pyproj
 jsonschema
 httpx
 anthropic
-parakeet-mlx
+parakeet-mlx; sys_platform == "darwin" and platform_machine == "arm64"   # voice input, Apple Silicon only
