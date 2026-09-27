@@ -1,25 +1,20 @@
 {
-  "name": "lay-of-the-land",
-  "version": "0.1.0",
+  "name": "milo",
+  "version": "0.2.0",
   "private": true,
+  "description": "Milo: an open source, voice-first explorer and walking navigator for blind and low-vision people.",
+  "license": "MIT",
   "type": "module",
   "workspaces": [
-    "web"
+    "packages/*",
+    "apps/*"
   ],
   "engines": {
-    "node": "^20.19.0 || >=22.12.0"
+    "node": ">=22.12.0"
   },
   "scripts": {
-    "dev": "npm run dev --workspace web",
-    "build": "npm run build --workspace web",
-    "preview": "npm run preview --workspace web",
-    "test:e2e": "playwright test",
-    "check:contracts": "node scripts/check-contracts.mjs",
-    "check": "npm run check:contracts && npm run typecheck --workspace web && npm test",
-    "test": "node --test scripts/*.test.mjs"
-  },
-  "devDependencies": {
-    "@axe-core/playwright": "^4.13.0",
-    "@playwright/test": "^1.63.0"
+    "test": "npm run test --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "check": "npm run typecheck && npm test"
   }
 }
