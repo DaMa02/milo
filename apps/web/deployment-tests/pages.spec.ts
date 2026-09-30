@@ -13,12 +13,15 @@ test('built app loads assets below a project path and keeps input through errors
   expect(response?.status()).toBe(200);
   await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
   await expect(page.locator('html')).toHaveAttribute('lang', 'en');
+  // React inserts the logo after the document loads; a remote image may still be decoding.
+  await expect(page.locator('img')).toHaveCount(1);
+  await expect.poll(() => page.locator('img').evaluate(image =>
+    (image as HTMLImageElement).complete && (image as HTMLImageElement).naturalWidth > 0,
+  )).toBe(true);
   const assets = await page.evaluate(() => ({
-    logoLoaded: Array.from(document.images).every(image => image.complete && image.naturalWidth > 0),
     stylesLoaded: document.styleSheets.length > 0,
     scripts: Array.from(document.scripts).filter(script => script.src).map(script => script.src),
   }));
-  expect(assets.logoLoaded).toBe(true);
   expect(assets.stylesLoaded).toBe(true);
   expect(assets.scripts.length).toBeGreaterThan(0);
   for (const script of assets.scripts) expect(script.startsWith(new URL('.', page.url()).href)).toBe(true);
