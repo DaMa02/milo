@@ -1,0 +1,60 @@
+name: Publish web preview
+
+on:
+  push:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: github-pages-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    # An owner selects the publishing branch explicitly; forks do not deploy by default.
+    if: vars.PAGES_DEPLOY_BRANCH != '' && github.ref_type == 'branch' && github.ref_name == vars.PAGES_DEPLOY_BRANCH
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - uses: actions/configure-pages@v5
+      - run: npm ci
+      - run: npm run check
+      - run: npm run build
+      - run: npx playwright install --with-deps chromium webkit
+        working-directory: apps/web
+      - run: npm run test:e2e
+      - run: npm run test:e2e:pages
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: pages-test-failures
+          path: apps/web/test-results/
+          retention-days: 7
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: apps/web/dist
+
+  deploy:
+    needs: build
+    concurrency:
+      group: github-pages-deploy
+      cancel-in-progress: false
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy the verified build
+        id: deployment
+        uses: actions/deploy-pages@v4

@@ -24,6 +24,10 @@ Open the local address printed by Vite. The preview needs no server, API key, mi
 
 See [the web app README](apps/web/README.md) for scope, verification and integration notes.
 
+The preview can also be published through GitHub Pages. See
+[WEB-6 publication and verification](docs/web-publication.md) for the opt-in
+branch configuration, deployment checks and rollback procedure.
+
 ## Check and build
 
 ```bash

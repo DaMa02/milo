@@ -20,7 +20,8 @@ npm run test:e2e
 
 The browser tests start their own server on port 5217. CI installs the Linux
 browser dependencies and runs the same checks. The output in `dist/` is a static
-build with relative asset URLs; publication is a separate card (WEB-6).
+build with relative asset URLs. [Publication instructions](../../docs/web-publication.md)
+cover WEB-6, including checks of the built app under a project path.
 
 ## Interaction
 
