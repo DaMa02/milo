@@ -13,6 +13,10 @@
     "node": ">=22.12.0"
   },
   "scripts": {
+    "dev": "npm run dev --workspace @milo/web",
+    "build": "npm run build --workspace @milo/web",
+    "preview": "npm run preview --workspace @milo/web",
+    "test:e2e": "npm run test:e2e --workspace @milo/web",
     "test": "npm run test --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "check": "npm run typecheck && npm test"

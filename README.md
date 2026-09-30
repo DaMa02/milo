@@ -1,114 +1,60 @@
-# Milo
+# Milo — development
 
-A voice-first web app that helps blind and low-vision pedestrians understand an area and walk to a place. Every distance, direction and crossing it mentions is computed from OpenStreetMap, and what the map does not know is said out loud.
+Milo helps blind and low-vision people understand and rehearse a walking route before leaving home. This branch contains the next version of the project, following the [work plan](docs/piano-di-lavoro.md).
 
-Milo is not tied to one city. Central Milan is loaded at startup; for a start point anywhere else with OpenStreetMap coverage, the engine downloads the surrounding map on first use.
+**The new web app is an interface preview. It cannot calculate or rehearse a route yet.** It provides the keyboard and screen-reader structure for card WEB-1. The engine and dialogue are not connected to it; submitting a request explains this and preserves the text for editing.
 
-## What it does
+The [hackathon application on `main`](https://github.com/DaMa02/milo/tree/main) remains available separately. The archived source is also preserved at commit [`ed9c4bf`](https://github.com/DaMa02/milo/tree/ed9c4bf31942bd1a2f01dced5e438007fee6456a).
 
-The interface is a single Talk button. You speak, Milo answers aloud.
+## Run the interface preview
 
-- **Before you leave:** describes the area relative to where the phone is pointing, lets you walk the streets virtually junction by junction, answers questions about the map and compares routes under your constraints.
-- **While you walk:** turn-by-turn guidance from the phone's GPS and compass, with early cues and an immediate warning when you leave the route.
-
-| Feature | Example phrases |
-|---|---|
-| Start point and destination | "Use my location", "Take me to Bocconi University", "Yes", "The second one" |
-| Describe the area | "What's around me?" |
-| Virtual walk | "Let's walk", "Turn left", "Take via Brembo", "Go back", "Where am I?" |
-| Map questions | "How far is it on foot?", "Is there anything between me and the station?", "Does this street go through?" |
-| Place information | "Is the pharmacy open?", "Tell me about Lidl" |
-| Routes and constraints | "How do I get there?", "Other routes", "Take the bus", "Avoid crossings without signals", "Avoid steps" |
-| Stops on the way | "Stop at a pharmacy for 10 minutes", "I want a coffee on the way" |
-| Live guidance | "Let's go", "Stop guiding" |
-| General questions | "What is Bocconi known for?", "Search online when the library opens" |
-| Controls | "Repeat", "Stop", "More", "What don't you know?", "Help", "Faster", "Slower", "Start over" |
-
-A live map shows the route and position for a sighted companion; the blind user never needs it. Details for each feature are in [docs/features.md](docs/archivio/hackathon-2026/features.md).
-
-## How it works
-
-```mermaid
-flowchart LR
-  phone["Phone browser<br/>Talk button, GPS, compass"] --> web["Web app<br/>React, Vite"] --> engine["Engine<br/>FastAPI"]
-  engine --> stt["Speech to text<br/>Parakeet, local"]
-  engine --> intent["Intent<br/>grammar → Jev → Claude"]
-  engine --> map[("OpenStreetMap<br/>pedestrian graph")]
-  engine --> speak["Wording<br/>Claude, numbers checked"]
-  engine --> tts["Speech audio"]
-```
-
-Each utterance is transcribed locally, mapped to one action (a local grammar first, then TypeSafe Jev, then Claude with a fixed JSON schema), executed by the deterministic map engine, rewritten into one or two sentences and played back as audio. Place search uses Photon and public transport uses Transitous. See [docs/architecture.md](docs/archivio/hackathon-2026/architecture.md).
-
-**Why the answers can be trusted**
-
-- Directions, distances and routes come only from the map engine. Every map answer carries its facts and their source (OpenStreetMap ids, Photon or Transitous).
-- Claude never computes directions. It picks an action from a fixed schema, and every number in its spoken wording is checked against the engine result; if one does not match, Milo speaks the engine's own sentence.
-- Missing data is stated, not skipped: "What don't you know?" reads back what the map does not say.
-- General questions go to Claude and are introduced as general knowledge or a web result; Claude is instructed never to give directions there.
-
-Latencies measured on 26 September 2026 from an iPhone over the tunnel: speech to text 0.5 s, fixed commands 0.05 s, intent with Claude 2–5 s, route plan 1.6 s, guidance update 0.4 s.
-
-## Getting started
-
-**Requirements:** a Mac with Apple Silicon (speech recognition runs on MLX), Python 3.11+, Node 20.19+, `ffmpeg`, [`cloudflared`](https://github.com/cloudflare/cloudflared) and a phone with a browser.
+Use Node 22.12 or newer (CI uses Node 24), then run from the repository root:
 
 ```bash
-git clone https://github.com/DaMa02/milo.git && cd milo
-python3 -m venv .venv && source .venv/bin/activate
-pip install -r server-py/requirements.txt
-python -c "from huggingface_hub import snapshot_download; snapshot_download('mlx-community/parakeet-tdt-0.6b-v3')"
 npm ci
+npm run dev
 ```
 
-Export the variables listed in [.env.example](.env.example) in your shell (at least `TOOLS`, the cache folder; `ANTHROPIC_API_KEY` enables free-form speech and general questions). Keys are read by the engine only and never reach the browser.
+Open the local address printed by Vite. The preview needs no server, API key, microphone or location permission. It makes no external service calls. Requests remain in memory and are lost when the page is reloaded or closed.
 
-Then, in three terminals from the repo root:
+- Enter a request, then use **Send request** or Ctrl+Enter (Command+Enter on macOS).
+- Use Tab and Shift+Tab to move between controls. The first link skips to the main content.
+- Choose English or Italian without losing the request.
+- Responses use one polite live region; the application does not play speech.
+
+See [the web app README](apps/web/README.md) for scope, verification and integration notes.
+
+## Check and build
 
 ```bash
-# 1. Engine (the first start downloads and caches the map)
-cd server-py && uvicorn app:app --host 127.0.0.1 --port 8000
-
-# 2. Web app
-npm run build && cd web && npx vite preview --host 127.0.0.1 --port 4173
-
-# 3. HTTPS tunnel for the phone
-cloudflared tunnel --url http://127.0.0.1:4173
+npm run check
+npm run build
+npx playwright install chromium webkit
+npm run test:e2e
 ```
 
-Open the tunnel address on the phone, tap Talk and allow microphone, location and motion access.
-
-## Tests
-
-No test calls a paid API.
-
-```bash
-npm run check                             # contracts, types, dictionaries
-npm run test:e2e                          # Playwright, Chromium and iPhone WebKit
-cd server-py && python tests/test_api.py  # one engine test; each file in server-py/tests/ is a standalone script
-```
+The checks cover workspace types and the existing engine/dialogue tests. Browser checks run against the web preview in Chromium and WebKit, including axe accessibility checks. They do not replace testing with NVDA, JAWS, VoiceOver or TalkBack. No test calls a paid API.
 
 ## Project structure
 
 | Path | Contents |
 |---|---|
-| [`web/`](web/) | Phone web app: voice input, audio playback, compass, live guidance, live map |
-| [`server-py/`](server-py/) | Engine: API endpoints and map logic (`lotl/`) |
-| [`contracts/`](contracts/) | JSON Schemas for every engine response, fixtures and validator |
-| [`docs/`](docs/) | Features, architecture, [speaking rules](docs/speaking-rules.md), [roadmap](docs/archivio/hackathon-2026/roadmap.md) |
+| `apps/web/` | React and Vite interface preview: keyboard input, response announcements, English and Italian |
+| `packages/engine/` | Deterministic TypeScript engine, with tests against the Python prototype's recorded results |
+| `packages/dialogue/` | Existing dialogue code; redesign depends on the shared contracts |
+| `contracts/` | Current engine schemas and fixtures |
+| `eval/seeds/hackathon/` | 188 recovered utterances for the future development corpus |
+| `docs/` | Work plan, research and speaking rules |
+| `docs/archivio/hackathon-2026/` | Documentation and interaction rules from the prototype |
 
-## Limitations
+## Next integration steps
 
-- OpenStreetMap often lacks accessibility details, such as whether a signal has sound. Milo says when the data is missing.
-- Live guidance is on foot only, and the screen must stay on while guiding.
-- Replies are in English; Italian input is understood.
-- The engine runs on a Mac, and a new area outside the preloaded one takes about 80 s to download the first time.
-- Milo has not yet been tested with blind users.
+The [plan, section 6](docs/piano-di-lavoro.md#6-step-di-lavoro) defines the work cards and dependencies. WEB-1 can be developed independently. The next conversation and rehearsal screens depend on DIA-1 and MOT-2, after both founders approve CON-1. This preview introduces no replacement contracts.
 
-## Team
+The manual NVDA and VoiceOver checks required to close WEB-1 are still pending. [AGENTS.md](AGENTS.md) describes the review and evidence required for each PR.
 
-Built at the BAINSA Accessibility Hackathon 2026 by [Daniele Maglionico](https://github.com/DaMa02) (engine, voice back end) and [Leonardo Gallo](https://github.com/Leoldo) (web app, live map, product). See [how we built it](docs/archivio/hackathon-2026/how-we-built-it.md).
+## Team and licence
 
-## License
+Built by [Daniele Maglionico](https://github.com/DaMa02) and [Leonardo Gallo](https://github.com/Leoldo), starting at the BAINSA Accessibility Hackathon 2026.
 
 [MIT](LICENSE). Map data © [OpenStreetMap contributors](https://www.openstreetmap.org/copyright), ODbL.
