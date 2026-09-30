@@ -15,10 +15,22 @@ Regole di interazione del prototipo dell'hackathon (commit `ed9c4bf`) che la nuo
 | **Mai un vicolo cieco.** Una frase che non corrisponde a nessuna azione diventa una risposta di chat; senza chiave, `none` con motivo `model_unavailable` | `server-py/interpret_api.py:6`, `:204-234` | `packages/dialogue` (ultimo gradino dei chiarimenti, piano D10) |
 | **Storico della chat: ultimi 6 turni**, più i fatti del viaggio | `server-py/interpret_api.py:166`, `:204-206` | `packages/dialogue` (memoria, card DIA-3) |
 | **Le risposte generali non danno mai indicazioni** (niente direzioni, distanze, tempi, percorsi, attraversamenti). Iniziano con «From general knowledge,» o «According to <sito>,», al massimo 3 frasi | `server-py/lotl/chat.py:25-30` | `packages/dialogue` (card DIA-6) |
-| **Correzione dei nomi capiti male.** Se la ricerca non trova niente, il modello propone fino a 2 nomi che il riconoscimento può aver storpiato («Baconi» → «Bocconi»), e si cercano quelli | `server-py/places_api.py:32`, `:78-79`, `:136-138` | `packages/dialogue`: da confrontare con la corrispondenza fonetica sui nomi della zona (card DIA-5) |
+| **Correzione dei nomi capiti male.** Se la ricerca non trova niente, il modello propone fino a 2 nomi che il riconoscimento può aver storpiato («Baconi» → «Bocconi»), e si cercano quelli | `server-py/places_api.py:32`, `:78-79`, `:136-138` | Recuperata in `packages/dialogue/src/place-corrections.ts`; strategia finale e collegamento all'app in DIA-5 (vedi sotto) |
 | **«N m» letto come «N metri»** | `server-py/tts_api.py:29-31` | Modelli di frase del motore (card MOT-5) |
 | **Ogni numero del modello controllato sul risultato del motore**; se il modello sbaglia o tarda più di 3 s, si usa la frase del motore | `server-py/lotl/speak.py:1-4`, `:88-92` | `packages/dialogue/src/speak.ts` (esiste già) |
 | **Contesto passato all'interprete**: vista, domanda in sospeso (partenza, arrivo, tappa), candidati, candidati per la tappa, ultima azione, se c'è una destinazione, percorsi offerti | `server-py/interpret_api.py:82-87` | `packages/dialogue` (modulo di viaggio e registro, card DIA-1) |
+
+## Recupero F0-7: nomi e provenienza dei semi
+
+`packages/dialogue/src/place-corrections.ts` recupera `corrections()` tramite l'interfaccia `LLM` esistente e un modello fornito dal chiamante. Il nome `legacyMilanCorrections` rende esplicito il limite geografico del prompt storico. Il modulo non legge chiavi dall'ambiente, non sceglie un fornitore e non è collegato automaticamente all'app o alla ricerca.
+
+Si conservano il limite di due suggerimenti, la normalizzazione degli spazi, il limite di 200 caratteri per nome e il ripiego vuoto se il modello manca o fallisce. Al modello viene richiesto un timeout di 10 secondi. L'helper chiama `complete` una volta; eventuali tentativi interni dipendono dall'adattatore scelto dal chiamante. Rispetto al Python, valori diversi da stringhe vengono rifiutati anziché convertiti in testo; una cancellazione scarta anche una risposta tardiva. Queste protezioni sono verificate con modelli finti.
+
+I nomi proposti sono solo nuove query: non costituiscono luoghi trovati e non vengono pronunciati come fatti. I test di `packages/engine/test/place-corrections.test.ts` recuperano il caso di `server-py/tests/test_places.py:109-121`: risultati originali troppo lontani, ricerca delle proposte, deduplicazione, nessuna correzione quando Photon ha già trovato il luogo e ripiego sulla mappa caricata. Anche Photon è finto; i test non usano servizi esterni.
+
+La scelta fra questa correzione tramite modello e la corrispondenza fonetica sui nomi della zona resta da misurare in DIA-5 [Q §6.2]. Non sono verificati efficacia sui nomi reali, CORS, costi o latenza di un fornitore; non vengono definiti C3, C4 o C8.
+
+I semi in `eval/seeds/hackathon/utterances.jsonl` contengono 189 record e 182 testi distinti, incluso «Baconi University». Il contesto storico delle quattro frasi duplicate sulla scelta del percorso è recuperato con le sue fonti; le altre duplicazioni e i mock sono spiegati nel README. Per tre frasi espresse come costanti, `text_source` indica anche la definizione testuale. Il recupero conserva le evidenze per VAL-2; non le trasforma in risposte attese per il nuovo dialogo.
 
 ## Abbandonati, con il motivo
 
